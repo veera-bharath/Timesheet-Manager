@@ -361,7 +361,7 @@ function buildDayCard(day, dayIdx) {
     });
 
     // Attach drag-and-drop
-    attachDragListeners(dayIdx);
+    attachDragListeners(dayIdx, wrap);
 
     return wrap;
 }
@@ -453,7 +453,7 @@ function buildEntriesHTML(entries, dayIdx) {
             }
 
             htmlFragments.push(`
-    <div class="entry-row" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" draggable="true">
+    <div class="entry-row" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}">
       <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
@@ -478,115 +478,180 @@ function rerenderDayCard(dayIdx) {
     existing.replaceWith(newCard);
 }
 
-/* ── DRAG AND DROP ─────────────────────────────────────── */
-function attachDragListeners(dayIdx) {
-    const entriesList = document.getElementById(`entries-${dayIdx}`);
+/* ── DRAG AND DROP (pointer-event based, no HTML5 drag API) ── */
+function attachDragListeners(dayIdx, container) {
+    const entriesList = (container || document).querySelector(`#entries-${dayIdx}`);
     if (!entriesList) return;
 
     const rows = entriesList.querySelectorAll('.entry-row');
+
+    let draggingRow     = null;
+    let ghost           = null;
+    let dropIndicator   = null;
     let dragSrcGroupIdx = null;
-    let dragSrcItemIdx = null;
+    let dragSrcItemIdx  = null;
+    let offsetX = 0, offsetY = 0;
+
+    // Removes the draggability of the old code from the elements so it doesn't conflict
+    rows.forEach(r => r.removeAttribute('draggable'));
+
+    function getRowAt(clientX, clientY) {
+        let found = null;
+        let minDist = Infinity;
+        entriesList.querySelectorAll('.entry-row').forEach(r => {
+            if (r === draggingRow) return;
+            const rect = r.getBoundingClientRect();
+            // Check if directly over
+            if (clientY >= rect.top && clientY <= rect.bottom) {
+                found = r;
+                return;
+            }
+            // Increase gravity buffer to 20px to handle gaps and margins better
+            const dist = Math.min(Math.abs(clientY - rect.top), Math.abs(clientY - rect.bottom));
+            if (dist < 20 && dist < minDist) {
+                minDist = dist;
+                found = r;
+            }
+        });
+        return found;
+    }
+
+    function cleanup() {
+        if (ghost) { ghost.remove(); ghost = null; }
+        if (draggingRow) { draggingRow.classList.remove('dragging'); }
+        entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over', 'drag-over-invalid'));
+        draggingRow = null;
+        dragSrcGroupIdx = null;
+        dragSrcItemIdx  = null;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup',   onMouseUp);
+    }
+
+    function onMouseMove(e) {
+        if (!ghost) return;
+        ghost.style.left = (e.clientX - offsetX) + 'px';
+        ghost.style.top  = (e.clientY - offsetY) + 'px';
+
+        // Clear all previous highlights
+        entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over', 'drag-over-invalid'));
+
+        const target = getRowAt(e.clientX, e.clientY);
+        if (!target) return;
+
+        const toGroupIdx = parseInt(target.dataset.groupIdx);
+        const toItemIdx  = parseInt(target.dataset.itemIdx);
+
+        // Check if move is basic valid
+        let isValid = true;
+        if (dragSrcItemIdx > 0 && toGroupIdx !== dragSrcGroupIdx) isValid = false;
+        // Group leader moves are now valid anywhere in another group
+
+        if (isValid) {
+            // Highlight target row OR entire group if dragging a leader/normal entry
+            if (dragSrcItemIdx === 0) {
+                // Dragging a leader -> highlight the whole target group
+                entriesList.querySelectorAll(`.entry-row[data-group-idx="${toGroupIdx}"]`).forEach(r => r.classList.add('drag-over'));
+            } else {
+                // Dragging a sub-entry -> highlight only the target row (since it stays in group)
+                target.classList.add('drag-over');
+            }
+        } else {
+            target.classList.add('drag-over-invalid');
+        }
+    }
+
+    function onMouseUp(e) {
+        if (!draggingRow) { cleanup(); return; }
+
+        const target = getRowAt(e.clientX, e.clientY);
+        const srcGrpIdx = dragSrcGroupIdx;
+        const srcItmIdx = dragSrcItemIdx;
+        
+        let toGrpIdx = null;
+        let toItmIdx = null;
+        if (target) {
+            toGrpIdx = parseInt(target.getAttribute('data-group-idx'));
+            toItmIdx = parseInt(target.getAttribute('data-item-idx'));
+        }
+
+        cleanup();
+
+        // If no valid target or same position, just stop
+        if (target === null || srcGrpIdx === null) return;
+        if (srcGrpIdx === toGrpIdx && srcItmIdx === toItmIdx) return;
+
+        // Constraint check - sub-entries must stay in their group
+        if (srcItmIdx > 0 && toGrpIdx !== srcGrpIdx) return;
+        // Group leaders (srcItmIdx === 0) can move anywhere, 
+        // but can only land on other group leaders (toItmIdx === 0).
+        // Actually, let's make it even more forgiving: 
+        // if a group leader is dropped on ANY entry of another group, just move the whole group there.
+        const groups = buildGroups(state.days[dayIdx].entries);
+
+        if (srcGrpIdx === toGrpIdx) {
+            // Internal group move: any item can move to any position within the same group
+            const grp = groups[srcGrpIdx];
+            const [movedItem] = grp.items.splice(srcItmIdx, 1);
+            const [movedIdx]  = grp.indices.splice(srcItmIdx, 1);
+            
+            grp.items.splice(toItmIdx, 0, movedItem);
+            grp.indices.splice(toItmIdx, 0, movedIdx);
+        } else {
+            // Between group move: only leaders can move the whole group unit
+            if (srcItmIdx > 0) return; // sub-entries stay in their group
+            
+            const [movedGroup] = groups.splice(srcGrpIdx, 1);
+            groups.splice(toGrpIdx, 0, movedGroup);
+        }
+
+        const newEntries = [];
+        groups.forEach(grp => grp.items.forEach(item => newEntries.push(item)));
+        state.days[dayIdx].entries = newEntries;
+
+        saveState();
+        if (typeof rerenderDayCard === 'function') {
+            rerenderDayCard(dayIdx);
+        }
+    }
 
     rows.forEach(row => {
         const handle = row.querySelector('.drag-handle');
+        handle.addEventListener('mousedown', e => {
+            if (e.button !== 0) return; // Only left click
+            e.preventDefault(); // Prevent text selection/native drag
 
-        // Only start drag when the handle is grabbed
-        handle.addEventListener('mousedown', () => {
-            row.setAttribute('draggable', 'true');
-        });
-
-        row.addEventListener('dragstart', e => {
+            draggingRow     = row;
             dragSrcGroupIdx = parseInt(row.dataset.groupIdx);
             dragSrcItemIdx  = parseInt(row.dataset.itemIdx);
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', `${dragSrcGroupIdx},${dragSrcItemIdx}`);
-            setTimeout(() => row.classList.add('dragging'), 0);
-        });
 
-        row.addEventListener('dragend', () => {
-            row.classList.remove('dragging');
-            entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
-        });
-
-        row.addEventListener('dragover', e => {
-            e.preventDefault();
-            const toGroupIdx = parseInt(row.dataset.groupIdx);
-            const toItemIdx  = parseInt(row.dataset.itemIdx);
-
-            // Sub-entry (non-first) can only hover within its own group
-            if (dragSrcItemIdx > 0 && toGroupIdx !== dragSrcGroupIdx) {
-                e.dataTransfer.dropEffect = 'none';
-                return;
-            }
-            // First-entry/normal cannot drop inside a different group's interior
-            if (dragSrcItemIdx === 0 && toGroupIdx !== dragSrcGroupIdx && toItemIdx > 0) {
-                e.dataTransfer.dropEffect = 'none';
-                return;
-            }
-
-            e.dataTransfer.dropEffect = 'move';
-            entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
             const rect = row.getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            row.classList.add(e.clientY < midY ? 'drag-over-top' : 'drag-over-bottom');
-        });
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
 
-        row.addEventListener('dragleave', () => {
-            row.classList.remove('drag-over-top', 'drag-over-bottom');
-        });
+            ghost = row.cloneNode(true);
+            // remove dragging class from ghost just in case
+            ghost.classList.remove('dragging');
+            
+            ghost.style.cssText = [
+                'position:fixed',
+                'pointer-events:none',
+                'z-index:99999',
+                'width:' + rect.width + 'px',
+                'left:' + (e.clientX - offsetX) + 'px',
+                'top:' + (e.clientY - offsetY) + 'px',
+                'opacity:0.95',
+                'background:var(--bg-card)',
+                'border:1.5px solid var(--border-accent)',
+                'border-radius:8px',
+                'box-shadow:0 10px 32px rgba(0,0,0,0.6)',
+                'transition:none',
+                'cursor:grabbing'
+            ].join(';');
+            document.body.appendChild(ghost);
 
-        row.addEventListener('drop', e => {
-            e.preventDefault();
-            entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom', 'dragging'));
-
-            const toGroupIdx = parseInt(row.dataset.groupIdx);
-            const toItemIdx  = parseInt(row.dataset.itemIdx);
-
-            if (dragSrcGroupIdx === null || dragSrcItemIdx === null) return;
-            if (dragSrcGroupIdx === toGroupIdx && dragSrcItemIdx === toItemIdx) return;
-
-            // Determine insert position (before/after based on mouse Y)
-            const rect = row.getBoundingClientRect();
-            const insertBefore = e.clientY < rect.top + rect.height / 2;
-
-            const groups = buildGroups(state.days[dayIdx].entries);
-
-            if (dragSrcItemIdx > 0) {
-                // Sub-entry only reorders within its group
-                if (toGroupIdx !== dragSrcGroupIdx) return;
-                const grp = groups[dragSrcGroupIdx];
-                const [movedItem] = grp.items.splice(dragSrcItemIdx, 1);
-                const [movedIdx]  = grp.indices.splice(dragSrcItemIdx, 1);
-                let insertAt = toItemIdx;
-                if (!insertBefore) insertAt = toItemIdx + 1;
-                if (dragSrcItemIdx < insertAt) insertAt--;
-                // Sub-entries: first slot (idx 0) belongs to the group leader; clamp to min 1
-                insertAt = Math.max(1, insertAt);
-                grp.items.splice(insertAt, 0, movedItem);
-                grp.indices.splice(insertAt, 0, movedIdx);
-            } else {
-                // First entry / normal — move whole group
-                if (toGroupIdx === dragSrcGroupIdx) {
-                    // Reordering within the same group (first entry only, skip if same)
-                    return;
-                }
-                // Disallow dropping inside a foreign group's interior
-                if (toItemIdx > 0) return;
-
-                const [movedGroup] = groups.splice(dragSrcGroupIdx, 1);
-                let insertAt = toGroupIdx;
-                if (!insertBefore) insertAt = toGroupIdx + 1;
-                if (dragSrcGroupIdx < insertAt) insertAt--;
-                groups.splice(insertAt, 0, movedGroup);
-            }
-
-            // Flatten groups back to entries array
-            const newEntries = [];
-            groups.forEach(grp => grp.items.forEach(item => newEntries.push(item)));
-            state.days[dayIdx].entries = newEntries;
-
-            saveState();
-            rerenderDayCard(dayIdx);
+            row.classList.add('dragging');
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup',   onMouseUp);
         });
     });
 }
