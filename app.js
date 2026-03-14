@@ -93,6 +93,7 @@ function loadState() {
 /* ── INIT ──────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    initSidebar();
     bindHeaderEvents();
     const restored = loadState();
 
@@ -1149,5 +1150,33 @@ function applyTheme(theme) {
     } else {
         icon.classList.remove('bi-sun-fill');
         icon.classList.add('bi-moon-fill');
+    }
+}
+
+/* ── SIDEBAR & ABOUT ───────────────────────────────────── */
+function initSidebar() {
+    const aboutBtn = document.getElementById('menu-about');
+    const sidebarEl = document.getElementById('appSidebar');
+    const aboutModalEl = document.getElementById('aboutModal');
+
+    if (aboutBtn && sidebarEl && aboutModalEl) {
+        const aboutModal = new bootstrap.Modal(aboutModalEl);
+        
+        aboutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Close sidebar
+            const offcanvasInstance = bootstrap.Offcanvas.getInstance(sidebarEl);
+            if (offcanvasInstance) {
+                offcanvasInstance.hide();
+            } else {
+                // fallback if instance not found (though it should be)
+                const oc = new bootstrap.Offcanvas(sidebarEl);
+                oc.hide();
+            }
+            
+            // Show About Modal
+            aboutModal.show();
+        });
     }
 }
