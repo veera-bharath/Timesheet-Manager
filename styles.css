@@ -476,9 +476,51 @@ body::before {
   position: relative;
 }
 
+/* ── DRAG HANDLE ── */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity 0.15s, color 0.15s;
+  margin-right: -2px;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.entry-row:hover .drag-handle {
+  opacity: 1;
+}
+
 .entry-row:hover {
   border-color: var(--border-accent);
   background: rgba(99, 102, 241, 0.06);
+}
+
+.entry-row.dragging {
+  opacity: 0.15;
+  border-style: dashed;
+  border-color: var(--border-accent);
+  background: transparent;
+}
+
+.entry-row.drag-over {
+  background: rgba(34, 197, 94, 0.08) !important;
+  border-color: var(--success) !important;
+  box-shadow: inset 0 0 10px rgba(34, 197, 94, 0.1);
+  transform: scale(1.005);
+}
+.entry-row.drag-over-invalid {
+  background: rgba(239, 68, 68, 0.05) !important;
+  border-color: var(--danger) !important;
+  cursor: no-drop !important;
 }
 
 .entry-row:hover .entry-edit-hint {

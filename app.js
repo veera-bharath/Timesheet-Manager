@@ -354,29 +354,29 @@ function buildDayCard(day, dayIdx) {
 
     // Entry row click (edit)
     wrap.querySelectorAll('.entry-row').forEach(row => {
-        row.addEventListener('click', () => {
+        row.addEventListener('click', e => {
+            if (e.target.closest('.drag-handle')) return;
             openEntryModal(parseInt(row.dataset.day), parseInt(row.dataset.entry));
         });
     });
 
+    // Attach drag-and-drop
+    attachDragListeners(dayIdx, wrap);
+
     return wrap;
 }
 
-function buildEntriesHTML(entries, dayIdx) {
-    if (!entries || entries.length === 0) {
-        return `<div class="no-entries-msg">No entries yet. Click "Add Entry" to begin.</div>`;
-    }
-    
+/* ── BUILD GROUPS HELPER ───────────────────────────────── */
+function buildGroups(entries) {
     let groups = [];
     let usedIndices = new Set();
 
-    entries.forEach((e, i) => {
+    (entries || []).forEach((e, i) => {
         if (usedIndices.has(i)) return;
 
         let currGroup = { type: 'normal', items: [e], indices: [i] };
         usedIndices.add(i);
 
-        // ONLY group if an explicit groupId was generated via quick-add buttons
         if (e.groupId) {
             currGroup.type = e.groupType || 'normal';
             for (let j = i + 1; j < entries.length; j++) {
@@ -388,9 +388,18 @@ function buildEntriesHTML(entries, dayIdx) {
                 }
             }
         }
-        
+
         groups.push(currGroup);
     });
+    return groups;
+}
+
+function buildEntriesHTML(entries, dayIdx) {
+    if (!entries || entries.length === 0) {
+        return `<div class="no-entries-msg">No entries yet. Click "Add Entry" to begin.</div>`;
+    }
+    
+    const groups = buildGroups(entries);
 
     let htmlFragments = [];
     
@@ -444,7 +453,8 @@ function buildEntriesHTML(entries, dayIdx) {
             }
 
             htmlFragments.push(`
-    <div class="entry-row" data-day="${dayIdx}" data-entry="${actualOriginalIndex}">
+    <div class="entry-row" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}">
+      <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
       <span class="entry-hours">${hhmm}</span>
@@ -466,6 +476,184 @@ function rerenderDayCard(dayIdx) {
     const existing = document.getElementById(`day-card-${dayIdx}`);
     const newCard = buildDayCard(state.days[dayIdx], dayIdx);
     existing.replaceWith(newCard);
+}
+
+/* ── DRAG AND DROP (pointer-event based, no HTML5 drag API) ── */
+function attachDragListeners(dayIdx, container) {
+    const entriesList = (container || document).querySelector(`#entries-${dayIdx}`);
+    if (!entriesList) return;
+
+    const rows = entriesList.querySelectorAll('.entry-row');
+
+    let draggingRow     = null;
+    let ghost           = null;
+    let dropIndicator   = null;
+    let dragSrcGroupIdx = null;
+    let dragSrcItemIdx  = null;
+    let offsetX = 0, offsetY = 0;
+
+    // Removes the draggability of the old code from the elements so it doesn't conflict
+    rows.forEach(r => r.removeAttribute('draggable'));
+
+    function getRowAt(clientX, clientY) {
+        let found = null;
+        let minDist = Infinity;
+        entriesList.querySelectorAll('.entry-row').forEach(r => {
+            if (r === draggingRow) return;
+            const rect = r.getBoundingClientRect();
+            // Check if directly over
+            if (clientY >= rect.top && clientY <= rect.bottom) {
+                found = r;
+                return;
+            }
+            // Increase gravity buffer to 20px to handle gaps and margins better
+            const dist = Math.min(Math.abs(clientY - rect.top), Math.abs(clientY - rect.bottom));
+            if (dist < 20 && dist < minDist) {
+                minDist = dist;
+                found = r;
+            }
+        });
+        return found;
+    }
+
+    function cleanup() {
+        if (ghost) { ghost.remove(); ghost = null; }
+        if (draggingRow) { draggingRow.classList.remove('dragging'); }
+        entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over', 'drag-over-invalid'));
+        draggingRow = null;
+        dragSrcGroupIdx = null;
+        dragSrcItemIdx  = null;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup',   onMouseUp);
+    }
+
+    function onMouseMove(e) {
+        if (!ghost) return;
+        ghost.style.left = (e.clientX - offsetX) + 'px';
+        ghost.style.top  = (e.clientY - offsetY) + 'px';
+
+        // Clear all previous highlights
+        entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over', 'drag-over-invalid'));
+
+        const target = getRowAt(e.clientX, e.clientY);
+        if (!target) return;
+
+        const toGroupIdx = parseInt(target.dataset.groupIdx);
+        const toItemIdx  = parseInt(target.dataset.itemIdx);
+
+        // Check if move is basic valid
+        let isValid = true;
+        if (dragSrcItemIdx > 0 && toGroupIdx !== dragSrcGroupIdx) isValid = false;
+        // Group leader moves are now valid anywhere in another group
+
+        if (isValid) {
+            // Highlight target row OR entire group if dragging a leader/normal entry
+            if (dragSrcItemIdx === 0) {
+                // Dragging a leader -> highlight the whole target group
+                entriesList.querySelectorAll(`.entry-row[data-group-idx="${toGroupIdx}"]`).forEach(r => r.classList.add('drag-over'));
+            } else {
+                // Dragging a sub-entry -> highlight only the target row (since it stays in group)
+                target.classList.add('drag-over');
+            }
+        } else {
+            target.classList.add('drag-over-invalid');
+        }
+    }
+
+    function onMouseUp(e) {
+        if (!draggingRow) { cleanup(); return; }
+
+        const target = getRowAt(e.clientX, e.clientY);
+        const srcGrpIdx = dragSrcGroupIdx;
+        const srcItmIdx = dragSrcItemIdx;
+        
+        let toGrpIdx = null;
+        let toItmIdx = null;
+        if (target) {
+            toGrpIdx = parseInt(target.getAttribute('data-group-idx'));
+            toItmIdx = parseInt(target.getAttribute('data-item-idx'));
+        }
+
+        cleanup();
+
+        // If no valid target or same position, just stop
+        if (target === null || srcGrpIdx === null) return;
+        if (srcGrpIdx === toGrpIdx && srcItmIdx === toItmIdx) return;
+
+        // Constraint check - sub-entries must stay in their group
+        if (srcItmIdx > 0 && toGrpIdx !== srcGrpIdx) return;
+        // Group leaders (srcItmIdx === 0) can move anywhere, 
+        // but can only land on other group leaders (toItmIdx === 0).
+        // Actually, let's make it even more forgiving: 
+        // if a group leader is dropped on ANY entry of another group, just move the whole group there.
+        const groups = buildGroups(state.days[dayIdx].entries);
+
+        if (srcGrpIdx === toGrpIdx) {
+            // Internal group move: any item can move to any position within the same group
+            const grp = groups[srcGrpIdx];
+            const [movedItem] = grp.items.splice(srcItmIdx, 1);
+            const [movedIdx]  = grp.indices.splice(srcItmIdx, 1);
+            
+            grp.items.splice(toItmIdx, 0, movedItem);
+            grp.indices.splice(toItmIdx, 0, movedIdx);
+        } else {
+            // Between group move: only leaders can move the whole group unit
+            if (srcItmIdx > 0) return; // sub-entries stay in their group
+            
+            const [movedGroup] = groups.splice(srcGrpIdx, 1);
+            groups.splice(toGrpIdx, 0, movedGroup);
+        }
+
+        const newEntries = [];
+        groups.forEach(grp => grp.items.forEach(item => newEntries.push(item)));
+        state.days[dayIdx].entries = newEntries;
+
+        saveState();
+        if (typeof rerenderDayCard === 'function') {
+            rerenderDayCard(dayIdx);
+        }
+    }
+
+    rows.forEach(row => {
+        const handle = row.querySelector('.drag-handle');
+        handle.addEventListener('mousedown', e => {
+            if (e.button !== 0) return; // Only left click
+            e.preventDefault(); // Prevent text selection/native drag
+
+            draggingRow     = row;
+            dragSrcGroupIdx = parseInt(row.dataset.groupIdx);
+            dragSrcItemIdx  = parseInt(row.dataset.itemIdx);
+
+            const rect = row.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+
+            ghost = row.cloneNode(true);
+            // remove dragging class from ghost just in case
+            ghost.classList.remove('dragging');
+            
+            ghost.style.cssText = [
+                'position:fixed',
+                'pointer-events:none',
+                'z-index:99999',
+                'width:' + rect.width + 'px',
+                'left:' + (e.clientX - offsetX) + 'px',
+                'top:' + (e.clientY - offsetY) + 'px',
+                'opacity:0.95',
+                'background:var(--bg-card)',
+                'border:1.5px solid var(--border-accent)',
+                'border-radius:8px',
+                'box-shadow:0 10px 32px rgba(0,0,0,0.6)',
+                'transition:none',
+                'cursor:grabbing'
+            ].join(';');
+            document.body.appendChild(ghost);
+
+            row.classList.add('dragging');
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup',   onMouseUp);
+        });
+    });
 }
 
 /* ── TOGGLE DAY ────────────────────────────────────────── */
@@ -719,30 +907,7 @@ function generateTxt() {
             if (!day.entries || day.entries.length === 0) {
                 lines.push('');
             } else {
-                let groups = [];
-                let usedIndices = new Set();
-
-                day.entries.forEach((e, i) => {
-                    if (usedIndices.has(i)) return;
-
-                    let currGroup = { type: 'normal', items: [e], indices: [i] };
-                    usedIndices.add(i);
-
-                    // ONLY group if an explicit groupId was generated via quick-add buttons
-                    if (e.groupId) {
-                        currGroup.type = e.groupType || 'normal';
-                        for (let j = i + 1; j < day.entries.length; j++) {
-                            if (usedIndices.has(j)) continue;
-                            if (day.entries[j].groupId === e.groupId) {
-                                currGroup.items.push(day.entries[j]);
-                                currGroup.indices.push(j);
-                                usedIndices.add(j);
-                            }
-                        }
-                    }
-
-                    groups.push(currGroup);
-                });
+                const groups = buildGroups(day.entries);
 
                 groups.forEach((group, gi) => {
                     const roman = ROMAN[gi] + ')';
