@@ -476,9 +476,48 @@ body::before {
   position: relative;
 }
 
+/* ── DRAG HANDLE ── */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity 0.15s, color 0.15s;
+  margin-right: -2px;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.entry-row:hover .drag-handle {
+  opacity: 1;
+}
+
 .entry-row:hover {
   border-color: var(--border-accent);
   background: rgba(99, 102, 241, 0.06);
+}
+
+/* Drag states */
+.entry-row.dragging {
+  opacity: 0.4;
+  border-style: dashed;
+}
+
+.entry-row.drag-over-top {
+  border-top: 2px solid var(--success);
+  margin-top: -1px;
+}
+
+.entry-row.drag-over-bottom {
+  border-bottom: 2px solid var(--success);
+  margin-bottom: -1px;
 }
 
 .entry-row:hover .entry-edit-hint {
