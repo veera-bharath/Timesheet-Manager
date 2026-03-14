@@ -1,0 +1,36 @@
+{
+  "name": "timesheet-manager",
+  "version": "1.0.0",
+  "description": "Weekly Jira & Service Desk Time Tracking Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "timesheet",
+    "tracker"
+  ],
+  "author": "Developer",
+  "license": "ISC",
+  "build": {
+    "appId": "com.timesheet.manager",
+    "productName": "Timesheet Manager",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "favicon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^41.0.0",
+    "electron-builder": "^26.8.1"
+  }
+}
