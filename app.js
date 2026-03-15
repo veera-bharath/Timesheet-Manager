@@ -417,7 +417,7 @@ function buildEntriesHTML(entries, dayIdx) {
             let tktStr = (e.ticket || '');
             let ticketHtml = `<span class="entry-ticket ${e.type === 'servicedesk' ? 'servicedesk' : ''}">${escHtml(tktStr || '—')}</span>`;
             if (group.type === 'ticket_group' && !isFirst) {
-                ticketHtml = `<span class="entry-ticket text-muted" style="opacity:0.3">${escHtml(tktStr || '—')}</span>`;
+                ticketHtml = `<span class="entry-ticket text-muted entry-grouped-hint">${escHtml(tktStr || '—')}</span>`;
             }
 
             const hhmm = `${String(e.hh || 0).padStart(2, '0')}:${String(e.mm || 0).padStart(2, '0')}`;
@@ -430,7 +430,7 @@ function buildEntriesHTML(entries, dayIdx) {
             
             let descHtml = `<span class="entry-desc">${escHtml(e.desc || '')}</span>`;
             if (!showDesc) {
-                descHtml = `<span class="entry-desc text-muted" style="opacity:0.3">↳ Grouped below</span>`;
+                descHtml = `<span class="entry-desc text-muted entry-grouped-hint">↳ Grouped below</span>`;
             }
 
             let actTicketHtml = '';

@@ -769,6 +769,16 @@ body::before {
   color: var(--accent-light);
 }
 
+.entry-grouped-hint {
+  color: var(--text-secondary) !important;
+  opacity: 0.6; /* Significantly increased for better visibility */
+}
+
+[data-theme="light"] .entry-grouped-hint {
+  color: var(--text-muted) !important;
+  opacity: 0.4;
+}
+
 .no-entries-msg {
   text-align: center;
   color: var(--text-muted);
