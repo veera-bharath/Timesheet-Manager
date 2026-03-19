@@ -18,7 +18,8 @@ let state = {
     employeeName: '',
     weekValue: '',   // e.g. "2026-W11"
     allDaysByDate: {}, // Map of 'YYYY-MM-DD' to day object
-    days: []           // array of 5 active day objects mapping to current week
+    days: [],          // array of 5 active day objects mapping to current week
+    lastOpenedDateByWeek: {} // map of 'YYYY-Www' to 'YYYY-MM-DD'
 };
 
 /* day object shape:
@@ -60,7 +61,8 @@ function saveState() {
             reportTitle: state.reportTitle,
             employeeName: state.employeeName,
             weekValue: state.weekValue,
-            allDaysByDate: state.allDaysByDate
+            allDaysByDate: state.allDaysByDate,
+            lastOpenedDateByWeek: state.lastOpenedDateByWeek
         };
         localStorage.setItem(LS_KEY, JSON.stringify(toSave));
     } catch (e) { console.warn('Could not save to localStorage', e); }
@@ -77,6 +79,7 @@ function loadState() {
         state.employeeName = saved.employeeName || '';
         state.weekValue = saved.weekValue || '';
         state.allDaysByDate = saved.allDaysByDate || {};
+        state.lastOpenedDateByWeek = saved.lastOpenedDateByWeek || {};
 
         // Backwards compatibility migration
         if (saved.days && Array.isArray(saved.days)) {
@@ -104,6 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (restored && state.weekValue) {
         // Restore saved week & name into inputs
         document.getElementById('week-picker').value = state.weekValue;
+        state.days = buildWeekDays(getDateFromWeek(state.weekValue));
+        enforceExpandedState();
         updateWeekDisplay();
     } else {
         setCurrentWeek();   // auto-fill current week on first load
@@ -174,7 +179,7 @@ function buildWeekDays(monDt) {
                 date: dStr,
                 isHoliday: false,
                 holidayLabel: 'Offshore Holiday',
-                expanded: true,
+                expanded: false,
                 entries: []
             };
             state.allDaysByDate[dStr] = newDay;
@@ -195,6 +200,29 @@ function updateWeekDisplay() {
     document.getElementById('week-display-label').textContent = display;
 }
 
+function enforceExpandedState() {
+    if (!state.weekValue || !state.days || state.days.length === 0) return;
+    
+    const lastOpenedDate = state.lastOpenedDateByWeek[state.weekValue];
+    let found = false;
+    
+    state.days.forEach((day, i) => {
+        if (lastOpenedDate && day.date === lastOpenedDate) {
+            day.expanded = true;
+            found = true;
+        } else {
+            day.expanded = false;
+        }
+    });
+    
+    // Default to Monday if no valid date found
+    if (!found) {
+        state.days[0].expanded = true;
+        state.lastOpenedDateByWeek[state.weekValue] = state.days[0].date;
+        saveState();
+    }
+}
+
 function setCurrentWeek() {
     const today = new Date();
     const weekVal = getWeekStrFromDate(today);
@@ -202,6 +230,7 @@ function setCurrentWeek() {
     document.getElementById('week-picker').value = weekVal;
     state.weekValue = weekVal;
     state.days = buildWeekDays(getDateFromWeek(weekVal));
+    enforceExpandedState();
     updateWeekDisplay();
 }
 
@@ -224,6 +253,7 @@ function bindHeaderEvents() {
 
         state.weekValue = val;
         state.days = buildWeekDays(getDateFromWeek(val));
+        enforceExpandedState();
         updateWeekDisplay();
         saveState();
         renderAll();
@@ -659,8 +689,23 @@ function attachDragListeners(dayIdx, container) {
 
 /* ── TOGGLE DAY ────────────────────────────────────────── */
 function toggleDay(dayIdx) {
-    state.days[dayIdx].expanded = !state.days[dayIdx].expanded;
-    rerenderDayCard(dayIdx);
+    if (!state.days[dayIdx].expanded) {
+        // Open the day, auto-collapse others
+        state.days.forEach((d, i) => {
+            if (i !== dayIdx && d.expanded) {
+                d.expanded = false;
+                rerenderDayCard(i);
+            }
+        });
+        state.days[dayIdx].expanded = true;
+        state.lastOpenedDateByWeek[state.weekValue] = state.days[dayIdx].date;
+        saveState();
+        rerenderDayCard(dayIdx);
+    } else {
+        // Close the day
+        state.days[dayIdx].expanded = false;
+        rerenderDayCard(dayIdx);
+    }
 }
 
 /* ── ENTRY MODAL ───────────────────────────────────────── */
