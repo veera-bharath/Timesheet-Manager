@@ -983,19 +983,28 @@ function saveEntryInternal() {
         const targetH = Math.floor(state.dailyTargetMins / 60);
         const targetM = state.dailyTargetMins % 60;
         const targetLabel = targetM > 0 ? `${targetH}h ${targetM}m` : `${targetH}h`;
-        const confirmHigh = confirm(`This entry will bring your total logged time for the day to over ${targetLabel} (${totalH}h ${totalM}m). Are you sure you want to log this much time?`);
-        if (!confirmHigh) return false;
+        showConfirm(
+            `This entry will bring your total for the day to ${totalH}h ${totalM}m — over the ${targetLabel} target. Continue?`,
+            () => commitEntry(dayIdx, entryIdx)
+        );
+        return false; // halt here; commitEntry will handle the rest if confirmed
     }
 
+    commitEntry(dayIdx, entryIdx);
+    return true;
+}
+
+function commitEntry(dayIdx, entryIdx) {
     const groupId = document.getElementById('modal-group-id').value;
     const groupType = document.getElementById('modal-group-type-ref').value;
+    const tkt = document.getElementById('modal-ticket').value.trim();
+    const hh = parseInt(document.getElementById('modal-hh').value) || 0;
+    const mm = parseInt(document.getElementById('modal-mm').value) || 0;
+    const type = document.getElementById('modal-type').value;
+    const desc = document.getElementById('modal-desc').value.trim();
 
     const entry = { ticket: tkt, hh, mm, type, desc };
-
-    if (groupId) {
-        entry.groupId = groupId;
-        entry.groupType = groupType;
-    }
+    if (groupId) { entry.groupId = groupId; entry.groupType = groupType; }
 
     if (entryIdx === -1) {
         state.days[dayIdx].entries.push(entry);
@@ -1009,7 +1018,7 @@ function saveEntryInternal() {
     rerenderDayCard(dayIdx);
     updateSummary();
     saveState();
-    return true;
+    entryModal.hide();
 }
 
 function saveEntry() {
@@ -1659,6 +1668,18 @@ function doPrint() {
 }
 
 /* ── TOAST ─────────────────────────────────────────────── */
+let confirmModal;
+function showConfirm(message, onYes) {
+    if (!confirmModal) confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    document.getElementById('confirm-modal-message').textContent = message;
+    const yesBtn = document.getElementById('btn-confirm-yes');
+    const noBtn = document.getElementById('btn-confirm-no');
+    const cleanup = () => { yesBtn.onclick = null; noBtn.onclick = null; };
+    yesBtn.onclick = () => { confirmModal.hide(); cleanup(); onYes(); };
+    noBtn.onclick = () => { confirmModal.hide(); cleanup(); };
+    confirmModal.show();
+}
+
 function showToast(msg, type = 'success') {
     let container = document.querySelector('.toast-container');
     if (!container) {
