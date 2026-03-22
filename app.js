@@ -6,6 +6,8 @@
 'use strict';
 
 /* ── CONSTANTS ─────────────────────────────────────────── */
+const APP_VERSION = '1.2.0';
+
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
     'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx'];
@@ -19,7 +21,9 @@ let state = {
     weekValue: '',   // e.g. "2026-W11"
     allDaysByDate: {}, // Map of 'YYYY-MM-DD' to day object
     days: [],          // array of 5 active day objects mapping to current week
-    lastOpenedDateByWeek: {} // map of 'YYYY-Www' to 'YYYY-MM-DD'
+    lastOpenedDateByWeek: {}, // map of 'YYYY-Www' to 'YYYY-MM-DD'
+    recurringTasks: [],  // array of recurring task rules
+    dailyTargetMins: 480 // daily target in minutes (default 8h)
 };
 
 /* day object shape:
@@ -34,27 +38,13 @@ let state = {
 }
 */
 
-/* ── LOCALSTORAGE ──────────────────────────────────────── */
+/* ── PERSISTENCE (electron-store) ──────────────────────── */
 const LS_KEY = 'timesheetState_v1';
 
 function saveState() {
     try {
         state.days.forEach(d => {
-            if (d && d.date) {
-                state.allDaysByDate[d.date] = d;
-            }
-        });
-
-        // Prune data older than 4 weeks (28 days) to persist only recent data
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 28);
-        cutoffDate.setHours(0, 0, 0, 0);
-
-        Object.keys(state.allDaysByDate).forEach(dateStr => {
-            const entryDate = new Date(dateStr + 'T00:00:00');
-            if (entryDate < cutoffDate) {
-                delete state.allDaysByDate[dateStr];
-            }
+            if (d && d.date) state.allDaysByDate[d.date] = d;
         });
 
         const toSave = {
@@ -62,17 +52,29 @@ function saveState() {
             employeeName: state.employeeName,
             weekValue: state.weekValue,
             allDaysByDate: state.allDaysByDate,
-            lastOpenedDateByWeek: state.lastOpenedDateByWeek
+            lastOpenedDateByWeek: state.lastOpenedDateByWeek,
+            recurringTasks: state.recurringTasks,
+            dailyTargetMins: state.dailyTargetMins
         };
-        localStorage.setItem(LS_KEY, JSON.stringify(toSave));
-    } catch (e) { console.warn('Could not save to localStorage', e); }
+        window.electronStore.set(LS_KEY, toSave);
+    } catch (e) { console.warn('Could not save state', e); }
 }
 
 function loadState() {
     try {
-        const raw = localStorage.getItem(LS_KEY);
-        if (!raw) return false;
-        const saved = JSON.parse(raw);
+        // One-time migration from localStorage → electron-store
+        if (!window.electronStore.has(LS_KEY)) {
+            const raw = localStorage.getItem(LS_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed) {
+                    window.electronStore.set(LS_KEY, parsed);
+                    localStorage.removeItem(LS_KEY);
+                }
+            }
+        }
+
+        const saved = window.electronStore.get(LS_KEY);
         if (!saved) return false;
 
         state.reportTitle = saved.reportTitle || 'Booked hours in Jira and Service Desk';
@@ -80,13 +82,13 @@ function loadState() {
         state.weekValue = saved.weekValue || '';
         state.allDaysByDate = saved.allDaysByDate || {};
         state.lastOpenedDateByWeek = saved.lastOpenedDateByWeek || {};
+        state.recurringTasks = saved.recurringTasks || [];
+        state.dailyTargetMins = saved.dailyTargetMins || 480;
 
-        // Backwards compatibility migration
+        // Backwards compatibility: old format stored days array
         if (saved.days && Array.isArray(saved.days)) {
             saved.days.forEach(d => {
-                if (d && d.date) {
-                    state.allDaysByDate[d.date] = d;
-                }
+                if (d && d.date) state.allDaysByDate[d.date] = d;
             });
         }
         return true;
@@ -95,14 +97,19 @@ function loadState() {
 
 /* ── INIT ──────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
     initTheme();
     initSidebar();
+    initScheduledTasks();
     bindHeaderEvents();
     const restored = loadState();
 
     // Always apply these inputs if we have them in state, regardless of whether a week was previously saved or not
     document.getElementById('report-title').value = state.reportTitle || '';
     document.getElementById('emp-name').value = state.employeeName || '';
+    const tgt = state.dailyTargetMins || 480;
+    document.getElementById('target-hh').value = Math.floor(tgt / 60);
+    document.getElementById('target-mm').value = tgt % 60;
 
     if (restored && state.weekValue) {
         // Restore saved week & name into inputs
@@ -187,6 +194,8 @@ function buildWeekDays(monDt) {
         }
         currentDt.setDate(currentDt.getDate() + 1);
     }
+    populateRecurringForWeek(monDt);
+    promoteExpiredScheduled();
     return days;
 }
 
@@ -268,12 +277,37 @@ function bindHeaderEvents() {
         renderAll();
     });
 
+    const updateTarget = () => {
+        const hh = parseInt(document.getElementById('target-hh').value) || 0;
+        const mm = parseInt(document.getElementById('target-mm').value) || 0;
+        const mins = hh * 60 + mm;
+        if (mins < 1) return;
+        state.dailyTargetMins = mins;
+        renderDays();
+        saveState();
+    };
+    document.getElementById('target-hh').addEventListener('change', updateTarget);
+    document.getElementById('target-mm').addEventListener('change', updateTarget);
+
     document.getElementById('btn-preview').addEventListener('click', openPreview);
     document.getElementById('btn-print').addEventListener('click', doPrint);
     document.getElementById('btn-copy-txt').addEventListener('click', copyTxt);
     document.getElementById('btn-download-txt').addEventListener('click', downloadTxt);
     document.getElementById('btn-save-entry').addEventListener('click', saveEntry);
     document.getElementById('btn-delete-entry').addEventListener('click', deleteEntry);
+    document.getElementById('btn-make-regular').addEventListener('click', makeRegularEntry);
+
+    // HH → MM auto-advance for all time input pairs
+    [
+        ['modal-hh',          'modal-mm'],
+        ['recurring-hh',      'recurring-mm'],
+        ['scheduled-form-hh', 'scheduled-form-mm'],
+        ['target-hh',         'target-mm'],
+    ].forEach(([hhId, mmId]) => {
+        document.getElementById(hhId).addEventListener('input', function () {
+            if (this.value.length >= 2) document.getElementById(mmId).focus();
+        });
+    });
 }
 
 /* ── RENDER ALL ────────────────────────────────────────── */
@@ -294,6 +328,65 @@ function renderDays() {
 }
 
 /* ── BUILD DAY CARD ────────────────────────────────────── */
+function buildProgressRing(dayNumber, totalMins, isHoliday) {
+    const targetMins = state.dailyTargetMins || 480;
+    const r = 16;
+    const circ = +(2 * Math.PI * r).toFixed(2); // 100.53
+    const pct = isHoliday ? 0 : Math.min(totalMins / targetMins, 1);
+    const offset = +(circ * (1 - pct)).toFixed(2);
+
+    let strokeColor, trackColor, textColor;
+    if (isHoliday) {
+        strokeColor = 'var(--warning)';
+        trackColor = 'rgba(251,191,36,0.15)';
+        textColor = 'var(--warning)';
+    } else if (pct === 0) {
+        strokeColor = 'transparent';
+        trackColor = 'var(--border)';
+        textColor = 'var(--text-secondary)';
+    } else if (pct < 0.8) {
+        strokeColor = 'var(--warning)';
+        trackColor = 'var(--border)';
+        textColor = 'var(--text-secondary)';
+    } else if (pct < 1) {
+        strokeColor = 'var(--success)';
+        trackColor = 'var(--border)';
+        textColor = 'var(--text-secondary)';
+    } else {
+        strokeColor = '#4ade80';
+        trackColor = 'rgba(74,222,128,0.12)';
+        textColor = '#4ade80';
+    }
+
+    let tooltip = '';
+    if (!isHoliday) {
+        const remaining = targetMins - totalMins;
+        if (totalMins === 0) {
+            const th = Math.floor(targetMins / 60), tm = targetMins % 60;
+            tooltip = tm > 0 ? `${th}h ${tm}m remaining` : `${th}h remaining`;
+        } else if (remaining > 0) {
+            const rh = Math.floor(remaining / 60), rm = remaining % 60;
+            tooltip = rm > 0 ? `${rh}h ${rm}m remaining` : `${rh}h remaining`;
+        } else if (remaining === 0) {
+            tooltip = 'Target met!';
+        } else {
+            const oh = Math.floor(-remaining / 60), om = (-remaining) % 60;
+            tooltip = om > 0 ? `${oh}h ${om}m over target` : `${oh}h over target`;
+        }
+    }
+
+    return `<div class="day-progress-ring" title="${tooltip}">
+      <svg width="38" height="38" viewBox="0 0 38 38">
+        <circle cx="19" cy="19" r="${r}" fill="none" style="stroke:${trackColor}" stroke-width="3"/>
+        <circle cx="19" cy="19" r="${r}" fill="none" style="stroke:${strokeColor}"
+          stroke-width="3" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+          stroke-linecap="round" transform="rotate(-90 19 19)"/>
+        <text x="19" y="19" text-anchor="middle" dominant-baseline="central"
+          style="font-size:11px;font-weight:700;fill:${textColor};font-family:inherit">${dayNumber}</text>
+      </svg>
+    </div>`;
+}
+
 function buildDayCard(day, dayIdx) {
     const dayName = WEEK_DAYS[dayIdx];
     const displayDate = fmtDisplayDate(day.date);
@@ -318,7 +411,7 @@ function buildDayCard(day, dayIdx) {
     wrap.innerHTML = `
     <div class="day-card-header" data-day="${dayIdx}">
       <div class="day-badge">
-        <div class="day-number${day.isHoliday ? ' holiday' : ''}">${dayIdx + 1}</div>
+        ${buildProgressRing(dayIdx + 1, totalMins, day.isHoliday)}
         <div>
           <div class="day-name">${dayName}${isWeekend ? ' <span class="badge bg-secondary" style="font-size:0.6rem">Weekend</span>' : ''}</div>
           <div class="day-date">${displayDate}</div>
@@ -496,12 +589,14 @@ function buildEntriesHTML(entries, dayIdx) {
             }
 
             htmlFragments.push(`
-    <div class="entry-row" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}">
+    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}">
       <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
       <span class="entry-hours">${hhmm}</span>
       ${isSd ? '<span class="entry-type-badge">Service Desk</span>' : ''}
+      ${e.recurringId ? '<span class="entry-recurring-badge" title="Recurring task"><i class="bi bi-arrow-repeat"></i></span>' : ''}
+      ${e.isScheduled ? '<span class="entry-scheduled-badge" title="Scheduled task"><i class="bi bi-clock"></i></span>' : ''}
       ${descHtml}
       <div class="entry-actions ms-auto d-flex align-items-center gap-2">
         ${actTicketHtml}
@@ -731,12 +826,16 @@ function openEntryModal(dayIdx, entryIdx) {
     document.getElementById('modal-entry-index').value = entryIdx;
 
     const deleteBtn = document.getElementById('btn-delete-entry');
+    const copyToBtn = document.getElementById('btn-copy-to-entry');
+    const makeRegularBtn = document.getElementById('btn-make-regular');
     const title = document.getElementById('entryModalLabel');
 
     if (entryIdx === -1) {
         // Add mode
         clearEntryModal();
         deleteBtn.style.display = 'none';
+        copyToBtn.style.display = 'none';
+        makeRegularBtn.style.display = 'none';
         title.innerHTML = `<i class="bi bi-plus-circle me-2"></i>Add Entry — ${WEEK_DAYS[dayIdx]}`;
     } else {
         // Edit mode
@@ -749,7 +848,15 @@ function openEntryModal(dayIdx, entryIdx) {
         document.getElementById('modal-group-id').value = e.groupId || '';
         document.getElementById('modal-group-type-ref').value = e.groupType || '';
         deleteBtn.style.display = 'inline-flex';
-        title.innerHTML = `<i class="bi bi-pencil-square me-2"></i>Edit Entry — ${WEEK_DAYS[dayIdx]}`;
+        if (e.isScheduled) {
+            makeRegularBtn.style.display = 'inline-flex';
+            copyToBtn.style.display = 'none';
+            title.innerHTML = `<i class="bi bi-clock me-2"></i>Edit Scheduled Entry — ${WEEK_DAYS[dayIdx]}`;
+        } else {
+            makeRegularBtn.style.display = 'none';
+            copyToBtn.style.display = 'inline-flex';
+            title.innerHTML = `<i class="bi bi-pencil-square me-2"></i>Edit Entry — ${WEEK_DAYS[dayIdx]}`;
+        }
     }
 
     entryModal.show();
@@ -758,10 +865,11 @@ function openEntryModal(dayIdx, entryIdx) {
 function openEntryModalPreFilled(dayIdx, fromEntryIdx, keepField) {
     document.getElementById('modal-day-index').value = dayIdx;
     document.getElementById('modal-entry-index').value = -1; // Force Add mode
-    
+
     const deleteBtn = document.getElementById('btn-delete-entry');
     const title = document.getElementById('entryModalLabel');
     deleteBtn.style.display = 'none';
+    document.getElementById('btn-make-regular').style.display = 'none';
     title.innerHTML = `<i class="bi bi-plus-circle me-2"></i>Add Sub-Entry — ${WEEK_DAYS[dayIdx]}`;
     
     clearEntryModal();
@@ -863,33 +971,48 @@ function saveEntryInternal() {
         });
     }
 
-    if (totalMinsForDay > 8 * 60) {
+    if (totalMinsForDay > state.dailyTargetMins) {
         const totalH = Math.floor(totalMinsForDay / 60);
         const totalM = totalMinsForDay % 60;
-        const confirmHigh = confirm(`This entry will bring your total logged time for the day to over 8 hours (${totalH}h ${totalM}m). Are you sure you want to log this much time?`);
-        if (!confirmHigh) return false;
+        const targetH = Math.floor(state.dailyTargetMins / 60);
+        const targetM = state.dailyTargetMins % 60;
+        const targetLabel = targetM > 0 ? `${targetH}h ${targetM}m` : `${targetH}h`;
+        showConfirm(
+            `This entry will bring your total for the day to ${totalH}h ${totalM}m — over the ${targetLabel} target. Continue?`,
+            () => commitEntry(dayIdx, entryIdx)
+        );
+        return false; // halt here; commitEntry will handle the rest if confirmed
     }
 
+    commitEntry(dayIdx, entryIdx);
+    return true;
+}
+
+function commitEntry(dayIdx, entryIdx) {
     const groupId = document.getElementById('modal-group-id').value;
     const groupType = document.getElementById('modal-group-type-ref').value;
-    
+    const tkt = document.getElementById('modal-ticket').value.trim();
+    const hh = parseInt(document.getElementById('modal-hh').value) || 0;
+    const mm = parseInt(document.getElementById('modal-mm').value) || 0;
+    const type = document.getElementById('modal-type').value;
+    const desc = document.getElementById('modal-desc').value.trim();
+
     const entry = { ticket: tkt, hh, mm, type, desc };
-    
-    if (groupId) {
-        entry.groupId = groupId;
-        entry.groupType = groupType;
-    }
+    if (groupId) { entry.groupId = groupId; entry.groupType = groupType; }
 
     if (entryIdx === -1) {
         state.days[dayIdx].entries.push(entry);
     } else {
+        const existing = state.days[dayIdx].entries[entryIdx];
+        if (existing && existing.recurringId) entry.recurringId = existing.recurringId;
+        if (existing && existing.isScheduled) entry.isScheduled = existing.isScheduled;
         state.days[dayIdx].entries[entryIdx] = entry;
     }
-    
+
     rerenderDayCard(dayIdx);
     updateSummary();
     saveState();
-    return true;
+    entryModal.hide();
 }
 
 function saveEntry() {
@@ -925,6 +1048,19 @@ function deleteEntry() {
 
     lastDeleted = { dayIdx, entryIdx, entry: deletedEntry, timerId };
     showUndoToast();
+}
+
+function makeRegularEntry() {
+    const dayIdx = parseInt(document.getElementById('modal-day-index').value);
+    const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
+    if (entryIdx < 0) return;
+    const entry = state.days[dayIdx].entries[entryIdx];
+    delete entry.isScheduled;
+    rerenderDayCard(dayIdx);
+    updateSummary();
+    saveState();
+    entryModal.hide();
+    showToast('Entry converted to a regular entry.', 'success');
 }
 
 function undoDelete() {
@@ -964,6 +1100,336 @@ function showUndoToast() {
     });
 
     setTimeout(() => { document.getElementById('undo-delete-toast')?.remove(); }, 5000);
+}
+
+/* ── COPY TO ───────────────────────────────────────────── */
+let copyToModal;
+let copyToWeekMonday = null;
+let copyToSelectedDates = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    copyToModal = new bootstrap.Modal(document.getElementById('copyToModal'));
+
+    document.getElementById('btn-copy-to-entry').addEventListener('click', () => {
+        entryModal.hide();
+        copyToWeekMonday = getDateFromWeek(state.weekValue || getWeekStrFromDate(new Date()));
+        copyToSelectedDates = [];
+        renderCopyToWeek();
+        copyToModal.show();
+    });
+
+    document.getElementById('copy-to-prev-week').addEventListener('click', () => {
+        copyToWeekMonday = new Date(copyToWeekMonday);
+        copyToWeekMonday.setDate(copyToWeekMonday.getDate() - 7);
+        renderCopyToWeek();
+    });
+
+    document.getElementById('copy-to-next-week').addEventListener('click', () => {
+        copyToWeekMonday = new Date(copyToWeekMonday);
+        copyToWeekMonday.setDate(copyToWeekMonday.getDate() + 7);
+        renderCopyToWeek();
+    });
+
+    document.getElementById('btn-confirm-copy-to').addEventListener('click', executeCopyTo);
+});
+
+function renderCopyToWeek() {
+    const mon = new Date(copyToWeekMonday);
+    const fri = new Date(mon);
+    fri.setDate(mon.getDate() + 4);
+
+    document.getElementById('copy-to-week-label').textContent =
+        `${fmtDisplayDate(fmtDate(mon))} — ${fmtDisplayDate(fmtDate(fri))}`;
+
+    const container = document.getElementById('copy-to-days');
+    container.innerHTML = '';
+
+    for (let i = 0; i < 5; i++) {
+        const dt = new Date(mon);
+        dt.setDate(mon.getDate() + i);
+        const dateStr = fmtDate(dt);
+        const dayName = WEEK_DAYS[i].slice(0, 3);
+        const dayNum = dt.getDate();
+        const isSelected = copyToSelectedDates.includes(dateStr);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `btn copy-to-day-btn${isSelected ? ' selected' : ''}`;
+        btn.dataset.date = dateStr;
+        btn.innerHTML = `<span class="copy-day-name">${dayName}</span><span class="copy-day-num">${dayNum}</span>`;
+        btn.addEventListener('click', () => {
+            if (copyToSelectedDates.includes(dateStr)) {
+                copyToSelectedDates = copyToSelectedDates.filter(d => d !== dateStr);
+            } else {
+                copyToSelectedDates.push(dateStr);
+            }
+            renderCopyToWeek();
+        });
+        container.appendChild(btn);
+    }
+}
+
+function executeCopyTo() {
+    if (copyToSelectedDates.length === 0) {
+        showToast('Select at least one day to copy to.', 'danger');
+        return;
+    }
+
+    const dayIdx = parseInt(document.getElementById('modal-day-index').value);
+    const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
+    const src = state.days[dayIdx].entries[entryIdx];
+    const entryCopy = { ticket: src.ticket, hh: src.hh, mm: src.mm, type: src.type, desc: src.desc };
+
+    copyToSelectedDates.forEach(dateStr => {
+        if (!state.allDaysByDate[dateStr]) {
+            state.allDaysByDate[dateStr] = {
+                date: dateStr, isHoliday: false,
+                holidayLabel: 'Offshore Holiday', expanded: false, entries: []
+            };
+        }
+        state.allDaysByDate[dateStr].entries.push({ ...entryCopy });
+
+        const dayInWeek = state.days.findIndex(d => d.date === dateStr);
+        if (dayInWeek !== -1) {
+            state.days[dayInWeek] = state.allDaysByDate[dateStr];
+            rerenderDayCard(dayInWeek);
+        }
+    });
+
+    saveState();
+    updateSummary();
+    copyToModal.hide();
+    showToast(`Copied to ${copyToSelectedDates.length} day${copyToSelectedDates.length > 1 ? 's' : ''}.`, 'success');
+    copyToSelectedDates = [];
+}
+
+/* ── RECURRING TASKS ───────────────────────────────────── */
+const RECURRING_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const DAY_IDX_TO_NAME = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri' };
+
+function populateRecurringForWeek(monDt) {
+    if (!state.recurringTasks || state.recurringTasks.length === 0) return;
+    for (let i = 0; i < 5; i++) {
+        const dt = new Date(monDt);
+        dt.setDate(monDt.getDate() + i);
+        const dateStr = fmtDate(dt);
+        const dayName = RECURRING_DAY_NAMES[i];
+        const day = state.allDaysByDate[dateStr];
+        if (!day) continue;
+        state.recurringTasks.forEach(rule => {
+            if (!rule.days.includes(dayName)) return;
+            const exists = day.entries.some(e => e.recurringId === rule.id);
+            if (!exists) {
+                day.entries.push({ ticket: rule.ticket, hh: rule.hh, mm: rule.mm, type: rule.type, desc: rule.desc, recurringId: rule.id });
+            }
+        });
+    }
+}
+
+function updateRecurringEntriesFromToday(rule) {
+    const todayStr = fmtDate(new Date());
+    Object.keys(state.allDaysByDate).forEach(dateStr => {
+        if (dateStr < todayStr) return;
+        const dt = new Date(dateStr + 'T00:00:00');
+        const dayName = DAY_IDX_TO_NAME[dt.getDay()];
+        if (!dayName) return;
+        const day = state.allDaysByDate[dateStr];
+        const idx = day.entries.findIndex(e => e.recurringId === rule.id);
+        if (rule.days.includes(dayName)) {
+            if (idx !== -1) {
+                day.entries[idx] = { ...day.entries[idx], ticket: rule.ticket, hh: rule.hh, mm: rule.mm, type: rule.type, desc: rule.desc };
+            }
+        } else if (idx !== -1) {
+            day.entries.splice(idx, 1);
+        }
+    });
+}
+
+function deleteRecurringEntriesFromToday(ruleId) {
+    const rule = state.recurringTasks.find(r => r.id === ruleId);
+    const ruleTicket = rule ? rule.ticket : null;
+    const currentWeekMonday = fmtDate(getDateFromWeek(state.weekValue || getWeekStrFromDate(new Date())));
+    Object.keys(state.allDaysByDate).forEach(dateStr => {
+        if (dateStr < currentWeekMonday) return;
+        const day = state.allDaysByDate[dateStr];
+        day.entries = day.entries.filter(e => {
+            if (e.recurringId === ruleId) return false;
+            if (e.recurringId && ruleTicket && e.ticket === ruleTicket) return false;
+            return true;
+        });
+    });
+}
+
+let recurringModal;
+let recurringFormModal;
+
+document.addEventListener('DOMContentLoaded', () => {
+    recurringModal = new bootstrap.Modal(document.getElementById('recurringModal'));
+    recurringFormModal = new bootstrap.Modal(document.getElementById('recurringFormModal'));
+
+    document.getElementById('menu-recurring').addEventListener('click', e => {
+        e.preventDefault();
+        document.querySelector('#appSidebar .btn-close')?.click();
+        setTimeout(() => {
+            renderRecurringList();
+            recurringModal.show();
+        }, 300);
+    });
+
+    document.getElementById('btn-add-recurring').addEventListener('click', () => {
+        recurringModal.hide();
+        setTimeout(() => openRecurringForm(null), 300);
+    });
+
+    document.getElementById('btn-recurring-form-close').addEventListener('click', () => {
+        recurringFormModal.hide();
+        setTimeout(() => { renderRecurringList(); recurringModal.show(); }, 300);
+    });
+
+    document.getElementById('btn-recurring-form-cancel').addEventListener('click', () => {
+        recurringFormModal.hide();
+        setTimeout(() => { renderRecurringList(); recurringModal.show(); }, 300);
+    });
+
+    document.getElementById('btn-save-recurring').addEventListener('click', saveRecurringRule);
+
+    // Day toggle buttons
+    document.querySelectorAll('.recurring-day-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.classList.toggle('selected');
+            syncAllDaysCheckbox();
+        });
+    });
+
+    document.getElementById('recurring-all-days').addEventListener('change', e => {
+        document.querySelectorAll('.recurring-day-btn').forEach(btn => {
+            btn.classList.toggle('selected', e.target.checked);
+        });
+    });
+});
+
+function syncAllDaysCheckbox() {
+    const all = document.querySelectorAll('.recurring-day-btn');
+    const selected = document.querySelectorAll('.recurring-day-btn.selected');
+    document.getElementById('recurring-all-days').checked = all.length === selected.length;
+}
+
+function renderRecurringList() {
+    const container = document.getElementById('recurring-list');
+    if (!state.recurringTasks || state.recurringTasks.length === 0) {
+        container.innerHTML = `<p class="text-muted text-center py-4">No recurring tasks yet. Click "Add Recurring Task" to create one.</p>`;
+        return;
+    }
+    container.innerHTML = state.recurringTasks.map(rule => `
+    <div class="recurring-rule-card mb-3">
+      <div class="d-flex align-items-start justify-content-between gap-2">
+        <div class="flex-fill">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="entry-ticket ${rule.type === 'servicedesk' ? 'servicedesk' : ''}">${escHtml(rule.ticket || '—')}</span>
+            <span class="entry-hours">${String(rule.hh || 0).padStart(2,'0')}:${String(rule.mm || 0).padStart(2,'0')}</span>
+            ${rule.type === 'servicedesk' ? '<span class="entry-type-badge">Service Desk</span>' : ''}
+          </div>
+          <div class="text-muted" style="font-size:0.85rem">${escHtml(rule.desc || '')}</div>
+          <div class="d-flex gap-1 mt-2">
+            ${RECURRING_DAY_NAMES.map(d => `<span class="recurring-day-chip${rule.days.includes(d) ? ' active' : ''}">${d}</span>`).join('')}
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-light" data-rule-id="${rule.id}" data-action="edit" title="Edit">
+            <i class="bi bi-pencil-square"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger" data-rule-id="${rule.id}" data-action="delete" title="Delete">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>`).join('');
+
+    container.querySelectorAll('[data-action="edit"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const rule = state.recurringTasks.find(r => r.id === btn.dataset.ruleId);
+            if (rule) { recurringModal.hide(); setTimeout(() => openRecurringForm(rule), 300); }
+        });
+    });
+    container.querySelectorAll('[data-action="delete"]').forEach(btn => {
+        btn.addEventListener('click', () => deleteRecurringRule(btn.dataset.ruleId));
+    });
+}
+
+function openRecurringForm(rule) {
+    document.getElementById('recurring-form-id').value = rule ? rule.id : '';
+    document.getElementById('recurring-ticket').value = rule ? rule.ticket : '';
+    document.getElementById('recurring-hh').value = rule ? rule.hh : '';
+    document.getElementById('recurring-mm').value = rule ? String(rule.mm || 0).padStart(2, '0') : '00';
+    document.getElementById('recurring-type').value = rule ? rule.type : 'jira';
+    document.getElementById('recurring-desc').value = rule ? rule.desc : '';
+    document.getElementById('recurringFormTitle').innerHTML =
+        `<i class="bi bi-arrow-repeat me-2"></i>${rule ? 'Edit' : 'Add'} Recurring Task`;
+
+    document.querySelectorAll('.recurring-day-btn').forEach(btn => {
+        btn.classList.toggle('selected', rule ? rule.days.includes(btn.dataset.day) : false);
+    });
+    syncAllDaysCheckbox();
+
+    [document.getElementById('recurring-ticket'), document.getElementById('recurring-desc'),
+     document.getElementById('recurring-hh'), document.getElementById('recurring-mm')]
+        .forEach(el => el.classList.remove('is-invalid'));
+
+    recurringFormModal.show();
+}
+
+function saveRecurringRule() {
+    const ticket = document.getElementById('recurring-ticket').value.trim();
+    const hh = parseInt(document.getElementById('recurring-hh').value) || 0;
+    const mm = parseInt(document.getElementById('recurring-mm').value) || 0;
+    const type = document.getElementById('recurring-type').value;
+    const desc = document.getElementById('recurring-desc').value.trim();
+    const selectedDays = [...document.querySelectorAll('.recurring-day-btn.selected')].map(b => b.dataset.day);
+
+    let hasError = false;
+    [document.getElementById('recurring-ticket'), document.getElementById('recurring-desc'),
+     document.getElementById('recurring-hh'), document.getElementById('recurring-mm')]
+        .forEach(el => el.classList.remove('is-invalid'));
+
+    if (!ticket) { document.getElementById('recurring-ticket').classList.add('is-invalid'); hasError = true; }
+    if (!desc) { document.getElementById('recurring-desc').classList.add('is-invalid'); hasError = true; }
+    if (hh === 0 && mm === 0) {
+        document.getElementById('recurring-hh').classList.add('is-invalid');
+        document.getElementById('recurring-mm').classList.add('is-invalid');
+        hasError = true;
+    }
+    if (selectedDays.length === 0) { showToast('Select at least one day.', 'danger'); hasError = true; }
+    if (hasError) return;
+
+    const existingId = document.getElementById('recurring-form-id').value;
+    if (existingId) {
+        const rule = state.recurringTasks.find(r => r.id === existingId);
+        if (rule) {
+            Object.assign(rule, { ticket, hh, mm, type, desc, days: selectedDays });
+            updateRecurringEntriesFromToday(rule);
+        }
+    } else {
+        const rule = { id: 'rec_' + Date.now(), ticket, hh, mm, type, desc, days: selectedDays };
+        state.recurringTasks.push(rule);
+        populateRecurringForWeek(getDateFromWeek(state.weekValue || getWeekStrFromDate(new Date())));
+    }
+
+    saveState();
+    state.days.forEach((_, i) => rerenderDayCard(i));
+    updateSummary();
+    recurringFormModal.hide();
+    setTimeout(() => { renderRecurringList(); recurringModal.show(); }, 300);
+    showToast('Recurring task saved.', 'success');
+}
+
+function deleteRecurringRule(ruleId) {
+    deleteRecurringEntriesFromToday(ruleId);
+    state.recurringTasks = state.recurringTasks.filter(r => r.id !== ruleId);
+    saveState();
+    state.days.forEach((_, i) => rerenderDayCard(i));
+    updateSummary();
+    renderRecurringList();
+    showToast('Recurring task deleted.', 'success');
 }
 
 /* ── SUMMARY TOTALS ────────────────────────────────────── */
@@ -1196,6 +1662,18 @@ function doPrint() {
 }
 
 /* ── TOAST ─────────────────────────────────────────────── */
+let confirmModal;
+function showConfirm(message, onYes) {
+    if (!confirmModal) confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    document.getElementById('confirm-modal-message').textContent = message;
+    const yesBtn = document.getElementById('btn-confirm-yes');
+    const noBtn = document.getElementById('btn-confirm-no');
+    const cleanup = () => { yesBtn.onclick = null; noBtn.onclick = null; };
+    yesBtn.onclick = () => { confirmModal.hide(); cleanup(); onYes(); };
+    noBtn.onclick = () => { confirmModal.hide(); cleanup(); };
+    confirmModal.show();
+}
+
 function showToast(msg, type = 'success') {
     let container = document.querySelector('.toast-container');
     if (!container) {
@@ -1224,6 +1702,295 @@ function escHtml(str) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+/* ── KEYBOARD SHORTCUTS ────────────────────────────────── */
+document.addEventListener('keydown', e => {
+    // Do nothing when typing inside an input, textarea or select
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    // Do nothing when a modal is open (except Enter to save entry)
+    const modalOpen = document.querySelector('.modal.show');
+
+    if (modalOpen) {
+        if (e.key === 'Enter' && modalOpen.id === 'entryModal') {
+            e.preventDefault();
+            saveEntry();
+        }
+        return;
+    }
+
+    const expandedIdx = state.days.findIndex(d => d.expanded);
+
+    switch (e.key) {
+        case 'n':
+        case 'N':
+            if (expandedIdx !== -1) openEntryModal(expandedIdx, -1);
+            break;
+
+        case 'ArrowLeft':
+            if (expandedIdx > 0) toggleDay(expandedIdx - 1);
+            break;
+
+        case 'ArrowRight':
+            if (expandedIdx < state.days.length - 1) toggleDay(expandedIdx + 1);
+            break;
+
+        case 'p':
+        case 'P':
+            if (!e.ctrlKey) openPreview();
+            break;
+
+        case 'q':
+        case 'Q':
+            if (expandedIdx !== -1) {
+                const day = state.days[expandedIdx];
+                if (day.entries && day.entries.length > 0) openDayQuickView(expandedIdx);
+            }
+            break;
+    }
+
+    // Ctrl+P → print
+    if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        doPrint();
+    }
+});
+
+/* ── SCHEDULED TASKS ───────────────────────────────────── */
+function promoteExpiredScheduled() {
+    const todayStr = fmtDate(new Date());
+    let changed = false;
+    Object.keys(state.allDaysByDate).forEach(dateStr => {
+        if (dateStr >= todayStr) return;
+        state.allDaysByDate[dateStr].entries.forEach(entry => {
+            if (entry.isScheduled) {
+                delete entry.isScheduled;
+                changed = true;
+            }
+        });
+    });
+    if (changed) saveState();
+}
+
+let scheduledModal, scheduledFormModal;
+
+function initScheduledTasks() {
+    scheduledModal = new bootstrap.Modal(document.getElementById('scheduledModal'));
+    scheduledFormModal = new bootstrap.Modal(document.getElementById('scheduledFormModal'));
+
+    const menuBtn = document.getElementById('menu-scheduled');
+    const sidebarEl = document.getElementById('appSidebar');
+
+    menuBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const offcanvasInstance = bootstrap.Offcanvas.getInstance(sidebarEl);
+        if (offcanvasInstance) offcanvasInstance.hide();
+        renderScheduledList();
+        scheduledModal.show();
+    });
+
+    document.getElementById('btn-add-scheduled').addEventListener('click', () => {
+        scheduledModal.hide();
+        openScheduledForm();
+    });
+
+    document.getElementById('btn-save-scheduled').addEventListener('click', saveScheduledTask);
+
+    const closeForm = () => {
+        scheduledFormModal.hide();
+        scheduledModal.show();
+        renderScheduledList();
+    };
+    document.getElementById('btn-scheduled-form-close').addEventListener('click', closeForm);
+    document.getElementById('btn-scheduled-form-cancel').addEventListener('click', closeForm);
+}
+
+function renderScheduledList() {
+    const container = document.getElementById('scheduled-list');
+
+    // Collect all scheduled entries from allDaysByDate
+    const scheduled = [];
+    Object.keys(state.allDaysByDate).sort().forEach(dateStr => {
+        const day = state.allDaysByDate[dateStr];
+        day.entries.forEach((entry, entryIdx) => {
+            if (entry.isScheduled) {
+                scheduled.push({ dateStr, entry, entryIdx });
+            }
+        });
+    });
+
+    if (scheduled.length === 0) {
+        container.innerHTML = `<p class="text-muted text-center py-3" style="font-size:0.9rem;">No scheduled tasks. Click "Add Scheduled Task" to pre-schedule an entry for a future date.</p>`;
+        return;
+    }
+
+    let html = '';
+    scheduled.forEach(({ dateStr, entry, entryIdx }) => {
+        const dt = new Date(dateStr + 'T00:00:00');
+        const dateLabel = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        const hhmm = `${String(entry.hh || 0).padStart(2, '0')}:${String(entry.mm || 0).padStart(2, '0')}`;
+        const isSd = entry.type === 'servicedesk';
+        const isPast = dateStr <= fmtDate(new Date());
+        html += `
+        <div class="recurring-rule-card mb-2${isPast ? ' opacity-50' : ''}">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="flex-grow-1">
+              <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                <i class="bi bi-clock" style="color:var(--warning);font-size:0.8rem"></i>
+                <span style="font-size:0.75rem;color:var(--text-secondary)">${escHtml(dateLabel)}${isPast ? ' <span class="text-danger">(past)</span>' : ''}</span>
+              </div>
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="fw-semibold" style="font-size:0.9rem">${escHtml(entry.ticket || '—')}</span>
+                <span class="text-muted" style="font-size:0.8rem">${hhmm}</span>
+                ${isSd ? '<span class="entry-type-badge">Service Desk</span>' : ''}
+              </div>
+              <div class="text-muted mt-1" style="font-size:0.8rem">${escHtml(entry.desc || '')}</div>
+            </div>
+            <div class="d-flex gap-1 flex-shrink-0">
+              <button class="btn btn-sm btn-outline-warning py-0 px-2" title="Make Regular" data-scheduled-date="${dateStr}" data-scheduled-idx="${entryIdx}">
+                <i class="bi bi-calendar-check"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger py-0 px-2" title="Delete" data-delete-scheduled-date="${dateStr}" data-delete-scheduled-idx="${entryIdx}">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+
+    // Wire up Make Regular buttons
+    container.querySelectorAll('[data-scheduled-date]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            makeScheduledRegular(btn.dataset.scheduledDate, parseInt(btn.dataset.scheduledIdx));
+        });
+    });
+
+    // Wire up Delete buttons
+    container.querySelectorAll('[data-delete-scheduled-date]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            deleteScheduledEntry(btn.dataset.deleteScheduledDate, parseInt(btn.dataset.deleteScheduledIdx));
+        });
+    });
+}
+
+function openScheduledForm() {
+    // Reset form
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateInput = document.getElementById('scheduled-form-date');
+    dateInput.min = fmtDate(tomorrow);
+    dateInput.value = '';
+    dateInput.classList.remove('is-invalid');
+    document.getElementById('scheduled-form-ticket').value = '';
+    document.getElementById('scheduled-form-ticket').classList.remove('is-invalid');
+    document.getElementById('scheduled-form-hh').value = '';
+    document.getElementById('scheduled-form-mm').value = '00';
+    document.getElementById('scheduled-form-type').value = 'jira';
+    document.getElementById('scheduled-form-desc').value = '';
+    document.getElementById('scheduled-form-desc').classList.remove('is-invalid');
+    scheduledFormModal.show();
+}
+
+function saveScheduledTask() {
+    const dateInput = document.getElementById('scheduled-form-date');
+    const ticketInput = document.getElementById('scheduled-form-ticket');
+    const descInput = document.getElementById('scheduled-form-desc');
+    const scheduledDate = dateInput.value;
+    const tkt = ticketInput.value.trim();
+    const desc = descInput.value.trim();
+    const hh = parseInt(document.getElementById('scheduled-form-hh').value) || 0;
+    const mm = parseInt(document.getElementById('scheduled-form-mm').value) || 0;
+    const type = document.getElementById('scheduled-form-type').value;
+
+    let hasError = false;
+    [dateInput, ticketInput, descInput].forEach(el => el.classList.remove('is-invalid'));
+
+    if (!scheduledDate) { dateInput.classList.add('is-invalid'); hasError = true; }
+    if (!tkt) { ticketInput.classList.add('is-invalid'); hasError = true; }
+    if (!desc) { descInput.classList.add('is-invalid'); hasError = true; }
+    if (hh === 0 && mm === 0) { hasError = true; }
+
+    if (hasError) { showToast('Please fill in all required fields.', 'danger'); return; }
+
+    const dt = new Date(scheduledDate + 'T00:00:00');
+    const dow = dt.getDay();
+    if (dow === 0 || dow === 6) {
+        dateInput.classList.add('is-invalid');
+        showToast('Scheduled date must be a weekday (Mon–Fri).', 'danger');
+        return;
+    }
+    const todayStr = fmtDate(new Date());
+    if (scheduledDate <= todayStr) {
+        dateInput.classList.add('is-invalid');
+        showToast('Scheduled date must be in the future.', 'danger');
+        return;
+    }
+
+    // Duplicate check: same ticket already scheduled for this date
+    const existingDay = state.allDaysByDate[scheduledDate];
+    if (existingDay && existingDay.entries.some(e => e.isScheduled && e.ticket.toLowerCase() === tkt.toLowerCase())) {
+        ticketInput.classList.add('is-invalid');
+        showToast(`"${tkt}" is already scheduled for this date.`, 'danger');
+        return;
+    }
+
+    if (!state.allDaysByDate[scheduledDate]) {
+        state.allDaysByDate[scheduledDate] = {
+            date: scheduledDate, isHoliday: false,
+            holidayLabel: 'Offshore Holiday', expanded: false, entries: []
+        };
+    }
+    state.allDaysByDate[scheduledDate].entries.push({ ticket: tkt, hh, mm, type, desc, isScheduled: true });
+
+    // Rerender if this date is in the current week
+    const dayInWeek = state.days.findIndex(d => d.date === scheduledDate);
+    if (dayInWeek !== -1) {
+        state.days[dayInWeek] = state.allDaysByDate[scheduledDate];
+        rerenderDayCard(dayInWeek);
+    }
+
+    saveState();
+    updateSummary();
+
+    const dateLabel = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    showToast(`Scheduled for ${dateLabel}.`, 'success');
+    scheduledFormModal.hide();
+    renderScheduledList();
+    scheduledModal.show();
+}
+
+function makeScheduledRegular(dateStr, entryIdx) {
+    const day = state.allDaysByDate[dateStr];
+    if (!day || !day.entries[entryIdx]) return;
+    delete day.entries[entryIdx].isScheduled;
+
+    const dayInWeek = state.days.findIndex(d => d.date === dateStr);
+    if (dayInWeek !== -1) rerenderDayCard(dayInWeek);
+
+    saveState();
+    updateSummary();
+    renderScheduledList();
+    showToast('Entry converted to a regular entry.', 'success');
+}
+
+function deleteScheduledEntry(dateStr, entryIdx) {
+    const day = state.allDaysByDate[dateStr];
+    if (!day) return;
+    day.entries.splice(entryIdx, 1);
+
+    const dayInWeek = state.days.findIndex(d => d.date === dateStr);
+    if (dayInWeek !== -1) {
+        state.days[dayInWeek] = state.allDaysByDate[dateStr];
+        rerenderDayCard(dayInWeek);
+    }
+
+    saveState();
+    updateSummary();
+    renderScheduledList();
 }
 
 /* ── THEME ─────────────────────────────────────────────── */

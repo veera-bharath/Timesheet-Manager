@@ -1,6 +1,6 @@
 {
   "name": "timesheet-manager",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Weekly Jira & Service Desk Time Tracking Application",
   "main": "main.js",
   "scripts": {
@@ -32,5 +32,8 @@
   "devDependencies": {
     "electron": "^41.0.0",
     "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0"
   }
 }

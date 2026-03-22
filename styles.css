@@ -89,11 +89,7 @@
   background: var(--bg-base);
   color: var(--text-primary);
 }
-[data-theme="light"] .day-number {
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--text-primary);
-  border-color: rgba(0, 0, 0, 0.1);
-}
+
 [data-theme="light"] .day-card-header {
   background: rgba(0, 0, 0, 0.02);
 }
@@ -346,25 +342,13 @@ body::before {
   gap: 12px;
 }
 
-.day-number {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(180, 180, 180, 0.12), rgba(180, 180, 180, 0.04));
-  border: 1px solid rgba(160, 160, 160, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #c8c8c8;
+.day-progress-ring {
   flex-shrink: 0;
+  cursor: default;
 }
 
-.day-number.holiday {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.05));
-  border-color: rgba(251, 191, 36, 0.3);
-  color: var(--warning);
+.day-progress-ring svg {
+  display: block;
 }
 
 .day-name {
@@ -893,4 +877,125 @@ body::before {
 [data-theme="light"] #aboutModal .text-muted {
   color: var(--text-muted) !important;
   opacity: 1;
+}
+
+/* ── COPY TO DAY PICKER ──────────────────────────────────── */
+.copy-to-day-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 64px;
+  border: 1.5px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  gap: 2px;
+  transition: all 0.15s ease;
+}
+
+.copy-to-day-btn:hover {
+  border-color: var(--accent-light);
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.copy-to-day-btn.selected {
+  border-color: var(--success);
+  background: rgba(34, 211, 160, 0.12);
+  color: var(--success);
+}
+
+.copy-day-name {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.copy-day-num {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ── RECURRING TASKS ─────────────────────────────────────── */
+.recurring-day-btn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1.5px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.recurring-day-btn:hover {
+  border-color: var(--accent-light);
+  color: var(--text-primary);
+}
+
+.recurring-day-btn.selected {
+  border-color: var(--success);
+  background: rgba(34, 211, 160, 0.12);
+  color: var(--success);
+}
+
+.entry-recurring-badge {
+  font-size: 0.7rem;
+  color: var(--success);
+  opacity: 0.8;
+}
+
+.recurring-rule-card {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.recurring-day-chip {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.recurring-day-chip.active {
+  background: rgba(34, 211, 160, 0.12);
+  color: var(--success);
+  border-color: var(--success);
+}
+
+#recurring-list .text-muted {
+  color: var(--text-secondary) !important;
+}
+
+#scheduled-list .text-muted {
+  color: var(--text-secondary) !important;
+}
+
+#scheduled-list p.text-muted {
+  color: var(--text-secondary) !important;
+}
+
+#scheduled-list .fw-semibold {
+  color: var(--text-primary);
+}
+
+/* ── SCHEDULED ENTRIES ── */
+.entry-row.entry-scheduled {
+  border: 1px dashed var(--border-accent) !important;
+  opacity: 0.88;
+}
+
+.entry-scheduled-badge {
+  font-size: 0.7rem;
+  color: var(--warning);
+  opacity: 0.85;
 }

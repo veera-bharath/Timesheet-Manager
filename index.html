@@ -75,6 +75,16 @@
               <i class="bi bi-calendar-week me-1"></i> Use Current Week
             </button>
 
+            <div class="mb-3 mt-3">
+              <label class="form-label label-text">Daily Target</label>
+              <div class="d-flex align-items-center gap-2">
+                <input type="number" id="target-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="08" style="max-width:64px" />
+                <span class="label-text">hrs</span>
+                <input type="number" id="target-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" style="max-width:64px" />
+                <span class="label-text">min</span>
+              </div>
+            </div>
+
             <hr class="border-secondary my-4 opacity-25">
 
             <!-- Totals Area inside the sidebar -->
@@ -197,12 +207,219 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-danger me-auto" id="btn-delete-entry" style="display:none">
+          <button type="button" class="btn btn-outline-danger" id="btn-delete-entry" style="display:none">
             <i class="bi bi-trash me-1"></i> Delete
+          </button>
+          <button type="button" class="btn btn-outline-warning" id="btn-make-regular" style="display:none">
+            <i class="bi bi-calendar-check me-1"></i> Make Regular
+          </button>
+          <button type="button" class="btn btn-outline-accent" id="btn-copy-to-entry" style="display:none">
+            <i class="bi bi-copy me-1"></i> Copy to
           </button>
           <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
           <button type="button" class="btn btn-gradient" id="btn-save-entry">
             <i class="bi bi-check-lg me-1"></i> Save Entry
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COPY TO MODAL -->
+  <div class="modal fade" id="copyToModal" tabindex="-1" aria-labelledby="copyToModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="copyToModalLabel"><i class="bi bi-copy me-2"></i>Copy Entry To</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <button class="btn btn-outline-light btn-sm px-3" id="copy-to-prev-week">
+              <i class="bi bi-chevron-left"></i>
+            </button>
+            <span class="fw-semibold" id="copy-to-week-label"></span>
+            <button class="btn btn-outline-light btn-sm px-3" id="copy-to-next-week">
+              <i class="bi bi-chevron-right"></i>
+            </button>
+          </div>
+          <div class="d-flex gap-2 justify-content-center" id="copy-to-days"></div>
+          <div class="form-text text-muted text-center mt-3">Click days to select. Click again to deselect.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-gradient" id="btn-confirm-copy-to">
+            <i class="bi bi-check-lg me-1"></i> Copy
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECURRING TASKS LIST MODAL -->
+  <div class="modal fade" id="recurringModal" tabindex="-1" aria-labelledby="recurringModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="recurringModalLabel"><i class="bi bi-arrow-repeat me-2"></i>Recurring Tasks</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="recurring-list"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-gradient" id="btn-add-recurring">
+            <i class="bi bi-plus-circle me-1"></i> Add Recurring Task
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECURRING TASK FORM MODAL -->
+  <div class="modal fade" id="recurringFormModal" tabindex="-1" aria-labelledby="recurringFormTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="recurringFormTitle"><i class="bi bi-arrow-repeat me-2"></i>Add Recurring Task</h5>
+          <button type="button" class="btn-close btn-close-white" id="btn-recurring-form-close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="recurring-form-id" />
+          <div class="row g-3">
+            <div class="col-12 col-lg-5">
+              <label class="form-label label-text">Ticket / Reference ID</label>
+              <input type="text" id="recurring-ticket" class="form-control dark-input" placeholder="e.g. JIRA-123 or #123" />
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <label class="form-label label-text">Hours (HH)</label>
+              <input type="number" id="recurring-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="00" />
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <label class="form-label label-text">Minutes (MM)</label>
+              <input type="number" id="recurring-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" />
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+              <label class="form-label label-text">Type</label>
+              <select id="recurring-type" class="form-select dark-input">
+                <option value="jira">Jira</option>
+                <option value="servicedesk">Service Desk</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label label-text">Description</label>
+              <textarea id="recurring-desc" class="form-control dark-input" rows="2" placeholder="Brief description of work done..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label label-text d-block mb-2">Repeat on</label>
+              <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="form-check mb-0">
+                  <input class="form-check-input" type="checkbox" id="recurring-all-days" />
+                  <label class="form-check-label label-text" for="recurring-all-days">All weekdays</label>
+                </div>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn recurring-day-btn" data-day="Mon">Mon</button>
+                  <button type="button" class="btn recurring-day-btn" data-day="Tue">Tue</button>
+                  <button type="button" class="btn recurring-day-btn" data-day="Wed">Wed</button>
+                  <button type="button" class="btn recurring-day-btn" data-day="Thu">Thu</button>
+                  <button type="button" class="btn recurring-day-btn" data-day="Fri">Fri</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" id="btn-recurring-form-cancel">Cancel</button>
+          <button type="button" class="btn btn-gradient" id="btn-save-recurring">
+            <i class="bi bi-check-lg me-1"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM DIALOG MODAL -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content modal-dark">
+        <div class="modal-body pt-4 pb-2 px-4 text-center">
+          <i class="bi bi-exclamation-triangle fs-2 mb-3 d-block" style="color:var(--warning)"></i>
+          <p id="confirm-modal-message" style="font-size:0.9rem"></p>
+        </div>
+        <div class="modal-footer justify-content-center border-0 pb-4 gap-2">
+          <button type="button" class="btn btn-outline-light px-4" id="btn-confirm-no">Cancel</button>
+          <button type="button" class="btn btn-gradient px-4" id="btn-confirm-yes">Continue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULED TASKS LIST MODAL -->
+  <div class="modal fade" id="scheduledModal" tabindex="-1" aria-labelledby="scheduledModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="scheduledModalLabel"><i class="bi bi-clock me-2"></i>Scheduled Tasks</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="scheduled-list"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-gradient" id="btn-add-scheduled">
+            <i class="bi bi-plus-circle me-1"></i> Add Scheduled Task
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULED TASK FORM MODAL -->
+  <div class="modal fade" id="scheduledFormModal" tabindex="-1" aria-labelledby="scheduledFormTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="scheduledFormTitle"><i class="bi bi-clock me-2"></i>Add Scheduled Task</h5>
+          <button type="button" class="btn-close btn-close-white" id="btn-scheduled-form-close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label label-text">Scheduled Date</label>
+              <input type="date" id="scheduled-form-date" class="form-control dark-input" />
+              <div class="form-text text-muted">Any future weekday (Mon–Fri)</div>
+            </div>
+            <div class="col-12 col-lg-5">
+              <label class="form-label label-text">Ticket / Reference ID</label>
+              <input type="text" id="scheduled-form-ticket" class="form-control dark-input" placeholder="e.g. JIRA-123 or #123" />
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <label class="form-label label-text">Hours (HH)</label>
+              <input type="number" id="scheduled-form-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="00" />
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <label class="form-label label-text">Minutes (MM)</label>
+              <input type="number" id="scheduled-form-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" />
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+              <label class="form-label label-text">Type</label>
+              <select id="scheduled-form-type" class="form-select dark-input">
+                <option value="jira">Jira</option>
+                <option value="servicedesk">Service Desk</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label label-text">Description</label>
+              <textarea id="scheduled-form-desc" class="form-control dark-input" rows="2" placeholder="Brief description of work done..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" id="btn-scheduled-form-cancel">Cancel</button>
+          <button type="button" class="btn btn-gradient" id="btn-save-scheduled">
+            <i class="bi bi-check-lg me-1"></i> Save
           </button>
         </div>
       </div>
@@ -224,6 +441,14 @@
           <i class="bi bi-info-circle me-3"></i>
           <span>About Timesheet Manager</span>
         </a>
+        <a href="#" class="sidebar-menu-item" id="menu-recurring">
+          <i class="bi bi-arrow-repeat me-3"></i>
+          <span>Recurring Tasks</span>
+        </a>
+        <a href="#" class="sidebar-menu-item" id="menu-scheduled">
+          <i class="bi bi-clock me-3"></i>
+          <span>Scheduled Tasks</span>
+        </a>
         <a href="#" class="sidebar-menu-item" id="btn-theme-toggle">
           <i class="bi bi-moon-fill me-3" id="theme-icon"></i>
           <span>Toggle Theme</span>
@@ -233,7 +458,7 @@
       <div class="sidebar-footer p-3 border-top border-secondary border-opacity-25 mt-auto">
         <div class="d-flex align-items-center gap-2 text-muted-v" style="font-size: 0.8rem;">
           <i class="bi bi-cpu"></i>
-          <span>v1.1.0 — Desktop App</span>
+          <span>v<span class="app-version"></span> — Desktop App</span>
         </div>
       </div>
     </div>
@@ -248,7 +473,7 @@
             <img src="favicon.png" alt="App Logo" style="width: 80px; height: 80px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
           </div>
           <h3 class="mb-1">Timesheet Manager</h3>
-          <p class="text-accent mb-2">v1.1.0</p>
+          <p class="text-accent mb-2">v<span class="app-version"></span></p>
           <p class="text-muted-v mb-4" style="font-size: 0.9rem;">Developed by <span class="text-white fw-bold">Veera Bharath</span></p>
           <div class="text-start mb-4">
             <p class="text-muted mb-2">Developed for seamless Jira & Service Desk time tracking.</p>

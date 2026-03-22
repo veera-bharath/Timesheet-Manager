@@ -1,18 +1,48 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, screen } = require('electron');
 const path = require('path');
+const Store = require('electron-store');
+
+const store = new Store();
+const WINDOW_BOUNDS_KEY = 'windowBounds';
+
+function getValidBounds() {
+  const saved = store.get(WINDOW_BOUNDS_KEY);
+  if (!saved) return null;
+
+  // Check saved bounds are within at least one connected display
+  const displays = screen.getAllDisplays();
+  const onScreen = displays.some(d => {
+    const { x, y, width, height } = d.workArea;
+    return (
+      saved.x >= x && saved.x < x + width &&
+      saved.y >= y && saved.y < y + height
+    );
+  });
+
+  return onScreen ? saved : null;
+}
 
 function createWindow() {
-  // Create the browser window.
+  const savedBounds = getValidBounds();
+
   const mainWindow = new BrowserWindow({
-    width: 1366,
-    height: 768,
+    width: savedBounds ? savedBounds.width : 1366,
+    height: savedBounds ? savedBounds.height : 768,
+    x: savedBounds ? savedBounds.x : undefined,
+    y: savedBounds ? savedBounds.y : undefined,
     minWidth: 800,
     minHeight: 600,
     icon: path.join(__dirname, 'favicon.png'),
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     }
+  });
+
+  // Save window bounds on close
+  mainWindow.on('close', () => {
+    store.set(WINDOW_BOUNDS_KEY, mainWindow.getBounds());
   });
 
   // Handle external links safely
@@ -33,22 +63,33 @@ function createWindow() {
   // mainWindow.webContents.openDevTools();
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+// IPC handlers for electron-store
+ipcMain.on('store-get', (event, key) => {
+  event.returnValue = store.get(key, null);
+});
+
+ipcMain.on('store-set', (event, key, value) => {
+  store.set(key, value);
+  event.returnValue = true;
+});
+
+ipcMain.on('store-delete', (event, key) => {
+  store.delete(key);
+  event.returnValue = true;
+});
+
+ipcMain.on('store-has', (event, key) => {
+  event.returnValue = store.has(key);
+});
+
 app.whenReady().then(() => {
   createWindow();
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
