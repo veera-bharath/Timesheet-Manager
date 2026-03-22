@@ -339,6 +339,22 @@
     </div>
   </div>
 
+  <!-- CONFIRM DIALOG MODAL -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content modal-dark">
+        <div class="modal-body pt-4 pb-2 px-4 text-center">
+          <i class="bi bi-exclamation-triangle fs-2 mb-3 d-block" style="color:var(--warning)"></i>
+          <p id="confirm-modal-message" style="font-size:0.9rem"></p>
+        </div>
+        <div class="modal-footer justify-content-center border-0 pb-4 gap-2">
+          <button type="button" class="btn btn-outline-light px-4" id="btn-confirm-no">Cancel</button>
+          <button type="button" class="btn btn-gradient px-4" id="btn-confirm-yes">Continue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- SCHEDULED TASKS LIST MODAL -->
   <div class="modal fade" id="scheduledModal" tabindex="-1" aria-labelledby="scheduledModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
