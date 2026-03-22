@@ -6,6 +6,8 @@
 'use strict';
 
 /* ── CONSTANTS ─────────────────────────────────────────── */
+const APP_VERSION = '1.2.0';
+
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
     'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx'];
@@ -20,7 +22,8 @@ let state = {
     allDaysByDate: {}, // Map of 'YYYY-MM-DD' to day object
     days: [],          // array of 5 active day objects mapping to current week
     lastOpenedDateByWeek: {}, // map of 'YYYY-Www' to 'YYYY-MM-DD'
-    recurringTasks: [] // array of recurring task rules
+    recurringTasks: [],  // array of recurring task rules
+    dailyTargetMins: 480 // daily target in minutes (default 8h)
 };
 
 /* day object shape:
@@ -64,7 +67,8 @@ function saveState() {
             weekValue: state.weekValue,
             allDaysByDate: state.allDaysByDate,
             lastOpenedDateByWeek: state.lastOpenedDateByWeek,
-            recurringTasks: state.recurringTasks
+            recurringTasks: state.recurringTasks,
+            dailyTargetMins: state.dailyTargetMins
         };
         localStorage.setItem(LS_KEY, JSON.stringify(toSave));
     } catch (e) { console.warn('Could not save to localStorage', e); }
@@ -83,6 +87,7 @@ function loadState() {
         state.allDaysByDate = saved.allDaysByDate || {};
         state.lastOpenedDateByWeek = saved.lastOpenedDateByWeek || {};
         state.recurringTasks = saved.recurringTasks || [];
+        state.dailyTargetMins = saved.dailyTargetMins || 480;
 
         // Backwards compatibility migration
         if (saved.days && Array.isArray(saved.days)) {
@@ -98,6 +103,7 @@ function loadState() {
 
 /* ── INIT ──────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
     initTheme();
     initSidebar();
     initScheduledTasks();
@@ -107,6 +113,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Always apply these inputs if we have them in state, regardless of whether a week was previously saved or not
     document.getElementById('report-title').value = state.reportTitle || '';
     document.getElementById('emp-name').value = state.employeeName || '';
+    const tgt = state.dailyTargetMins || 480;
+    document.getElementById('target-hh').value = Math.floor(tgt / 60);
+    document.getElementById('target-mm').value = tgt % 60;
 
     if (restored && state.weekValue) {
         // Restore saved week & name into inputs
@@ -274,6 +283,18 @@ function bindHeaderEvents() {
         renderAll();
     });
 
+    const updateTarget = () => {
+        const hh = parseInt(document.getElementById('target-hh').value) || 0;
+        const mm = parseInt(document.getElementById('target-mm').value) || 0;
+        const mins = hh * 60 + mm;
+        if (mins < 1) return;
+        state.dailyTargetMins = mins;
+        renderDays();
+        saveState();
+    };
+    document.getElementById('target-hh').addEventListener('change', updateTarget);
+    document.getElementById('target-mm').addEventListener('change', updateTarget);
+
     document.getElementById('btn-preview').addEventListener('click', openPreview);
     document.getElementById('btn-print').addEventListener('click', doPrint);
     document.getElementById('btn-copy-txt').addEventListener('click', copyTxt);
@@ -301,6 +322,65 @@ function renderDays() {
 }
 
 /* ── BUILD DAY CARD ────────────────────────────────────── */
+function buildProgressRing(dayNumber, totalMins, isHoliday) {
+    const targetMins = state.dailyTargetMins || 480;
+    const r = 16;
+    const circ = +(2 * Math.PI * r).toFixed(2); // 100.53
+    const pct = isHoliday ? 0 : Math.min(totalMins / targetMins, 1);
+    const offset = +(circ * (1 - pct)).toFixed(2);
+
+    let strokeColor, trackColor, textColor;
+    if (isHoliday) {
+        strokeColor = 'var(--warning)';
+        trackColor = 'rgba(251,191,36,0.15)';
+        textColor = 'var(--warning)';
+    } else if (pct === 0) {
+        strokeColor = 'transparent';
+        trackColor = 'var(--border)';
+        textColor = 'var(--text-secondary)';
+    } else if (pct < 0.8) {
+        strokeColor = 'var(--warning)';
+        trackColor = 'var(--border)';
+        textColor = 'var(--text-secondary)';
+    } else if (pct < 1) {
+        strokeColor = 'var(--success)';
+        trackColor = 'var(--border)';
+        textColor = 'var(--text-secondary)';
+    } else {
+        strokeColor = '#4ade80';
+        trackColor = 'rgba(74,222,128,0.12)';
+        textColor = '#4ade80';
+    }
+
+    let tooltip = '';
+    if (!isHoliday) {
+        const remaining = targetMins - totalMins;
+        if (totalMins === 0) {
+            const th = Math.floor(targetMins / 60), tm = targetMins % 60;
+            tooltip = tm > 0 ? `${th}h ${tm}m remaining` : `${th}h remaining`;
+        } else if (remaining > 0) {
+            const rh = Math.floor(remaining / 60), rm = remaining % 60;
+            tooltip = rm > 0 ? `${rh}h ${rm}m remaining` : `${rh}h remaining`;
+        } else if (remaining === 0) {
+            tooltip = 'Target met!';
+        } else {
+            const oh = Math.floor(-remaining / 60), om = (-remaining) % 60;
+            tooltip = om > 0 ? `${oh}h ${om}m over target` : `${oh}h over target`;
+        }
+    }
+
+    return `<div class="day-progress-ring" title="${tooltip}">
+      <svg width="38" height="38" viewBox="0 0 38 38">
+        <circle cx="19" cy="19" r="${r}" fill="none" style="stroke:${trackColor}" stroke-width="3"/>
+        <circle cx="19" cy="19" r="${r}" fill="none" style="stroke:${strokeColor}"
+          stroke-width="3" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+          stroke-linecap="round" transform="rotate(-90 19 19)"/>
+        <text x="19" y="19" text-anchor="middle" dominant-baseline="central"
+          style="font-size:11px;font-weight:700;fill:${textColor};font-family:inherit">${dayNumber}</text>
+      </svg>
+    </div>`;
+}
+
 function buildDayCard(day, dayIdx) {
     const dayName = WEEK_DAYS[dayIdx];
     const displayDate = fmtDisplayDate(day.date);
@@ -325,7 +405,7 @@ function buildDayCard(day, dayIdx) {
     wrap.innerHTML = `
     <div class="day-card-header" data-day="${dayIdx}">
       <div class="day-badge">
-        <div class="day-number${day.isHoliday ? ' holiday' : ''}">${dayIdx + 1}</div>
+        ${buildProgressRing(dayIdx + 1, totalMins, day.isHoliday)}
         <div>
           <div class="day-name">${dayName}${isWeekend ? ' <span class="badge bg-secondary" style="font-size:0.6rem">Weekend</span>' : ''}</div>
           <div class="day-date">${displayDate}</div>
@@ -885,10 +965,13 @@ function saveEntryInternal() {
         });
     }
 
-    if (totalMinsForDay > 8 * 60) {
+    if (totalMinsForDay > state.dailyTargetMins) {
         const totalH = Math.floor(totalMinsForDay / 60);
         const totalM = totalMinsForDay % 60;
-        const confirmHigh = confirm(`This entry will bring your total logged time for the day to over 8 hours (${totalH}h ${totalM}m). Are you sure you want to log this much time?`);
+        const targetH = Math.floor(state.dailyTargetMins / 60);
+        const targetM = state.dailyTargetMins % 60;
+        const targetLabel = targetM > 0 ? `${targetH}h ${targetM}m` : `${targetH}h`;
+        const confirmHigh = confirm(`This entry will bring your total logged time for the day to over ${targetLabel} (${totalH}h ${totalM}m). Are you sure you want to log this much time?`);
         if (!confirmHigh) return false;
     }
 
