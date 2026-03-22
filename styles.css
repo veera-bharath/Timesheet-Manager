@@ -991,3 +991,27 @@ body::before {
 #recurring-list .text-muted {
   color: var(--text-secondary) !important;
 }
+
+#scheduled-list .text-muted {
+  color: var(--text-secondary) !important;
+}
+
+#scheduled-list p.text-muted {
+  color: var(--text-secondary) !important;
+}
+
+#scheduled-list .fw-semibold {
+  color: var(--text-primary);
+}
+
+/* ── SCHEDULED ENTRIES ── */
+.entry-row.entry-scheduled {
+  border: 1px dashed var(--border-accent) !important;
+  opacity: 0.88;
+}
+
+.entry-scheduled-badge {
+  font-size: 0.7rem;
+  color: var(--warning);
+  opacity: 0.85;
+}
