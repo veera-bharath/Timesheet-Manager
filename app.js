@@ -898,15 +898,72 @@ function saveEntry() {
     }
 }
 
+let lastDeleted = null;
+
 function deleteEntry() {
     const dayIdx = parseInt(document.getElementById('modal-day-index').value);
     const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
     if (entryIdx < 0) return;
+
+    // If there's a pending undo from a previous delete, commit it first
+    if (lastDeleted) {
+        clearTimeout(lastDeleted.timerId);
+        saveState();
+    }
+
+    const deletedEntry = state.days[dayIdx].entries[entryIdx];
     state.days[dayIdx].entries.splice(entryIdx, 1);
     entryModal.hide();
     rerenderDayCard(dayIdx);
     updateSummary();
+    // Defer saveState — give the user a chance to undo
+
+    const timerId = setTimeout(() => {
+        lastDeleted = null;
+        saveState();
+    }, 5000);
+
+    lastDeleted = { dayIdx, entryIdx, entry: deletedEntry, timerId };
+    showUndoToast();
+}
+
+function undoDelete() {
+    if (!lastDeleted) return;
+    clearTimeout(lastDeleted.timerId);
+    const { dayIdx, entryIdx, entry } = lastDeleted;
+    lastDeleted = null;
+    state.days[dayIdx].entries.splice(entryIdx, 0, entry);
+    rerenderDayCard(dayIdx);
+    updateSummary();
     saveState();
+    showToast('Entry restored.', 'success');
+}
+
+function showUndoToast() {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const existing = document.getElementById('undo-delete-toast');
+    if (existing) existing.remove();
+
+    container.insertAdjacentHTML('beforeend', `
+    <div id="undo-delete-toast" class="toast toast-custom show align-items-center" role="alert" style="min-width:280px">
+      <div class="d-flex align-items-center gap-2 px-3 py-2">
+        <i class="bi bi-trash-fill" style="color:#f87171"></i>
+        <span style="font-size:0.85rem">Entry deleted.</span>
+        <button type="button" class="btn btn-sm btn-outline-light ms-auto py-0 px-2" style="font-size:0.75rem" id="btn-undo-delete">Undo</button>
+      </div>
+    </div>`);
+
+    document.getElementById('btn-undo-delete').addEventListener('click', () => {
+        document.getElementById('undo-delete-toast')?.remove();
+        undoDelete();
+    });
+
+    setTimeout(() => { document.getElementById('undo-delete-toast')?.remove(); }, 5000);
 }
 
 /* ── SUMMARY TOTALS ────────────────────────────────────── */
