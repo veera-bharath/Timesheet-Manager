@@ -1226,6 +1226,60 @@ function escHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
+/* ── KEYBOARD SHORTCUTS ────────────────────────────────── */
+document.addEventListener('keydown', e => {
+    // Do nothing when typing inside an input, textarea or select
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    // Do nothing when a modal is open (except Enter to save entry)
+    const modalOpen = document.querySelector('.modal.show');
+
+    if (modalOpen) {
+        if (e.key === 'Enter' && modalOpen.id === 'entryModal') {
+            e.preventDefault();
+            saveEntry();
+        }
+        return;
+    }
+
+    const expandedIdx = state.days.findIndex(d => d.expanded);
+
+    switch (e.key) {
+        case 'n':
+        case 'N':
+            if (expandedIdx !== -1) openEntryModal(expandedIdx, -1);
+            break;
+
+        case 'ArrowLeft':
+            if (expandedIdx > 0) toggleDay(expandedIdx - 1);
+            break;
+
+        case 'ArrowRight':
+            if (expandedIdx < state.days.length - 1) toggleDay(expandedIdx + 1);
+            break;
+
+        case 'p':
+        case 'P':
+            if (!e.ctrlKey) openPreview();
+            break;
+
+        case 'q':
+        case 'Q':
+            if (expandedIdx !== -1) {
+                const day = state.days[expandedIdx];
+                if (day.entries && day.entries.length > 0) openDayQuickView(expandedIdx);
+            }
+            break;
+    }
+
+    // Ctrl+P → print
+    if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        doPrint();
+    }
+});
+
 /* ── THEME ─────────────────────────────────────────────── */
 function initTheme() {
     const savedTheme = localStorage.getItem('theme');
