@@ -302,6 +302,18 @@ function bindHeaderEvents() {
     document.getElementById('btn-save-entry').addEventListener('click', saveEntry);
     document.getElementById('btn-delete-entry').addEventListener('click', deleteEntry);
     document.getElementById('btn-make-regular').addEventListener('click', makeRegularEntry);
+
+    // HH → MM auto-advance for all time input pairs
+    [
+        ['modal-hh',          'modal-mm'],
+        ['recurring-hh',      'recurring-mm'],
+        ['scheduled-form-hh', 'scheduled-form-mm'],
+        ['target-hh',         'target-mm'],
+    ].forEach(([hhId, mmId]) => {
+        document.getElementById(hhId).addEventListener('input', function () {
+            if (this.value.length >= 2) document.getElementById(mmId).focus();
+        });
+    });
 }
 
 /* ── RENDER ALL ────────────────────────────────────────── */
