@@ -243,6 +243,89 @@
     </div>
   </div>
 
+  <!-- RECURRING TASKS LIST MODAL -->
+  <div class="modal fade" id="recurringModal" tabindex="-1" aria-labelledby="recurringModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="recurringModalLabel"><i class="bi bi-arrow-repeat me-2"></i>Recurring Tasks</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="recurring-list"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-gradient" id="btn-add-recurring">
+            <i class="bi bi-plus-circle me-1"></i> Add Recurring Task
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECURRING TASK FORM MODAL -->
+  <div class="modal fade" id="recurringFormModal" tabindex="-1" aria-labelledby="recurringFormTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="recurringFormTitle"><i class="bi bi-arrow-repeat me-2"></i>Add Recurring Task</h5>
+          <button type="button" class="btn-close btn-close-white" id="btn-recurring-form-close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="recurring-form-id" />
+          <div class="row g-3">
+            <div class="col-12 col-lg-5">
+              <label class="form-label label-text">Ticket / Reference ID</label>
+              <input type="text" id="recurring-ticket" class="form-control dark-input" placeholder="e.g. JIRA-123 or #123" />
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <label class="form-label label-text">Hours (HH)</label>
+              <input type="number" id="recurring-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="00" />
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <label class="form-label label-text">Minutes (MM)</label>
+              <input type="number" id="recurring-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" />
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+              <label class="form-label label-text">Type</label>
+              <select id="recurring-type" class="form-select dark-input">
+                <option value="jira">Jira</option>
+                <option value="servicedesk">Service Desk</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label label-text">Description</label>
+              <textarea id="recurring-desc" class="form-control dark-input" rows="2" placeholder="Brief description of work done..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label label-text d-block mb-2">Repeat on</label>
+              <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="form-check mb-0">
+                  <input class="form-check-input" type="checkbox" id="recurring-all-days" />
+                  <label class="form-check-label label-text" for="recurring-all-days">All weekdays</label>
+                </div>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn recurring-day-btn" data-day="Mon">Mon</button>
+                  <button type="button" class="btn recurring-day-btn" data-day="Tue">Tue</button>
+                  <button type="button" class="btn recurring-day-btn" data-day="Wed">Wed</button>
+                  <button type="button" class="btn recurring-day-btn" data-day="Thu">Thu</button>
+                  <button type="button" class="btn recurring-day-btn" data-day="Fri">Fri</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" id="btn-recurring-form-cancel">Cancel</button>
+          <button type="button" class="btn btn-gradient" id="btn-save-recurring">
+            <i class="bi bi-check-lg me-1"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PRINT AREA (hidden, used for window.print) -->
   <div id="print-area" style="display:none"></div>
   
@@ -257,6 +340,10 @@
         <a href="#" class="sidebar-menu-item" id="menu-about">
           <i class="bi bi-info-circle me-3"></i>
           <span>About Timesheet Manager</span>
+        </a>
+        <a href="#" class="sidebar-menu-item" id="menu-recurring">
+          <i class="bi bi-arrow-repeat me-3"></i>
+          <span>Recurring Tasks</span>
         </a>
         <a href="#" class="sidebar-menu-item" id="btn-theme-toggle">
           <i class="bi bi-moon-fill me-3" id="theme-icon"></i>
