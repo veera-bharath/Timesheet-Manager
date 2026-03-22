@@ -394,6 +394,15 @@ function buildDayCard(day, dayIdx) {
         });
     });
 
+    // Quick-add inline buttons (keep ticket / keep desc)
+    wrap.querySelectorAll('.quick-add-inline').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const row = btn.closest('.entry-row');
+            openEntryModalPreFilled(parseInt(row.dataset.day), parseInt(row.dataset.entry), btn.dataset.keep);
+        });
+    });
+
     // Attach drag-and-drop
     attachDragListeners(dayIdx, wrap);
 
@@ -470,18 +479,18 @@ function buildEntriesHTML(entries, dayIdx) {
             let actDescHtml = '';
 
             if (group.type === 'normal') {
-                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" onclick="event.stopPropagation(); openEntryModalPreFilled(${dayIdx}, ${actualOriginalIndex}, 'ticket')">
+                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" data-keep="ticket">
                     <i class="bi bi-plus"></i> <i class="bi bi-ticket-detailed"></i>
                 </button>`;
-                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" onclick="event.stopPropagation(); openEntryModalPreFilled(${dayIdx}, ${actualOriginalIndex}, 'desc')">
+                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" data-keep="desc">
                     <i class="bi bi-plus"></i> <i class="bi bi-card-text"></i>
                 </button>`;
             } else if (group.type === 'ticket_group') {
-                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" onclick="event.stopPropagation(); openEntryModalPreFilled(${dayIdx}, ${actualOriginalIndex}, 'ticket')">
+                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" data-keep="ticket">
                     <i class="bi bi-plus"></i> <i class="bi bi-ticket-detailed"></i>
                 </button>`;
             } else if (group.type === 'desc_group') {
-                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" onclick="event.stopPropagation(); openEntryModalPreFilled(${dayIdx}, ${actualOriginalIndex}, 'desc')">
+                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" data-keep="desc">
                     <i class="bi bi-plus"></i> <i class="bi bi-card-text"></i>
                 </button>`;
             }
