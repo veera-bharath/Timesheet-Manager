@@ -1820,6 +1820,14 @@ function saveScheduledTask() {
         return;
     }
 
+    // Duplicate check: same ticket already scheduled for this date
+    const existingDay = state.allDaysByDate[scheduledDate];
+    if (existingDay && existingDay.entries.some(e => e.isScheduled && e.ticket.toLowerCase() === tkt.toLowerCase())) {
+        ticketInput.classList.add('is-invalid');
+        showToast(`"${tkt}" is already scheduled for this date.`, 'danger');
+        return;
+    }
+
     if (!state.allDaysByDate[scheduledDate]) {
         state.allDaysByDate[scheduledDate] = {
             date: scheduledDate, isHoliday: false,
