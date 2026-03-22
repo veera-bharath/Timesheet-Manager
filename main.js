@@ -1,15 +1,19 @@
 const { app, BrowserWindow, Menu, shell, ipcMain, screen } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
+const { autoUpdater } = require('electron-updater');
 
 const store = new Store();
 const WINDOW_BOUNDS_KEY = 'windowBounds';
+
+// Disable auto-download — we control when to download
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
 
 function getValidBounds() {
   const saved = store.get(WINDOW_BOUNDS_KEY);
   if (!saved) return null;
 
-  // Check saved bounds are within at least one connected display
   const displays = screen.getAllDisplays();
   const onScreen = displays.some(d => {
     const { x, y, width, height } = d.workArea;
@@ -22,10 +26,12 @@ function getValidBounds() {
   return onScreen ? saved : null;
 }
 
+let mainWindow;
+
 function createWindow() {
   const savedBounds = getValidBounds();
 
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: savedBounds ? savedBounds.width : 1366,
     height: savedBounds ? savedBounds.height : 768,
     x: savedBounds ? savedBounds.x : undefined,
@@ -40,12 +46,10 @@ function createWindow() {
     }
   });
 
-  // Save window bounds on close
   mainWindow.on('close', () => {
     store.set(WINDOW_BOUNDS_KEY, mainWindow.getBounds());
   });
 
-  // Handle external links safely
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https:') || url.startsWith('http:')) {
       shell.openExternal(url);
@@ -53,37 +57,68 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // Remove the default menu bar to keep the clean UI design
   Menu.setApplicationMenu(null);
-
-  // Load the index.html of the app.
   mainWindow.loadFile('index.html');
-
-  // Open the DevTools if needed (commented out for production)
-  // mainWindow.webContents.openDevTools();
 }
 
-// IPC handlers for electron-store
+// ── IPC: electron-store ──────────────────────────────────
 ipcMain.on('store-get', (event, key) => {
   event.returnValue = store.get(key, null);
 });
-
 ipcMain.on('store-set', (event, key, value) => {
   store.set(key, value);
   event.returnValue = true;
 });
-
 ipcMain.on('store-delete', (event, key) => {
   store.delete(key);
   event.returnValue = true;
 });
-
 ipcMain.on('store-has', (event, key) => {
   event.returnValue = store.has(key);
 });
 
+// ── IPC: auto-updater ────────────────────────────────────
+ipcMain.on('check-for-updates', () => {
+  autoUpdater.checkForUpdates();
+});
+
+ipcMain.on('download-update', () => {
+  autoUpdater.downloadUpdate();
+});
+
+ipcMain.on('install-update', () => {
+  autoUpdater.quitAndInstall();
+});
+
+// Forward updater events to renderer
+autoUpdater.on('update-available', (info) => {
+  mainWindow.webContents.send('update-available', info);
+});
+
+autoUpdater.on('update-not-available', () => {
+  mainWindow.webContents.send('update-not-available');
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  mainWindow.webContents.send('download-progress', progress);
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  mainWindow.webContents.send('update-downloaded', info);
+});
+
+autoUpdater.on('error', (err) => {
+  mainWindow.webContents.send('update-error', err.message);
+});
+
+// ── App lifecycle ────────────────────────────────────────
 app.whenReady().then(() => {
   createWindow();
+
+  // Check for updates silently after window is ready
+  mainWindow.webContents.once('did-finish-load', () => {
+    autoUpdater.checkForUpdates();
+  });
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
