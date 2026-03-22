@@ -215,10 +215,13 @@ function enforceExpandedState() {
         }
     });
     
-    // Default to Monday if no valid date found
+    // Default to today if current week, otherwise Monday
     if (!found) {
-        state.days[0].expanded = true;
-        state.lastOpenedDateByWeek[state.weekValue] = state.days[0].date;
+        const todayStr = fmtDate(new Date());
+        const todayDay = state.days.find(d => d.date === todayStr);
+        const defaultDay = todayDay || state.days[0];
+        defaultDay.expanded = true;
+        state.lastOpenedDateByWeek[state.weekValue] = defaultDay.date;
         saveState();
     }
 }
