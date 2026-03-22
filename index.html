@@ -75,6 +75,16 @@
               <i class="bi bi-calendar-week me-1"></i> Use Current Week
             </button>
 
+            <div class="mb-3 mt-3">
+              <label class="form-label label-text">Daily Target</label>
+              <div class="d-flex align-items-center gap-2">
+                <input type="number" id="target-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="08" style="max-width:64px" />
+                <span class="label-text">hrs</span>
+                <input type="number" id="target-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" style="max-width:64px" />
+                <span class="label-text">min</span>
+              </div>
+            </div>
+
             <hr class="border-secondary my-4 opacity-25">
 
             <!-- Totals Area inside the sidebar -->
@@ -432,7 +442,7 @@
       <div class="sidebar-footer p-3 border-top border-secondary border-opacity-25 mt-auto">
         <div class="d-flex align-items-center gap-2 text-muted-v" style="font-size: 0.8rem;">
           <i class="bi bi-cpu"></i>
-          <span>v1.1.0 — Desktop App</span>
+          <span>v<span class="app-version"></span> — Desktop App</span>
         </div>
       </div>
     </div>
@@ -447,7 +457,7 @@
             <img src="favicon.png" alt="App Logo" style="width: 80px; height: 80px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
           </div>
           <h3 class="mb-1">Timesheet Manager</h3>
-          <p class="text-accent mb-2">v1.1.0</p>
+          <p class="text-accent mb-2">v<span class="app-version"></span></p>
           <p class="text-muted-v mb-4" style="font-size: 0.9rem;">Developed by <span class="text-white fw-bold">Veera Bharath</span></p>
           <div class="text-start mb-4">
             <p class="text-muted mb-2">Developed for seamless Jira & Service Desk time tracking.</p>

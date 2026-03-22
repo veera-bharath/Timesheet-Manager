@@ -89,11 +89,7 @@
   background: var(--bg-base);
   color: var(--text-primary);
 }
-[data-theme="light"] .day-number {
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--text-primary);
-  border-color: rgba(0, 0, 0, 0.1);
-}
+
 [data-theme="light"] .day-card-header {
   background: rgba(0, 0, 0, 0.02);
 }
@@ -346,25 +342,13 @@ body::before {
   gap: 12px;
 }
 
-.day-number {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(180, 180, 180, 0.12), rgba(180, 180, 180, 0.04));
-  border: 1px solid rgba(160, 160, 160, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #c8c8c8;
+.day-progress-ring {
   flex-shrink: 0;
+  cursor: default;
 }
 
-.day-number.holiday {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.05));
-  border-color: rgba(251, 191, 36, 0.3);
-  color: var(--warning);
+.day-progress-ring svg {
+  display: block;
 }
 
 .day-name {
