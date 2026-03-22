@@ -18,7 +18,8 @@ let state = {
     employeeName: '',
     weekValue: '',   // e.g. "2026-W11"
     allDaysByDate: {}, // Map of 'YYYY-MM-DD' to day object
-    days: []           // array of 5 active day objects mapping to current week
+    days: [],          // array of 5 active day objects mapping to current week
+    lastOpenedDateByWeek: {} // map of 'YYYY-Www' to 'YYYY-MM-DD'
 };
 
 /* day object shape:
@@ -60,7 +61,8 @@ function saveState() {
             reportTitle: state.reportTitle,
             employeeName: state.employeeName,
             weekValue: state.weekValue,
-            allDaysByDate: state.allDaysByDate
+            allDaysByDate: state.allDaysByDate,
+            lastOpenedDateByWeek: state.lastOpenedDateByWeek
         };
         localStorage.setItem(LS_KEY, JSON.stringify(toSave));
     } catch (e) { console.warn('Could not save to localStorage', e); }
@@ -77,6 +79,7 @@ function loadState() {
         state.employeeName = saved.employeeName || '';
         state.weekValue = saved.weekValue || '';
         state.allDaysByDate = saved.allDaysByDate || {};
+        state.lastOpenedDateByWeek = saved.lastOpenedDateByWeek || {};
 
         // Backwards compatibility migration
         if (saved.days && Array.isArray(saved.days)) {
@@ -93,6 +96,7 @@ function loadState() {
 /* ── INIT ──────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    initSidebar();
     bindHeaderEvents();
     const restored = loadState();
 
@@ -103,6 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (restored && state.weekValue) {
         // Restore saved week & name into inputs
         document.getElementById('week-picker').value = state.weekValue;
+        state.days = buildWeekDays(getDateFromWeek(state.weekValue));
+        enforceExpandedState();
         updateWeekDisplay();
     } else {
         setCurrentWeek();   // auto-fill current week on first load
@@ -173,7 +179,7 @@ function buildWeekDays(monDt) {
                 date: dStr,
                 isHoliday: false,
                 holidayLabel: 'Offshore Holiday',
-                expanded: true,
+                expanded: false,
                 entries: []
             };
             state.allDaysByDate[dStr] = newDay;
@@ -194,6 +200,32 @@ function updateWeekDisplay() {
     document.getElementById('week-display-label').textContent = display;
 }
 
+function enforceExpandedState() {
+    if (!state.weekValue || !state.days || state.days.length === 0) return;
+    
+    const lastOpenedDate = state.lastOpenedDateByWeek[state.weekValue];
+    let found = false;
+    
+    state.days.forEach((day, i) => {
+        if (lastOpenedDate && day.date === lastOpenedDate) {
+            day.expanded = true;
+            found = true;
+        } else {
+            day.expanded = false;
+        }
+    });
+    
+    // Default to today if current week, otherwise Monday
+    if (!found) {
+        const todayStr = fmtDate(new Date());
+        const todayDay = state.days.find(d => d.date === todayStr);
+        const defaultDay = todayDay || state.days[0];
+        defaultDay.expanded = true;
+        state.lastOpenedDateByWeek[state.weekValue] = defaultDay.date;
+        saveState();
+    }
+}
+
 function setCurrentWeek() {
     const today = new Date();
     const weekVal = getWeekStrFromDate(today);
@@ -201,6 +233,7 @@ function setCurrentWeek() {
     document.getElementById('week-picker').value = weekVal;
     state.weekValue = weekVal;
     state.days = buildWeekDays(getDateFromWeek(weekVal));
+    enforceExpandedState();
     updateWeekDisplay();
 }
 
@@ -223,6 +256,7 @@ function bindHeaderEvents() {
 
         state.weekValue = val;
         state.days = buildWeekDays(getDateFromWeek(val));
+        enforceExpandedState();
         updateWeekDisplay();
         saveState();
         renderAll();
@@ -354,29 +388,38 @@ function buildDayCard(day, dayIdx) {
 
     // Entry row click (edit)
     wrap.querySelectorAll('.entry-row').forEach(row => {
-        row.addEventListener('click', () => {
+        row.addEventListener('click', e => {
+            if (e.target.closest('.drag-handle')) return;
             openEntryModal(parseInt(row.dataset.day), parseInt(row.dataset.entry));
         });
     });
 
+    // Quick-add inline buttons (keep ticket / keep desc)
+    wrap.querySelectorAll('.quick-add-inline').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const row = btn.closest('.entry-row');
+            openEntryModalPreFilled(parseInt(row.dataset.day), parseInt(row.dataset.entry), btn.dataset.keep);
+        });
+    });
+
+    // Attach drag-and-drop
+    attachDragListeners(dayIdx, wrap);
+
     return wrap;
 }
 
-function buildEntriesHTML(entries, dayIdx) {
-    if (!entries || entries.length === 0) {
-        return `<div class="no-entries-msg">No entries yet. Click "Add Entry" to begin.</div>`;
-    }
-    
+/* ── BUILD GROUPS HELPER ───────────────────────────────── */
+function buildGroups(entries) {
     let groups = [];
     let usedIndices = new Set();
 
-    entries.forEach((e, i) => {
+    (entries || []).forEach((e, i) => {
         if (usedIndices.has(i)) return;
 
         let currGroup = { type: 'normal', items: [e], indices: [i] };
         usedIndices.add(i);
 
-        // ONLY group if an explicit groupId was generated via quick-add buttons
         if (e.groupId) {
             currGroup.type = e.groupType || 'normal';
             for (let j = i + 1; j < entries.length; j++) {
@@ -388,9 +431,18 @@ function buildEntriesHTML(entries, dayIdx) {
                 }
             }
         }
-        
+
         groups.push(currGroup);
     });
+    return groups;
+}
+
+function buildEntriesHTML(entries, dayIdx) {
+    if (!entries || entries.length === 0) {
+        return `<div class="no-entries-msg">No entries yet. Click "Add Entry" to begin.</div>`;
+    }
+    
+    const groups = buildGroups(entries);
 
     let htmlFragments = [];
     
@@ -407,7 +459,7 @@ function buildEntriesHTML(entries, dayIdx) {
             let tktStr = (e.ticket || '');
             let ticketHtml = `<span class="entry-ticket ${e.type === 'servicedesk' ? 'servicedesk' : ''}">${escHtml(tktStr || '—')}</span>`;
             if (group.type === 'ticket_group' && !isFirst) {
-                ticketHtml = `<span class="entry-ticket text-muted" style="opacity:0.3">${escHtml(tktStr || '—')}</span>`;
+                ticketHtml = `<span class="entry-ticket text-muted entry-grouped-hint">${escHtml(tktStr || '—')}</span>`;
             }
 
             const hhmm = `${String(e.hh || 0).padStart(2, '0')}:${String(e.mm || 0).padStart(2, '0')}`;
@@ -420,31 +472,32 @@ function buildEntriesHTML(entries, dayIdx) {
             
             let descHtml = `<span class="entry-desc">${escHtml(e.desc || '')}</span>`;
             if (!showDesc) {
-                descHtml = `<span class="entry-desc text-muted" style="opacity:0.3">↳ Grouped below</span>`;
+                descHtml = `<span class="entry-desc text-muted entry-grouped-hint">↳ Grouped below</span>`;
             }
 
             let actTicketHtml = '';
             let actDescHtml = '';
 
             if (group.type === 'normal') {
-                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" onclick="event.stopPropagation(); openEntryModalPreFilled(${dayIdx}, ${actualOriginalIndex}, 'ticket')">
+                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" data-keep="ticket">
                     <i class="bi bi-plus"></i> <i class="bi bi-ticket-detailed"></i>
                 </button>`;
-                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" onclick="event.stopPropagation(); openEntryModalPreFilled(${dayIdx}, ${actualOriginalIndex}, 'desc')">
+                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" data-keep="desc">
                     <i class="bi bi-plus"></i> <i class="bi bi-card-text"></i>
                 </button>`;
             } else if (group.type === 'ticket_group') {
-                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" onclick="event.stopPropagation(); openEntryModalPreFilled(${dayIdx}, ${actualOriginalIndex}, 'ticket')">
+                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" data-keep="ticket">
                     <i class="bi bi-plus"></i> <i class="bi bi-ticket-detailed"></i>
                 </button>`;
             } else if (group.type === 'desc_group') {
-                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" onclick="event.stopPropagation(); openEntryModalPreFilled(${dayIdx}, ${actualOriginalIndex}, 'desc')">
+                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" data-keep="desc">
                     <i class="bi bi-plus"></i> <i class="bi bi-card-text"></i>
                 </button>`;
             }
 
             htmlFragments.push(`
-    <div class="entry-row" data-day="${dayIdx}" data-entry="${actualOriginalIndex}">
+    <div class="entry-row" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}">
+      <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
       <span class="entry-hours">${hhmm}</span>
@@ -468,10 +521,203 @@ function rerenderDayCard(dayIdx) {
     existing.replaceWith(newCard);
 }
 
+/* ── DRAG AND DROP (pointer-event based, no HTML5 drag API) ── */
+function attachDragListeners(dayIdx, container) {
+    const entriesList = (container || document).querySelector(`#entries-${dayIdx}`);
+    if (!entriesList) return;
+
+    const rows = entriesList.querySelectorAll('.entry-row');
+
+    let draggingRow     = null;
+    let ghost           = null;
+    let dropIndicator   = null;
+    let dragSrcGroupIdx = null;
+    let dragSrcItemIdx  = null;
+    let offsetX = 0, offsetY = 0;
+
+    // Removes the draggability of the old code from the elements so it doesn't conflict
+    rows.forEach(r => r.removeAttribute('draggable'));
+
+    function getRowAt(clientX, clientY) {
+        let found = null;
+        let minDist = Infinity;
+        entriesList.querySelectorAll('.entry-row').forEach(r => {
+            if (r === draggingRow) return;
+            const rect = r.getBoundingClientRect();
+            // Check if directly over
+            if (clientY >= rect.top && clientY <= rect.bottom) {
+                found = r;
+                return;
+            }
+            // Increase gravity buffer to 20px to handle gaps and margins better
+            const dist = Math.min(Math.abs(clientY - rect.top), Math.abs(clientY - rect.bottom));
+            if (dist < 20 && dist < minDist) {
+                minDist = dist;
+                found = r;
+            }
+        });
+        return found;
+    }
+
+    function cleanup() {
+        if (ghost) { ghost.remove(); ghost = null; }
+        if (draggingRow) { draggingRow.classList.remove('dragging'); }
+        entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over', 'drag-over-invalid'));
+        draggingRow = null;
+        dragSrcGroupIdx = null;
+        dragSrcItemIdx  = null;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup',   onMouseUp);
+    }
+
+    function onMouseMove(e) {
+        if (!ghost) return;
+        ghost.style.left = (e.clientX - offsetX) + 'px';
+        ghost.style.top  = (e.clientY - offsetY) + 'px';
+
+        // Clear all previous highlights
+        entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over', 'drag-over-invalid'));
+
+        const target = getRowAt(e.clientX, e.clientY);
+        if (!target) return;
+
+        const toGroupIdx = parseInt(target.dataset.groupIdx);
+        const toItemIdx  = parseInt(target.dataset.itemIdx);
+
+        // Check if move is basic valid
+        let isValid = true;
+        if (dragSrcItemIdx > 0 && toGroupIdx !== dragSrcGroupIdx) isValid = false;
+        // Group leader moves are now valid anywhere in another group
+
+        if (isValid) {
+            // Highlight target row OR entire group if dragging a leader/normal entry
+            if (dragSrcItemIdx === 0) {
+                // Dragging a leader -> highlight the whole target group
+                entriesList.querySelectorAll(`.entry-row[data-group-idx="${toGroupIdx}"]`).forEach(r => r.classList.add('drag-over'));
+            } else {
+                // Dragging a sub-entry -> highlight only the target row (since it stays in group)
+                target.classList.add('drag-over');
+            }
+        } else {
+            target.classList.add('drag-over-invalid');
+        }
+    }
+
+    function onMouseUp(e) {
+        if (!draggingRow) { cleanup(); return; }
+
+        const target = getRowAt(e.clientX, e.clientY);
+        const srcGrpIdx = dragSrcGroupIdx;
+        const srcItmIdx = dragSrcItemIdx;
+        
+        let toGrpIdx = null;
+        let toItmIdx = null;
+        if (target) {
+            toGrpIdx = parseInt(target.getAttribute('data-group-idx'));
+            toItmIdx = parseInt(target.getAttribute('data-item-idx'));
+        }
+
+        cleanup();
+
+        // If no valid target or same position, just stop
+        if (target === null || srcGrpIdx === null) return;
+        if (srcGrpIdx === toGrpIdx && srcItmIdx === toItmIdx) return;
+
+        // Constraint check - sub-entries must stay in their group
+        if (srcItmIdx > 0 && toGrpIdx !== srcGrpIdx) return;
+        // Group leaders (srcItmIdx === 0) can move anywhere, 
+        // but can only land on other group leaders (toItmIdx === 0).
+        // Actually, let's make it even more forgiving: 
+        // if a group leader is dropped on ANY entry of another group, just move the whole group there.
+        const groups = buildGroups(state.days[dayIdx].entries);
+
+        if (srcGrpIdx === toGrpIdx) {
+            // Internal group move: any item can move to any position within the same group
+            const grp = groups[srcGrpIdx];
+            const [movedItem] = grp.items.splice(srcItmIdx, 1);
+            const [movedIdx]  = grp.indices.splice(srcItmIdx, 1);
+            
+            grp.items.splice(toItmIdx, 0, movedItem);
+            grp.indices.splice(toItmIdx, 0, movedIdx);
+        } else {
+            // Between group move: only leaders can move the whole group unit
+            if (srcItmIdx > 0) return; // sub-entries stay in their group
+            
+            const [movedGroup] = groups.splice(srcGrpIdx, 1);
+            groups.splice(toGrpIdx, 0, movedGroup);
+        }
+
+        const newEntries = [];
+        groups.forEach(grp => grp.items.forEach(item => newEntries.push(item)));
+        state.days[dayIdx].entries = newEntries;
+
+        saveState();
+        if (typeof rerenderDayCard === 'function') {
+            rerenderDayCard(dayIdx);
+        }
+    }
+
+    rows.forEach(row => {
+        const handle = row.querySelector('.drag-handle');
+        handle.addEventListener('mousedown', e => {
+            if (e.button !== 0) return; // Only left click
+            e.preventDefault(); // Prevent text selection/native drag
+
+            draggingRow     = row;
+            dragSrcGroupIdx = parseInt(row.dataset.groupIdx);
+            dragSrcItemIdx  = parseInt(row.dataset.itemIdx);
+
+            const rect = row.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+
+            ghost = row.cloneNode(true);
+            // remove dragging class from ghost just in case
+            ghost.classList.remove('dragging');
+            
+            ghost.style.cssText = [
+                'position:fixed',
+                'pointer-events:none',
+                'z-index:99999',
+                'width:' + rect.width + 'px',
+                'left:' + (e.clientX - offsetX) + 'px',
+                'top:' + (e.clientY - offsetY) + 'px',
+                'opacity:0.95',
+                'background:var(--bg-card)',
+                'border:1.5px solid var(--border-accent)',
+                'border-radius:8px',
+                'box-shadow:0 10px 32px rgba(0,0,0,0.6)',
+                'transition:none',
+                'cursor:grabbing'
+            ].join(';');
+            document.body.appendChild(ghost);
+
+            row.classList.add('dragging');
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup',   onMouseUp);
+        });
+    });
+}
+
 /* ── TOGGLE DAY ────────────────────────────────────────── */
 function toggleDay(dayIdx) {
-    state.days[dayIdx].expanded = !state.days[dayIdx].expanded;
-    rerenderDayCard(dayIdx);
+    if (!state.days[dayIdx].expanded) {
+        // Open the day, auto-collapse others
+        state.days.forEach((d, i) => {
+            if (i !== dayIdx && d.expanded) {
+                d.expanded = false;
+                rerenderDayCard(i);
+            }
+        });
+        state.days[dayIdx].expanded = true;
+        state.lastOpenedDateByWeek[state.weekValue] = state.days[dayIdx].date;
+        saveState();
+        rerenderDayCard(dayIdx);
+    } else {
+        // Close the day
+        state.days[dayIdx].expanded = false;
+        rerenderDayCard(dayIdx);
+    }
 }
 
 /* ── ENTRY MODAL ───────────────────────────────────────── */
@@ -652,15 +898,72 @@ function saveEntry() {
     }
 }
 
+let lastDeleted = null;
+
 function deleteEntry() {
     const dayIdx = parseInt(document.getElementById('modal-day-index').value);
     const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
     if (entryIdx < 0) return;
+
+    // If there's a pending undo from a previous delete, commit it first
+    if (lastDeleted) {
+        clearTimeout(lastDeleted.timerId);
+        saveState();
+    }
+
+    const deletedEntry = state.days[dayIdx].entries[entryIdx];
     state.days[dayIdx].entries.splice(entryIdx, 1);
     entryModal.hide();
     rerenderDayCard(dayIdx);
     updateSummary();
+    // Defer saveState — give the user a chance to undo
+
+    const timerId = setTimeout(() => {
+        lastDeleted = null;
+        saveState();
+    }, 5000);
+
+    lastDeleted = { dayIdx, entryIdx, entry: deletedEntry, timerId };
+    showUndoToast();
+}
+
+function undoDelete() {
+    if (!lastDeleted) return;
+    clearTimeout(lastDeleted.timerId);
+    const { dayIdx, entryIdx, entry } = lastDeleted;
+    lastDeleted = null;
+    state.days[dayIdx].entries.splice(entryIdx, 0, entry);
+    rerenderDayCard(dayIdx);
+    updateSummary();
     saveState();
+    showToast('Entry restored.', 'success');
+}
+
+function showUndoToast() {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const existing = document.getElementById('undo-delete-toast');
+    if (existing) existing.remove();
+
+    container.insertAdjacentHTML('beforeend', `
+    <div id="undo-delete-toast" class="toast toast-custom show align-items-center" role="alert" style="min-width:280px">
+      <div class="d-flex align-items-center gap-2 px-3 py-2">
+        <i class="bi bi-trash-fill" style="color:#f87171"></i>
+        <span style="font-size:0.85rem">Entry deleted.</span>
+        <button type="button" class="btn btn-sm btn-outline-light ms-auto py-0 px-2" style="font-size:0.75rem" id="btn-undo-delete">Undo</button>
+      </div>
+    </div>`);
+
+    document.getElementById('btn-undo-delete').addEventListener('click', () => {
+        document.getElementById('undo-delete-toast')?.remove();
+        undoDelete();
+    });
+
+    setTimeout(() => { document.getElementById('undo-delete-toast')?.remove(); }, 5000);
 }
 
 /* ── SUMMARY TOTALS ────────────────────────────────────── */
@@ -719,30 +1022,7 @@ function generateTxt() {
             if (!day.entries || day.entries.length === 0) {
                 lines.push('');
             } else {
-                let groups = [];
-                let usedIndices = new Set();
-
-                day.entries.forEach((e, i) => {
-                    if (usedIndices.has(i)) return;
-
-                    let currGroup = { type: 'normal', items: [e], indices: [i] };
-                    usedIndices.add(i);
-
-                    // ONLY group if an explicit groupId was generated via quick-add buttons
-                    if (e.groupId) {
-                        currGroup.type = e.groupType || 'normal';
-                        for (let j = i + 1; j < day.entries.length; j++) {
-                            if (usedIndices.has(j)) continue;
-                            if (day.entries[j].groupId === e.groupId) {
-                                currGroup.items.push(day.entries[j]);
-                                currGroup.indices.push(j);
-                                usedIndices.add(j);
-                            }
-                        }
-                    }
-
-                    groups.push(currGroup);
-                });
+                const groups = buildGroups(day.entries);
 
                 groups.forEach((group, gi) => {
                     const roman = ROMAN[gi] + ')';
@@ -960,12 +1240,16 @@ function initTheme() {
 
     applyTheme(themeToApply);
 
-    document.getElementById('btn-theme-toggle').addEventListener('click', () => {
-        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        applyTheme(newTheme);
-        localStorage.setItem('theme', newTheme);
-    });
+    const toggleBtn = document.getElementById('btn-theme-toggle');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent # jump/reload for <a> tag
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+    }
     
     // Listen for system theme changes if no saved preference
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
@@ -978,11 +1262,53 @@ function initTheme() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const icon = document.getElementById('theme-icon');
+    const toggleBtn = document.getElementById('btn-theme-toggle');
+    
     if (theme === 'light') {
-        icon.classList.remove('bi-moon-fill');
-        icon.classList.add('bi-sun-fill');
+        if (icon) {
+            icon.classList.remove('bi-moon-fill', 'bi-moon');
+            icon.classList.add('bi-sun-fill');
+        }
+        if (toggleBtn) {
+            const span = toggleBtn.querySelector('span');
+            if (span) span.textContent = 'Switch to Dark Mode';
+        }
     } else {
-        icon.classList.remove('bi-sun-fill');
-        icon.classList.add('bi-moon-fill');
+        if (icon) {
+            icon.classList.remove('bi-sun-fill', 'bi-sun');
+            icon.classList.add('bi-moon-fill');
+        }
+        if (toggleBtn) {
+            const span = toggleBtn.querySelector('span');
+            if (span) span.textContent = 'Switch to Light Mode';
+        }
+    }
+}
+
+/* ── SIDEBAR & ABOUT ───────────────────────────────────── */
+function initSidebar() {
+    const aboutBtn = document.getElementById('menu-about');
+    const sidebarEl = document.getElementById('appSidebar');
+    const aboutModalEl = document.getElementById('aboutModal');
+
+    if (aboutBtn && sidebarEl && aboutModalEl) {
+        const aboutModal = new bootstrap.Modal(aboutModalEl);
+        
+        aboutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Close sidebar
+            const offcanvasInstance = bootstrap.Offcanvas.getInstance(sidebarEl);
+            if (offcanvasInstance) {
+                offcanvasInstance.hide();
+            } else {
+                // fallback if instance not found (though it should be)
+                const oc = new bootstrap.Offcanvas(sidebarEl);
+                oc.hide();
+            }
+            
+            // Show About Modal
+            aboutModal.show();
+        });
     }
 }
