@@ -197,8 +197,11 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-danger me-auto" id="btn-delete-entry" style="display:none">
+          <button type="button" class="btn btn-outline-danger" id="btn-delete-entry" style="display:none">
             <i class="bi bi-trash me-1"></i> Delete
+          </button>
+          <button type="button" class="btn btn-outline-warning" id="btn-make-regular" style="display:none">
+            <i class="bi bi-calendar-check me-1"></i> Make Regular
           </button>
           <button type="button" class="btn btn-outline-accent" id="btn-copy-to-entry" style="display:none">
             <i class="bi bi-copy me-1"></i> Copy to
@@ -326,6 +329,77 @@
     </div>
   </div>
 
+  <!-- SCHEDULED TASKS LIST MODAL -->
+  <div class="modal fade" id="scheduledModal" tabindex="-1" aria-labelledby="scheduledModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="scheduledModalLabel"><i class="bi bi-clock me-2"></i>Scheduled Tasks</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="scheduled-list"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-gradient" id="btn-add-scheduled">
+            <i class="bi bi-plus-circle me-1"></i> Add Scheduled Task
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULED TASK FORM MODAL -->
+  <div class="modal fade" id="scheduledFormModal" tabindex="-1" aria-labelledby="scheduledFormTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="scheduledFormTitle"><i class="bi bi-clock me-2"></i>Add Scheduled Task</h5>
+          <button type="button" class="btn-close btn-close-white" id="btn-scheduled-form-close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label label-text">Scheduled Date</label>
+              <input type="date" id="scheduled-form-date" class="form-control dark-input" />
+              <div class="form-text text-muted">Any future weekday (Mon–Fri)</div>
+            </div>
+            <div class="col-12 col-lg-5">
+              <label class="form-label label-text">Ticket / Reference ID</label>
+              <input type="text" id="scheduled-form-ticket" class="form-control dark-input" placeholder="e.g. JIRA-123 or #123" />
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <label class="form-label label-text">Hours (HH)</label>
+              <input type="number" id="scheduled-form-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="00" />
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+              <label class="form-label label-text">Minutes (MM)</label>
+              <input type="number" id="scheduled-form-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" />
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+              <label class="form-label label-text">Type</label>
+              <select id="scheduled-form-type" class="form-select dark-input">
+                <option value="jira">Jira</option>
+                <option value="servicedesk">Service Desk</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label label-text">Description</label>
+              <textarea id="scheduled-form-desc" class="form-control dark-input" rows="2" placeholder="Brief description of work done..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" id="btn-scheduled-form-cancel">Cancel</button>
+          <button type="button" class="btn btn-gradient" id="btn-save-scheduled">
+            <i class="bi bi-check-lg me-1"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PRINT AREA (hidden, used for window.print) -->
   <div id="print-area" style="display:none"></div>
   
@@ -344,6 +418,10 @@
         <a href="#" class="sidebar-menu-item" id="menu-recurring">
           <i class="bi bi-arrow-repeat me-3"></i>
           <span>Recurring Tasks</span>
+        </a>
+        <a href="#" class="sidebar-menu-item" id="menu-scheduled">
+          <i class="bi bi-clock me-3"></i>
+          <span>Scheduled Tasks</span>
         </a>
         <a href="#" class="sidebar-menu-item" id="btn-theme-toggle">
           <i class="bi bi-moon-fill me-3" id="theme-icon"></i>
