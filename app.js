@@ -38,27 +38,13 @@ let state = {
 }
 */
 
-/* ── LOCALSTORAGE ──────────────────────────────────────── */
+/* ── PERSISTENCE (electron-store) ──────────────────────── */
 const LS_KEY = 'timesheetState_v1';
 
 function saveState() {
     try {
         state.days.forEach(d => {
-            if (d && d.date) {
-                state.allDaysByDate[d.date] = d;
-            }
-        });
-
-        // Prune data older than 4 weeks (28 days) to persist only recent data
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 28);
-        cutoffDate.setHours(0, 0, 0, 0);
-
-        Object.keys(state.allDaysByDate).forEach(dateStr => {
-            const entryDate = new Date(dateStr + 'T00:00:00');
-            if (entryDate < cutoffDate) {
-                delete state.allDaysByDate[dateStr];
-            }
+            if (d && d.date) state.allDaysByDate[d.date] = d;
         });
 
         const toSave = {
@@ -70,15 +56,25 @@ function saveState() {
             recurringTasks: state.recurringTasks,
             dailyTargetMins: state.dailyTargetMins
         };
-        localStorage.setItem(LS_KEY, JSON.stringify(toSave));
-    } catch (e) { console.warn('Could not save to localStorage', e); }
+        window.electronStore.set(LS_KEY, toSave);
+    } catch (e) { console.warn('Could not save state', e); }
 }
 
 function loadState() {
     try {
-        const raw = localStorage.getItem(LS_KEY);
-        if (!raw) return false;
-        const saved = JSON.parse(raw);
+        // One-time migration from localStorage → electron-store
+        if (!window.electronStore.has(LS_KEY)) {
+            const raw = localStorage.getItem(LS_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed) {
+                    window.electronStore.set(LS_KEY, parsed);
+                    localStorage.removeItem(LS_KEY);
+                }
+            }
+        }
+
+        const saved = window.electronStore.get(LS_KEY);
         if (!saved) return false;
 
         state.reportTitle = saved.reportTitle || 'Booked hours in Jira and Service Desk';
@@ -89,12 +85,10 @@ function loadState() {
         state.recurringTasks = saved.recurringTasks || [];
         state.dailyTargetMins = saved.dailyTargetMins || 480;
 
-        // Backwards compatibility migration
+        // Backwards compatibility: old format stored days array
         if (saved.days && Array.isArray(saved.days)) {
             saved.days.forEach(d => {
-                if (d && d.date) {
-                    state.allDaysByDate[d.date] = d;
-                }
+                if (d && d.date) state.allDaysByDate[d.date] = d;
             });
         }
         return true;

@@ -1,5 +1,8 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
+const Store = require('electron-store');
+
+const store = new Store();
 
 function createWindow() {
   // Create the browser window.
@@ -11,7 +14,8 @@ function createWindow() {
     icon: path.join(__dirname, 'favicon.png'),
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
@@ -32,6 +36,25 @@ function createWindow() {
   // Open the DevTools if needed (commented out for production)
   // mainWindow.webContents.openDevTools();
 }
+
+// IPC handlers for electron-store
+ipcMain.on('store-get', (event, key) => {
+  event.returnValue = store.get(key, null);
+});
+
+ipcMain.on('store-set', (event, key, value) => {
+  store.set(key, value);
+  event.returnValue = true;
+});
+
+ipcMain.on('store-delete', (event, key) => {
+  store.delete(key);
+  event.returnValue = true;
+});
+
+ipcMain.on('store-has', (event, key) => {
+  event.returnValue = store.has(key);
+});
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
