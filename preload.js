@@ -6,3 +6,14 @@ contextBridge.exposeInMainWorld('electronStore', {
     delete: (key) => ipcRenderer.sendSync('store-delete', key),
     has: (key) => ipcRenderer.sendSync('store-has', key),
 });
+
+contextBridge.exposeInMainWorld('updater', {
+    checkForUpdates: () => ipcRenderer.send('check-for-updates'),
+    downloadUpdate: () => ipcRenderer.send('download-update'),
+    installUpdate: () => ipcRenderer.send('install-update'),
+    onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_, info) => cb(info)),
+    onUpdateNotAvailable: (cb) => ipcRenderer.on('update-not-available', () => cb()),
+    onDownloadProgress: (cb) => ipcRenderer.on('download-progress', (_, progress) => cb(progress)),
+    onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', (_, info) => cb(info)),
+    onError: (cb) => ipcRenderer.on('update-error', (_, msg) => cb(msg)),
+});

@@ -6,7 +6,7 @@
 'use strict';
 
 /* ── CONSTANTS ─────────────────────────────────────────── */
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
@@ -100,6 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
     initTheme();
     initSidebar();
+    initUpdater();
+    initSearch();
     initScheduledTasks();
     bindHeaderEvents();
     const restored = loadState();
@@ -307,6 +309,11 @@ function bindHeaderEvents() {
         document.getElementById(hhId).addEventListener('input', function () {
             if (this.value.length >= 2) document.getElementById(mmId).focus();
         });
+    });
+
+    // Live day total update when HH/MM change in entry modal
+    ['modal-hh', 'modal-mm'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateEntryDayTotal);
     });
 }
 
@@ -532,6 +539,7 @@ function buildGroups(entries) {
 
 function buildEntriesHTML(entries, dayIdx) {
     if (!entries || entries.length === 0) {
+        if (state.days[dayIdx] && state.days[dayIdx].isHoliday) return '';
         return `<div class="no-entries-msg">No entries yet. Click "Add Entry" to begin.</div>`;
     }
     
@@ -859,7 +867,36 @@ function openEntryModal(dayIdx, entryIdx) {
         }
     }
 
+    updateEntryDayTotal();
     entryModal.show();
+}
+
+function updateEntryDayTotal() {
+    const indicator = document.getElementById('entry-day-total');
+    const dayIdx  = parseInt(document.getElementById('modal-day-index').value);
+    const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
+    if (isNaN(dayIdx) || dayIdx < 0 || !state.days[dayIdx]) { indicator.style.display = 'none'; return; }
+
+    const entries = state.days[dayIdx].entries || [];
+    const baseMins = entries.reduce((sum, e, i) => {
+        if (i === entryIdx) return sum; // exclude entry being edited
+        return sum + (parseInt(e.hh) || 0) * 60 + (parseInt(e.mm) || 0);
+    }, 0);
+
+    const addHH = parseInt(document.getElementById('modal-hh').value) || 0;
+    const addMM = parseInt(document.getElementById('modal-mm').value) || 0;
+    const addMins = addHH * 60 + addMM;
+    const newTotalMins = baseMins + addMins;
+
+    const fmt = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+    const isOver = newTotalMins > (state.dailyTargetMins || 480);
+
+    indicator.style.display = 'flex';
+    indicator.innerHTML = `<i class="bi bi-clock"></i>
+        <span>${fmt(baseMins)}</span>
+        <span class="total-arrow">→</span>
+        <span class="total-new ${isOver ? 'over' : 'ok'}">${fmt(newTotalMins)}</span>
+        ${isOver ? '<span class="total-arrow">(over target)</span>' : ''}`;
 }
 
 function openEntryModalPreFilled(dayIdx, fromEntryIdx, keepField) {
@@ -891,7 +928,8 @@ function openEntryModalPreFilled(dayIdx, fromEntryIdx, keepField) {
     } else if (keepField === 'desc') {
         document.getElementById('modal-desc').value = e.desc || '';
     }
-    
+
+    updateEntryDayTotal();
     entryModal.show();
 }
 
@@ -1749,6 +1787,10 @@ document.addEventListener('keydown', e => {
                 if (day.entries && day.entries.length > 0) openDayQuickView(expandedIdx);
             }
             break;
+
+        case '?':
+            new bootstrap.Modal(document.getElementById('cheatsheetModal')).show();
+            break;
     }
 
     // Ctrl+P → print
@@ -2052,30 +2094,430 @@ function applyTheme(theme) {
     }
 }
 
+/* ── SEARCH ─────────────────────────────────────────────── */
+const SEARCH_PAGE_SIZE = 10;
+let advSearchResults = [];
+let advSearchPage = 0;
+let advSelectedRange = 'all';
+
+function fmtSearchDate(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+}
+
+function fmtTypeLabel(type) {
+    return type === 'servicedesk' ? 'Service Desk' : 'Jira';
+}
+
+function fmtHHMM(hh, mm) {
+    return `${String(hh || 0).padStart(2, '0')}:${String(mm || 0).padStart(2, '0')}`;
+}
+
+function searchCurrentWeek(query) {
+    const q = query.toLowerCase();
+    const results = [];
+    state.days.forEach((day, dayIdx) => {
+        if (!day || !day.entries) return;
+        day.entries.forEach((entry, entryIdx) => {
+            const matchTicket = entry.ticket && entry.ticket.toLowerCase().includes(q);
+            const matchType   = fmtTypeLabel(entry.type).toLowerCase().includes(q);
+            const matchDesc   = entry.desc && entry.desc.toLowerCase().includes(q);
+            if (matchTicket || matchType || matchDesc) {
+                results.push({ dateStr: day.date, dayIdx, entryIdx, entry });
+            }
+        });
+    });
+    return results;
+}
+
+function navigateToResult(dateStr, entryIdx) {
+    const weekStr = getWeekStrFromDate(new Date(dateStr + 'T00:00:00'));
+    if (weekStr !== state.weekValue) {
+        state.weekValue = weekStr;
+        document.getElementById('week-picker').value = weekStr;
+        state.days = buildWeekDays(getDateFromWeek(weekStr));
+        enforceExpandedState();
+        updateWeekDisplay();
+        saveState();
+    }
+    // Find day index for this date
+    const dayIdx = state.days.findIndex(d => d && d.date === dateStr);
+    if (dayIdx === -1) return;
+    // Expand that day
+    state.days.forEach((d, i) => { if (d) d.expanded = (i === dayIdx); });
+    state.lastOpenedDateByWeek[state.weekValue] = dateStr;
+    renderAll();
+    // After render, scroll + flash
+    setTimeout(() => {
+        const el = document.querySelector(`.entry-row[data-day="${dayIdx}"][data-entry="${entryIdx}"]`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('entry-highlight-flash');
+        el.addEventListener('animationend', () => el.classList.remove('entry-highlight-flash'), { once: true });
+    }, 80);
+}
+
+function renderSearchDropdown(results, query, showAll) {
+    const dropdown = document.getElementById('search-dropdown');
+    if (!results.length) {
+        dropdown.innerHTML = '<div class="search-no-results">No results found</div>';
+        dropdown.style.display = 'block';
+        return;
+    }
+    const visible = showAll ? results : results.slice(0, 5);
+    const remaining = results.length - 5;
+    let html = '';
+    visible.forEach((r, i) => {
+        const line1 = `${escHtml(fmtSearchDate(r.dateStr))} &middot; ${escHtml(r.entry.ticket || '—')} &middot; ${escHtml(fmtTypeLabel(r.entry.type))}`;
+        const desc = r.entry.desc || '';
+        html += `<div class="search-result-item" data-idx="${i}" tabindex="-1">
+            <div class="search-result-line1">${line1}</div>
+            <div class="search-result-line2">${escHtml(desc)}</div>
+        </div>`;
+    });
+    if (!showAll && remaining > 0) {
+        html += `<div class="search-show-more" id="search-show-more">Show ${remaining} more…</div>`;
+    }
+    dropdown.innerHTML = html;
+    dropdown.style.display = 'block';
+
+    dropdown.querySelectorAll('.search-result-item').forEach((el, i) => {
+        el.addEventListener('click', () => {
+            const r = visible[i];
+            closeSearchDropdown();
+            document.getElementById('search-input').value = '';
+            navigateToResult(r.dateStr, r.entryIdx);
+        });
+    });
+    const showMoreEl = document.getElementById('search-show-more');
+    if (showMoreEl) {
+        showMoreEl.addEventListener('click', () => renderSearchDropdown(results, query, true));
+    }
+}
+
+function closeSearchDropdown() {
+    const dropdown = document.getElementById('search-dropdown');
+    dropdown.style.display = 'none';
+    dropdown.innerHTML = '';
+}
+
+function initSearch() {
+    const input = document.getElementById('search-input');
+    const dropdown = document.getElementById('search-dropdown');
+    let activeIdx = -1;
+    let lastResults = [];
+    let showingAll = false;
+
+    input.addEventListener('input', () => {
+        const q = input.value.trim();
+        activeIdx = -1;
+        showingAll = false;
+        if (q.length < 3) { closeSearchDropdown(); return; }
+        lastResults = searchCurrentWeek(q);
+        renderSearchDropdown(lastResults, q, false);
+    });
+
+    // Keyboard nav
+    input.addEventListener('keydown', (e) => {
+        const items = dropdown.querySelectorAll('.search-result-item');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIdx = Math.min(activeIdx + 1, items.length - 1);
+            items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIdx = Math.max(activeIdx - 1, 0);
+            items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+        } else if (e.key === 'Enter' && activeIdx >= 0) {
+            e.preventDefault();
+            items[activeIdx].click();
+        } else if (e.key === 'Escape') {
+            closeSearchDropdown();
+            input.blur();
+        }
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('search-wrap').contains(e.target)) {
+            closeSearchDropdown();
+        }
+    });
+
+    // Ctrl+F
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && !e.shiftKey && e.key === 'f') {
+            e.preventDefault();
+            input.focus();
+            input.select();
+        }
+        if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+            e.preventDefault();
+            openAdvancedSearch();
+        }
+    });
+
+    // Advanced search button
+    document.getElementById('btn-adv-search').addEventListener('click', () => openAdvancedSearch());
+
+    // Advanced search modal wiring
+    document.querySelectorAll('.adv-range-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.adv-range-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            advSelectedRange = btn.dataset.range;
+            const customRow = document.getElementById('adv-custom-range');
+            customRow.style.display = advSelectedRange === 'custom' ? 'flex' : 'none';
+        });
+    });
+
+    document.getElementById('btn-run-adv-search').addEventListener('click', () => {
+        advSearchPage = 0;
+        advSearchResults = runAdvancedSearch();
+        renderAdvancedResults();
+    });
+}
+
+function openAdvancedSearch() {
+    // Pre-fill from basic search bar
+    const basicVal = document.getElementById('search-input').value.trim();
+    document.getElementById('adv-search-input').value = basicVal;
+    document.getElementById('adv-search-results').innerHTML = '';
+    document.getElementById('adv-search-pagination').innerHTML = '';
+    advSearchResults = [];
+    advSearchPage = 0;
+    const modal = new bootstrap.Modal(document.getElementById('advSearchModal'));
+    modal.show();
+    setTimeout(() => document.getElementById('adv-search-input').focus(), 300);
+}
+
+function runAdvancedSearch() {
+    const q = document.getElementById('adv-search-input').value.trim().toLowerCase();
+    const fieldTicket = document.getElementById('adv-field-ticket').checked;
+    const fieldType   = document.getElementById('adv-field-type').checked;
+    const fieldDesc   = document.getElementById('adv-field-desc').checked;
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayStr = fmtDate(today);
+
+    let fromStr = null, toStr = null;
+    if (advSelectedRange === 'today') {
+        fromStr = toStr = todayStr;
+    } else if (advSelectedRange === 'lastweek') {
+        const from = new Date(today); from.setDate(today.getDate() - 7);
+        fromStr = fmtDate(from); toStr = todayStr;
+    } else if (advSelectedRange === 'lastmonth') {
+        const from = new Date(today); from.setDate(today.getDate() - 30);
+        fromStr = fmtDate(from); toStr = todayStr;
+    } else if (advSelectedRange === 'custom') {
+        fromStr = document.getElementById('adv-from-date').value || null;
+        toStr   = document.getElementById('adv-to-date').value || null;
+    }
+
+    const results = [];
+    const allDates = Object.keys(state.allDaysByDate).sort();
+    allDates.forEach(dateStr => {
+        if (fromStr && dateStr < fromStr) return;
+        if (toStr && dateStr > toStr) return;
+        const day = state.allDaysByDate[dateStr];
+        if (!day || !day.entries) return;
+        day.entries.forEach((entry, entryIdx) => {
+            if (q) {
+                const mTicket = fieldTicket && entry.ticket && entry.ticket.toLowerCase().includes(q);
+                const mType   = fieldType   && fmtTypeLabel(entry.type).toLowerCase().includes(q);
+                const mDesc   = fieldDesc   && entry.desc && entry.desc.toLowerCase().includes(q);
+                if (!mTicket && !mType && !mDesc) return;
+            }
+            results.push({ dateStr, entryIdx, entry });
+        });
+    });
+    return results;
+}
+
+function renderAdvancedResults() {
+    const container = document.getElementById('adv-search-results');
+    const pagEl     = document.getElementById('adv-search-pagination');
+
+    if (!advSearchResults.length) {
+        container.innerHTML = '<div class="search-no-results py-3">No results found</div>';
+        pagEl.innerHTML = '';
+        return;
+    }
+
+    const totalPages = Math.ceil(advSearchResults.length / SEARCH_PAGE_SIZE);
+    const pageItems  = advSearchResults.slice(advSearchPage * SEARCH_PAGE_SIZE, (advSearchPage + 1) * SEARCH_PAGE_SIZE);
+
+    container.innerHTML = pageItems.map((r, i) => {
+        const hhmm = fmtHHMM(r.entry.hh, r.entry.mm);
+        const line1Left = `${escHtml(fmtSearchDate(r.dateStr))} &middot; ${escHtml(r.entry.ticket || '—')} &middot; ${escHtml(fmtTypeLabel(r.entry.type))}`;
+        const desc = r.entry.desc || '';
+        return `<div class="adv-result-card" data-pidx="${i}">
+            <div class="adv-result-line1">
+                <span>${line1Left}</span>
+                <span class="adv-result-hours">${hhmm}</span>
+            </div>
+            <div class="adv-result-line2">${escHtml(desc)}</div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.adv-result-card').forEach((el, i) => {
+        el.addEventListener('click', () => {
+            const r = pageItems[i];
+            bootstrap.Modal.getInstance(document.getElementById('advSearchModal')).hide();
+            navigateToResult(r.dateStr, r.entryIdx);
+        });
+    });
+
+    // Pagination
+    if (totalPages <= 1) { pagEl.innerHTML = ''; return; }
+    let pagHtml = '';
+    for (let p = 0; p < totalPages; p++) {
+        pagHtml += `<button class="adv-pagination-btn${p === advSearchPage ? ' active' : ''}" data-page="${p}">${p + 1}</button>`;
+    }
+    pagEl.innerHTML = pagHtml;
+    pagEl.querySelectorAll('.adv-pagination-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            advSearchPage = parseInt(btn.dataset.page);
+            renderAdvancedResults();
+        });
+    });
+}
+
 /* ── SIDEBAR & ABOUT ───────────────────────────────────── */
 function initSidebar() {
     const aboutBtn = document.getElementById('menu-about');
     const sidebarEl = document.getElementById('appSidebar');
     const aboutModalEl = document.getElementById('aboutModal');
 
+    const closeSidebar = () => {
+        const oc = bootstrap.Offcanvas.getInstance(sidebarEl);
+        if (oc) oc.hide(); else new bootstrap.Offcanvas(sidebarEl).hide();
+    };
+
     if (aboutBtn && sidebarEl && aboutModalEl) {
         const aboutModal = new bootstrap.Modal(aboutModalEl);
-        
         aboutBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            
-            // Close sidebar
-            const offcanvasInstance = bootstrap.Offcanvas.getInstance(sidebarEl);
-            if (offcanvasInstance) {
-                offcanvasInstance.hide();
-            } else {
-                // fallback if instance not found (though it should be)
-                const oc = new bootstrap.Offcanvas(sidebarEl);
-                oc.hide();
-            }
-            
-            // Show About Modal
+            closeSidebar();
             aboutModal.show();
         });
     }
+
+    // Keyboard Shortcuts Cheatsheet
+    const cheatsheetBtn = document.getElementById('menu-cheatsheet');
+    if (cheatsheetBtn) {
+        cheatsheetBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeSidebar();
+            new bootstrap.Modal(document.getElementById('cheatsheetModal')).show();
+        });
+    }
+
+    // Check for Updates
+    const updateBtn = document.getElementById('menu-check-updates');
+    if (updateBtn) {
+        updateBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeSidebar();
+            showToast('Checking for updates…', 'info');
+            manualUpdateCheck = true;
+            window.updater.checkForUpdates();
+        });
+    }
+}
+
+/* ── AUTO-UPDATER ───────────────────────────────────────── */
+let manualUpdateCheck = false;
+
+function initUpdater() {
+    if (!window.updater) return;
+
+    let downloadToastId = null;
+
+    window.updater.onUpdateAvailable((info) => {
+        manualUpdateCheck = false;
+        showUpdateToast(
+            `v${info.version} is available.`,
+            'Download',
+            () => {
+                downloadToastId = showProgressToast('Downloading update… 0%');
+                window.updater.downloadUpdate();
+            }
+        );
+    });
+
+    window.updater.onUpdateNotAvailable(() => {
+        if (manualUpdateCheck) showToast('You\'re on the latest version.', 'success');
+        manualUpdateCheck = false;
+    });
+
+    window.updater.onDownloadProgress((progress) => {
+        const pct = Math.round(progress.percent);
+        if (downloadToastId) {
+            const el = document.getElementById(downloadToastId + '-msg');
+            if (el) el.textContent = `Downloading update… ${pct}%`;
+        }
+    });
+
+    window.updater.onUpdateDownloaded((info) => {
+        if (downloadToastId) {
+            document.getElementById(downloadToastId)?.remove();
+            downloadToastId = null;
+        }
+        showUpdateToast(
+            `v${info.version} ready to install.`,
+            'Restart & Install',
+            () => window.updater.installUpdate()
+        );
+    });
+
+    window.updater.onError(() => {
+        showToast('Failed to download update.', 'danger');
+    });
+}
+
+function showUpdateToast(message, actionLabel, onAction) {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const id = 'toast-update-' + Date.now();
+    container.insertAdjacentHTML('beforeend', `
+    <div id="${id}" class="toast toast-custom show align-items-center" role="alert" style="min-width:300px">
+      <div class="d-flex align-items-center gap-2 px-3 py-2">
+        <i class="bi bi-cloud-arrow-down" style="color:var(--success)"></i>
+        <span style="font-size:0.85rem;flex:1">${escHtml(message)}</span>
+        <button type="button" class="btn btn-sm btn-gradient ms-auto py-0 px-2" style="font-size:0.75rem" id="${id}-action">${escHtml(actionLabel)}</button>
+        <button type="button" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:0.75rem" id="${id}-dismiss">✕</button>
+      </div>
+    </div>`);
+    document.getElementById(`${id}-action`).addEventListener('click', () => {
+        document.getElementById(id)?.remove();
+        onAction();
+    });
+    document.getElementById(`${id}-dismiss`).addEventListener('click', () => {
+        document.getElementById(id)?.remove();
+    });
+}
+
+function showProgressToast(initialMessage) {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const id = 'toast-progress-' + Date.now();
+    container.insertAdjacentHTML('beforeend', `
+    <div id="${id}" class="toast toast-custom show align-items-center" role="alert" style="min-width:300px">
+      <div class="d-flex align-items-center gap-2 px-3 py-2">
+        <i class="bi bi-cloud-arrow-down" style="color:var(--info)"></i>
+        <span id="${id}-msg" style="font-size:0.85rem;flex:1">${escHtml(initialMessage)}</span>
+      </div>
+    </div>`);
+    return id;
 }
