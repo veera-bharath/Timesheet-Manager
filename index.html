@@ -500,6 +500,50 @@
     </div>
   </div>
 
+  <!-- KEYBOARD SHORTCUT CHEATSHEET MODAL -->
+  <div class="modal fade" id="cheatsheetModal" tabindex="-1" aria-labelledby="cheatsheetModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="cheatsheetModalLabel"><i class="bi bi-keyboard me-2"></i>Keyboard Shortcuts</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="cheatsheet-group">
+            <div class="cheatsheet-group-label">Navigation</div>
+            <div class="cheatsheet-row"><kbd>←</kbd><kbd>→</kbd> <span>Switch expanded day left / right</span></div>
+          </div>
+          <div class="cheatsheet-group">
+            <div class="cheatsheet-group-label">Entries</div>
+            <div class="cheatsheet-row"><kbd>N</kbd> <span>Add new entry to expanded day</span></div>
+            <div class="cheatsheet-row"><kbd>Enter</kbd> <span>Save entry (inside entry modal)</span></div>
+          </div>
+          <div class="cheatsheet-group">
+            <div class="cheatsheet-group-label">Views</div>
+            <div class="cheatsheet-row"><kbd>P</kbd> <span>Open TXT preview</span></div>
+            <div class="cheatsheet-row"><kbd>Q</kbd> <span>Quick-view expanded day entries</span></div>
+            <div class="cheatsheet-row"><kbd>Ctrl</kbd><kbd>P</kbd> <span>Print</span></div>
+          </div>
+          <div class="cheatsheet-group">
+            <div class="cheatsheet-group-label">Search</div>
+            <div class="cheatsheet-row"><kbd>Ctrl</kbd><kbd>F</kbd> <span>Focus search bar</span></div>
+            <div class="cheatsheet-row"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd> <span>Advanced search</span></div>
+            <div class="cheatsheet-row"><kbd>↑</kbd><kbd>↓</kbd> <span>Navigate search results</span></div>
+            <div class="cheatsheet-row"><kbd>Enter</kbd> <span>Select search result</span></div>
+            <div class="cheatsheet-row"><kbd>Esc</kbd> <span>Close search dropdown</span></div>
+          </div>
+          <div class="cheatsheet-group">
+            <div class="cheatsheet-group-label">General</div>
+            <div class="cheatsheet-row"><kbd>?</kbd> <span>or</span> <kbd>Shift</kbd><kbd>/</kbd> <span>Open this cheatsheet</span></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-gradient px-4" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PRINT AREA (hidden, used for window.print) -->
   <div id="print-area" style="display:none"></div>
   
@@ -511,6 +555,10 @@
     </div>
     <div class="offcanvas-body p-0">
       <div class="sidebar-menu-list">
+        <a href="#" class="sidebar-menu-item" id="menu-cheatsheet">
+          <i class="bi bi-keyboard me-3"></i>
+          <span>Keyboard Shortcuts</span>
+        </a>
         <a href="#" class="sidebar-menu-item" id="menu-check-updates">
           <i class="bi bi-cloud-arrow-down me-3"></i>
           <span>Check for Updates</span>

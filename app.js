@@ -1787,6 +1787,10 @@ document.addEventListener('keydown', e => {
                 if (day.entries && day.entries.length > 0) openDayQuickView(expandedIdx);
             }
             break;
+
+        case '?':
+            new bootstrap.Modal(document.getElementById('cheatsheetModal')).show();
+            break;
     }
 
     // Ctrl+P → print
@@ -2398,6 +2402,16 @@ function initSidebar() {
             e.preventDefault();
             closeSidebar();
             aboutModal.show();
+        });
+    }
+
+    // Keyboard Shortcuts Cheatsheet
+    const cheatsheetBtn = document.getElementById('menu-cheatsheet');
+    if (cheatsheetBtn) {
+        cheatsheetBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeSidebar();
+            new bootstrap.Modal(document.getElementById('cheatsheetModal')).show();
         });
     }
 

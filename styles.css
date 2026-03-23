@@ -988,6 +988,53 @@ body::before {
   color: var(--text-primary);
 }
 
+/* ── CHEATSHEET ── */
+.cheatsheet-group {
+  margin-bottom: 16px;
+}
+
+.cheatsheet-group-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.cheatsheet-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.cheatsheet-row:last-child {
+  border-bottom: none;
+}
+
+.cheatsheet-row span {
+  margin-left: 4px;
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border-accent);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+  box-shadow: 0 1px 0 var(--border-accent);
+  white-space: nowrap;
+}
+
 /* ── ENTRY DAY TOTAL ── */
 .entry-day-total {
   font-size: 0.78rem;
