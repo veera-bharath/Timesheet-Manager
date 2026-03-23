@@ -310,6 +310,11 @@ function bindHeaderEvents() {
             if (this.value.length >= 2) document.getElementById(mmId).focus();
         });
     });
+
+    // Live day total update when HH/MM change in entry modal
+    ['modal-hh', 'modal-mm'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateEntryDayTotal);
+    });
 }
 
 /* ── RENDER ALL ────────────────────────────────────────── */
@@ -862,7 +867,36 @@ function openEntryModal(dayIdx, entryIdx) {
         }
     }
 
+    updateEntryDayTotal();
     entryModal.show();
+}
+
+function updateEntryDayTotal() {
+    const indicator = document.getElementById('entry-day-total');
+    const dayIdx  = parseInt(document.getElementById('modal-day-index').value);
+    const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
+    if (isNaN(dayIdx) || dayIdx < 0 || !state.days[dayIdx]) { indicator.style.display = 'none'; return; }
+
+    const entries = state.days[dayIdx].entries || [];
+    const baseMins = entries.reduce((sum, e, i) => {
+        if (i === entryIdx) return sum; // exclude entry being edited
+        return sum + (parseInt(e.hh) || 0) * 60 + (parseInt(e.mm) || 0);
+    }, 0);
+
+    const addHH = parseInt(document.getElementById('modal-hh').value) || 0;
+    const addMM = parseInt(document.getElementById('modal-mm').value) || 0;
+    const addMins = addHH * 60 + addMM;
+    const newTotalMins = baseMins + addMins;
+
+    const fmt = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+    const isOver = newTotalMins > (state.dailyTargetMins || 480);
+
+    indicator.style.display = 'flex';
+    indicator.innerHTML = `<i class="bi bi-clock"></i>
+        <span>${fmt(baseMins)}</span>
+        <span class="total-arrow">→</span>
+        <span class="total-new ${isOver ? 'over' : 'ok'}">${fmt(newTotalMins)}</span>
+        ${isOver ? '<span class="total-arrow">(over target)</span>' : ''}`;
 }
 
 function openEntryModalPreFilled(dayIdx, fromEntryIdx, keepField) {
@@ -894,7 +928,8 @@ function openEntryModalPreFilled(dayIdx, fromEntryIdx, keepField) {
     } else if (keepField === 'desc') {
         document.getElementById('modal-desc').value = e.desc || '';
     }
-    
+
+    updateEntryDayTotal();
     entryModal.show();
 }
 
