@@ -6,7 +6,7 @@
 'use strict';
 
 /* ── CONSTANTS ─────────────────────────────────────────── */
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
@@ -15,6 +15,8 @@ const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
 const SEPARATOR = '------------------------------------------------------------------------------------------------------------------------------------------------------';
 
 /* ── STATE ─────────────────────────────────────────────── */
+let weekTransitionDir = null; // 'left' | 'right' | null
+
 let state = {
     reportTitle: 'Booked hours in Jira and Service Desk',
     employeeName: '',
@@ -99,8 +101,10 @@ function loadState() {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
     initTheme();
+    initRipple();
     initSidebar();
     initUpdater();
+    initContextMenu();
     initSearch();
     initScheduledTasks();
     bindHeaderEvents();
@@ -116,6 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (restored && state.weekValue) {
         // Restore saved week & name into inputs
         document.getElementById('week-picker').value = state.weekValue;
+        
+        const maxWeek = getWeekStrFromDate(new Date());
+        document.getElementById('btn-next-week').disabled = (state.weekValue >= maxWeek);
+        
         state.days = buildWeekDays(getDateFromWeek(state.weekValue));
         enforceExpandedState();
         updateWeekDisplay();
@@ -124,6 +132,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderAll();
 });
+
+/* ── RIPPLE ────────────────────────────────────────────── */
+function initRipple() {
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('button, .btn');
+        if (!btn) return;
+        
+        // Exclude icon-only utility buttons
+        if (btn.classList.contains('btn-close') || 
+            btn.classList.contains('day-toggle-btn') || 
+            btn.classList.contains('day-quick-view-btn') || 
+            btn.classList.contains('search-adv-btn') ||
+            btn.classList.contains('copy-to-prev-week') ||
+            btn.classList.contains('copy-to-next-week') ||
+            btn.classList.contains('entry-btn-star')) {
+            return;
+        }
+
+        btn.classList.add('btn-ripple');
+        const rect = btn.getBoundingClientRect();
+        
+        // Fallback to center if keyboard-activated (clientX=0, clientY=0 usually, or near 0)
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        if (e.clientX === 0 && e.clientY === 0) {
+            x = rect.width / 2;
+            y = rect.height / 2;
+        }
+        
+        btn.style.setProperty('--x', `${x}px`);
+        btn.style.setProperty('--y', `${y}px`);
+        
+        btn.classList.remove('ripple-active');
+        void btn.offsetWidth; // Force reflow
+        btn.classList.add('ripple-active');
+    });
+}
 
 /* ── WEEK HELPERS ──────────────────────────────────────── */
 // Convert "2026-W11" to a Date object (Monday of that week)
@@ -237,12 +282,29 @@ function enforceExpandedState() {
     }
 }
 
+function changeWeekBy(delta) {
+    const picker = document.getElementById('week-picker');
+    if (!picker.value) return;
+
+    const mon = getDateFromWeek(picker.value);
+    mon.setDate(mon.getDate() + (delta * 7));
+    
+    const newWeekStr = getWeekStrFromDate(mon);
+    const maxWeekStr = getWeekStrFromDate(new Date());
+
+    if (newWeekStr > maxWeekStr) return;
+
+    picker.value = newWeekStr;
+    picker.dispatchEvent(new Event('change'));
+}
+
 function setCurrentWeek() {
     const today = new Date();
     const weekVal = getWeekStrFromDate(today);
 
     document.getElementById('week-picker').value = weekVal;
     state.weekValue = weekVal;
+    document.getElementById('btn-next-week').disabled = true;
     state.days = buildWeekDays(getDateFromWeek(weekVal));
     enforceExpandedState();
     updateWeekDisplay();
@@ -250,6 +312,18 @@ function setCurrentWeek() {
 
 /* ── BIND HEADER EVENTS ────────────────────────────────── */
 function bindHeaderEvents() {
+    const weekPicker = document.getElementById('week-picker');
+    weekPicker.max = getWeekStrFromDate(new Date());
+
+    document.getElementById('btn-prev-week').addEventListener('click', function() {
+        changeWeekBy(-1);
+        this.blur();
+    });
+    document.getElementById('btn-next-week').addEventListener('click', function() {
+        changeWeekBy(1);
+        this.blur();
+    });
+
     document.getElementById('report-title').addEventListener('input', e => {
         state.reportTitle = e.target.value;
         saveState();
@@ -261,22 +335,41 @@ function bindHeaderEvents() {
         saveState();
     });
 
-    document.getElementById('week-picker').addEventListener('change', e => {
+    weekPicker.addEventListener('change', e => {
         const val = e.target.value;
         if (!val) return;
 
-        state.weekValue = val;
-        state.days = buildWeekDays(getDateFromWeek(val));
+        const prevWeek = state.weekValue;
+        const maxWeek = getWeekStrFromDate(new Date());
+        const safeVal = val > maxWeek ? maxWeek : val;
+
+        if (safeVal !== val) {
+            e.target.value = safeVal;
+        }
+
+        document.getElementById('btn-next-week').disabled = (safeVal >= maxWeek);
+
+        if (safeVal === prevWeek) return;
+
+        state.weekValue = safeVal;
+
+        state.days = buildWeekDays(getDateFromWeek(safeVal));
         enforceExpandedState();
         updateWeekDisplay();
         saveState();
+        weekTransitionDir = prevWeek ? (safeVal > prevWeek ? 'left' : 'right') : null;
         renderAll();
+        weekTransitionDir = null;
     });
 
     document.getElementById('btn-autofill-week').addEventListener('click', () => {
+        const prevWeek = state.weekValue;
         setCurrentWeek();
+        document.getElementById('btn-next-week').disabled = true;
         saveState();
+        weekTransitionDir = prevWeek ? (state.weekValue > prevWeek ? 'left' : state.weekValue < prevWeek ? 'right' : null) : null;
         renderAll();
+        weekTransitionDir = null;
     });
 
     const updateTarget = () => {
@@ -332,6 +425,14 @@ function renderDays() {
     state.days.forEach((day, i) => {
         container.appendChild(buildDayCard(day, i));
     });
+    if (weekTransitionDir) {
+        container.classList.remove('week-slide-left', 'week-slide-right');
+        void container.offsetWidth;
+        container.classList.add(`week-slide-${weekTransitionDir}`);
+        container.addEventListener('animationend', () => {
+            container.classList.remove('week-slide-left', 'week-slide-right');
+        }, { once: true });
+    }
 }
 
 /* ── BUILD DAY CARD ────────────────────────────────────── */
@@ -385,9 +486,8 @@ function buildProgressRing(dayNumber, totalMins, isHoliday) {
     return `<div class="day-progress-ring" title="${tooltip}">
       <svg width="38" height="38" viewBox="0 0 38 38">
         <circle cx="19" cy="19" r="${r}" fill="none" style="stroke:${trackColor}" stroke-width="3"/>
-        <circle cx="19" cy="19" r="${r}" fill="none" style="stroke:${strokeColor}"
-          stroke-width="3" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
-          stroke-linecap="round" transform="rotate(-90 19 19)"/>
+        <circle cx="19" cy="19" r="${r}" fill="none" class="progress-ring-circle" style="stroke:${strokeColor}; --circ:${circ}; --offset:${offset};"
+          stroke-width="3" stroke-linecap="round" transform="rotate(-90 19 19)"/>
         <text x="19" y="19" text-anchor="middle" dominant-baseline="central"
           style="font-size:11px;font-weight:700;fill:${textColor};font-family:inherit">${dayNumber}</text>
       </svg>
@@ -486,20 +586,23 @@ function buildDayCard(day, dayIdx) {
     const addBtn = wrap.querySelector('.add-entry-btn');
     if (addBtn) addBtn.addEventListener('click', () => openEntryModal(dayIdx, -1));
 
-    // Entry row click (edit)
+    // Entry row: double-click → edit
     wrap.querySelectorAll('.entry-row').forEach(row => {
-        row.addEventListener('click', e => {
-            if (e.target.closest('.drag-handle')) return;
+        row.addEventListener('dblclick', e => {
+            if (e.target.closest('.drag-handle') || e.target.closest('.entry-btn-eye') || e.target.closest('.entry-btn-star')) return;
             openEntryModal(parseInt(row.dataset.day), parseInt(row.dataset.entry));
         });
-    });
 
-    // Quick-add inline buttons (keep ticket / keep desc)
-    wrap.querySelectorAll('.quick-add-inline').forEach(btn => {
-        btn.addEventListener('click', e => {
+        // Right-click → context menu
+        row.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            showEntryContextMenu(row, e.clientX, e.clientY);
+        });
+
+        // Star button → toggle
+        row.querySelector('.entry-btn-star').addEventListener('click', e => {
             e.stopPropagation();
-            const row = btn.closest('.entry-row');
-            openEntryModalPreFilled(parseInt(row.dataset.day), parseInt(row.dataset.entry), btn.dataset.keep);
+            toggleEntryStarred(parseInt(row.dataset.day), parseInt(row.dataset.entry), e.currentTarget);
         });
     });
 
@@ -546,7 +649,8 @@ function buildEntriesHTML(entries, dayIdx) {
     const groups = buildGroups(entries);
 
     let htmlFragments = [];
-    
+    let rowIndex = 0;
+
     groups.forEach((group, gi) => {
         const roman = ROMAN[gi] + '.';
 
@@ -576,28 +680,12 @@ function buildEntriesHTML(entries, dayIdx) {
                 descHtml = `<span class="entry-desc text-muted entry-grouped-hint">↳ Grouped below</span>`;
             }
 
-            let actTicketHtml = '';
-            let actDescHtml = '';
+            const starClass = e.starred ? 'starred' : '';
+            const starIcon  = e.starred ? 'bi-star-fill' : 'bi-star';
 
-            if (group.type === 'normal') {
-                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" data-keep="ticket">
-                    <i class="bi bi-plus"></i> <i class="bi bi-ticket-detailed"></i>
-                </button>`;
-                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" data-keep="desc">
-                    <i class="bi bi-plus"></i> <i class="bi bi-card-text"></i>
-                </button>`;
-            } else if (group.type === 'ticket_group') {
-                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" data-keep="ticket">
-                    <i class="bi bi-plus"></i> <i class="bi bi-ticket-detailed"></i>
-                </button>`;
-            } else if (group.type === 'desc_group') {
-                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" data-keep="desc">
-                    <i class="bi bi-plus"></i> <i class="bi bi-card-text"></i>
-                </button>`;
-            }
-
+            const rowI = rowIndex++;
             htmlFragments.push(`
-    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}">
+    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}" style="--i:${rowI}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
       <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
@@ -606,10 +694,8 @@ function buildEntriesHTML(entries, dayIdx) {
       ${e.recurringId ? '<span class="entry-recurring-badge" title="Recurring task"><i class="bi bi-arrow-repeat"></i></span>' : ''}
       ${e.isScheduled ? '<span class="entry-scheduled-badge" title="Scheduled task"><i class="bi bi-clock"></i></span>' : ''}
       ${descHtml}
-      <div class="entry-actions ms-auto d-flex align-items-center gap-2">
-        ${actTicketHtml}
-        ${actDescHtml}
-        <span class="entry-edit-hint ms-2"><i class="bi bi-pencil-square"></i></span>
+      <div class="ms-auto d-flex align-items-center gap-1">
+        <button class="entry-btn-star ${starClass}" title="${e.starred ? 'Unstar' : 'Star'}"><i class="bi ${starIcon}"></i></button>
       </div>
     </div>`);
         });
@@ -620,8 +706,14 @@ function buildEntriesHTML(entries, dayIdx) {
 
 function rerenderDayCard(dayIdx) {
     const existing = document.getElementById(`day-card-${dayIdx}`);
+    const oldChipText = existing?.querySelector('.day-hours-total')?.textContent;
     const newCard = buildDayCard(state.days[dayIdx], dayIdx);
     existing.replaceWith(newCard);
+    const newChip = newCard.querySelector('.day-hours-total');
+    if (newChip && newChip.textContent !== oldChipText) {
+        newChip.classList.add('chip-bounce');
+        newChip.addEventListener('animationend', () => newChip.classList.remove('chip-bounce'), { once: true });
+    }
 }
 
 /* ── DRAG AND DROP (pointer-event based, no HTML5 drag API) ── */
@@ -785,13 +877,14 @@ function attachDragListeners(dayIdx, container) {
                 'width:' + rect.width + 'px',
                 'left:' + (e.clientX - offsetX) + 'px',
                 'top:' + (e.clientY - offsetY) + 'px',
-                'opacity:0.95',
+                'opacity:0.92',
                 'background:var(--bg-card)',
                 'border:1.5px solid var(--border-accent)',
                 'border-radius:8px',
-                'box-shadow:0 10px 32px rgba(0,0,0,0.6)',
+                'box-shadow:0 16px 40px rgba(0,0,0,0.7)',
                 'transition:none',
-                'cursor:grabbing'
+                'cursor:grabbing',
+                'transform:rotate(3deg) scale(1.03)'
             ].join(';');
             document.body.appendChild(ghost);
 
@@ -817,9 +910,19 @@ function toggleDay(dayIdx) {
         saveState();
         rerenderDayCard(dayIdx);
     } else {
-        // Close the day
-        state.days[dayIdx].expanded = false;
-        rerenderDayCard(dayIdx);
+        // Animate close, then rerender collapsed
+        const body = document.getElementById(`day-body-${dayIdx}`);
+        if (body) {
+            body.classList.add('collapsing');
+            setTimeout(() => {
+                state.days[dayIdx].expanded = false;
+                rerenderDayCard(dayIdx);
+            }, 200);
+        } else {
+            state.days[dayIdx].expanded = false;
+            rerenderDayCard(dayIdx);
+        }
+        saveState();
     }
 }
 
@@ -1066,6 +1169,8 @@ function deleteEntry() {
     const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
     if (entryIdx < 0) return;
 
+    entryModal.hide();
+
     // If there's a pending undo from a previous delete, commit it first
     if (lastDeleted) {
         clearTimeout(lastDeleted.timerId);
@@ -1073,11 +1178,22 @@ function deleteEntry() {
     }
 
     const deletedEntry = state.days[dayIdx].entries[entryIdx];
+    const rowEl = document.querySelector(`.entry-row[data-day="${dayIdx}"][data-entry="${entryIdx}"]`);
+
+    if (rowEl && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        rowEl.classList.add('entry-removing');
+        setTimeout(() => {
+            finishDeleteEntry(dayIdx, entryIdx, deletedEntry);
+        }, 250);
+    } else {
+        finishDeleteEntry(dayIdx, entryIdx, deletedEntry);
+    }
+}
+
+function finishDeleteEntry(dayIdx, entryIdx, deletedEntry) {
     state.days[dayIdx].entries.splice(entryIdx, 1);
-    entryModal.hide();
     rerenderDayCard(dayIdx);
     updateSummary();
-    // Defer saveState — give the user a chance to undo
 
     const timerId = setTimeout(() => {
         lastDeleted = null;
@@ -1196,12 +1312,20 @@ function renderCopyToWeek() {
         btn.dataset.date = dateStr;
         btn.innerHTML = `<span class="copy-day-name">${dayName}</span><span class="copy-day-num">${dayNum}</span>`;
         btn.addEventListener('click', () => {
-            if (copyToSelectedDates.includes(dateStr)) {
-                copyToSelectedDates = copyToSelectedDates.filter(d => d !== dateStr);
+            const idx = copyToSelectedDates.indexOf(dateStr);
+            if (idx > -1) {
+                copyToSelectedDates.splice(idx, 1);
+                btn.classList.remove('selected');
             } else {
                 copyToSelectedDates.push(dateStr);
+                btn.classList.add('selected');
             }
-            renderCopyToWeek();
+            
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                btn.classList.remove('copy-day-pop');
+                void btn.offsetWidth; // Reflow to restart animation
+                btn.classList.add('copy-day-pop');
+            }
         });
         container.appendChild(btn);
     }
@@ -1486,9 +1610,12 @@ function updateSummary() {
     let totalMins = 0;
     let workingDays = 0;
     let totalEntries = 0;
+    let holidayCount = 0;
 
     state.days.forEach(day => {
-        if (!day.isHoliday) {
+        if (day.isHoliday) {
+            holidayCount++;
+        } else {
             const m = calcDayTotalMins(day);
             if (m > 0) workingDays++;
             totalMins += m;
@@ -1496,9 +1623,64 @@ function updateSummary() {
         }
     });
 
-    document.getElementById('total-hours').textContent = minsToHHMM(totalMins);
-    document.getElementById('total-days').textContent = workingDays;
-    document.getElementById('total-entries').textContent = totalEntries;
+    animateCountUp(document.getElementById('total-hours'), totalMins, true);
+    animateCountUp(document.getElementById('total-days'), workingDays, false);
+    animateCountUp(document.getElementById('total-entries'), totalEntries, false);
+
+    // Weekly progress bar
+    const fill = document.getElementById('week-progress-fill');
+    if (fill) {
+        const activeDays = 5 - holidayCount;
+        if (activeDays <= 0) {
+            fill.style.width = '0%';
+            fill.classList.remove('over');
+        } else {
+            const weeklyTarget = activeDays * (state.dailyTargetMins || 480);
+            const pct = Math.min(totalMins / weeklyTarget, 1) * 100;
+            const isOver = totalMins > weeklyTarget;
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                fill.style.transition = 'none';
+            }
+            fill.style.width = pct.toFixed(1) + '%';
+            fill.classList.toggle('over', isOver);
+        }
+    }
+}
+
+function animateCountUp(el, targetVal, isTimeFormat = false) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.textContent = isTimeFormat ? minsToHHMM(targetVal) : targetVal;
+        el.dataset.val = targetVal;
+        return;
+    }
+
+    const startVal = parseInt(el.dataset.val || '0', 10);
+    if (startVal === targetVal) {
+        el.textContent = isTimeFormat ? minsToHHMM(targetVal) : targetVal;
+        return;
+    }
+
+    if (el._animFrame) cancelAnimationFrame(el._animFrame);
+
+    const duration = 500;
+    const startTime = performance.now();
+
+    function step(currentTime) {
+        const elapsed = currentTime - startTime;
+        let progress = Math.min(elapsed / duration, 1);
+        progress = 1 - Math.pow(1 - progress, 4); // easeOutQuart
+
+        const current = Math.floor(startVal + (targetVal - startVal) * progress);
+        el.textContent = isTimeFormat ? minsToHHMM(current) : current;
+
+        if (progress < 1) {
+            el._animFrame = requestAnimationFrame(step);
+        } else {
+            el.textContent = isTimeFormat ? minsToHHMM(targetVal) : targetVal;
+            el.dataset.val = targetVal;
+        }
+    }
+    el._animFrame = requestAnimationFrame(step);
 }
 
 /* ── TXT GENERATION ────────────────────────────────────── */
@@ -1727,10 +1909,15 @@ function showToast(msg, type = 'success') {
       <div class="d-flex align-items-center gap-2 px-3 py-2">
         <i class="bi ${icons[type] || icons.info}" style="color:${colors[type] || colors.info}"></i>
         <span style="font-size:0.85rem">${msg}</span>
-        <button type="button" class="btn-close btn-close-white ms-auto" style="font-size:0.6rem" onclick="document.getElementById('${id}').remove()"></button>
+        <button type="button" class="btn-close btn-close-white ms-auto" style="font-size:0.6rem" onclick="(function(el){el.classList.add('toast-hiding');setTimeout(()=>el.remove(),200);})(document.getElementById('${id}'))"></button>
       </div>
     </div>`);
-    setTimeout(() => { const el = document.getElementById(id); if (el) el.remove(); }, 3000);
+    setTimeout(() => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('toast-hiding');
+        setTimeout(() => el.remove(), 200);
+    }, 3000);
 }
 
 /* ── UTILS ─────────────────────────────────────────────── */
@@ -1767,12 +1954,24 @@ document.addEventListener('keydown', e => {
             if (expandedIdx !== -1) openEntryModal(expandedIdx, -1);
             break;
 
-        case 'ArrowLeft':
+        case 'ArrowUp':
+            e.preventDefault();
             if (expandedIdx > 0) toggleDay(expandedIdx - 1);
             break;
 
-        case 'ArrowRight':
+        case 'ArrowDown':
+            e.preventDefault();
             if (expandedIdx < state.days.length - 1) toggleDay(expandedIdx + 1);
+            break;
+
+        case 'ArrowLeft':
+            e.preventDefault();
+            changeWeekBy(-1);
+            break;
+
+        case 'ArrowRight':
+            e.preventDefault();
+            changeWeekBy(1);
             break;
 
         case 'p':
@@ -2069,7 +2268,9 @@ function initTheme() {
 }
 
 function applyTheme(theme) {
+    document.documentElement.classList.add('theme-transition');
     document.documentElement.setAttribute('data-theme', theme);
+    setTimeout(() => document.documentElement.classList.remove('theme-transition'), 400);
     const icon = document.getElementById('theme-icon');
     const toggleBtn = document.getElementById('btn-theme-toggle');
     
@@ -2092,6 +2293,225 @@ function applyTheme(theme) {
             if (span) span.textContent = 'Switch to Light Mode';
         }
     }
+}
+
+/* ── CONTEXT MENU ───────────────────────────────────────── */
+let ctxTarget = null; // { dayIdx, entryIdx, row }
+
+function showEntryContextMenu(row, x, y) {
+    ctxTarget = {
+        dayIdx:   parseInt(row.dataset.day),
+        entryIdx: parseInt(row.dataset.entry),
+        groupType: row.dataset.groupType,
+        row
+    };
+    const entry = state.days[ctxTarget.dayIdx]?.entries[ctxTarget.entryIdx];
+    if (!entry) return;
+
+    const menu = document.getElementById('entry-context-menu');
+
+    // Show/hide conditional items
+    document.getElementById('ctx-sub-ticket').style.display =
+        (ctxTarget.groupType === 'normal' || ctxTarget.groupType === 'ticket_group') ? 'flex' : 'none';
+    document.getElementById('ctx-sub-desc').style.display =
+        (ctxTarget.groupType === 'normal' || ctxTarget.groupType === 'desc_group') ? 'flex' : 'none';
+    document.getElementById('ctx-make-regular').style.display = entry.isScheduled ? 'flex' : 'none';
+
+    // Star label
+    document.getElementById('ctx-star-label').textContent = entry.starred ? 'Unstar' : 'Star';
+    document.getElementById('ctx-star').querySelector('i').className = entry.starred ? 'bi bi-star-fill' : 'bi bi-star';
+
+    // Position and show menu with pop animation
+    menu.classList.remove('ctx-open');
+    menu.style.display = 'block';
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    menu.style.left = (x + mw > vw ? x - mw : x) + 'px';
+    menu.style.top  = (y + mh > vh ? y - mh : y) + 'px';
+    // Force reflow so re-adding the class re-triggers the animation
+    void menu.offsetWidth;
+    menu.classList.add('ctx-open');
+}
+
+function hideContextMenu() {
+    document.getElementById('entry-context-menu').style.display = 'none';
+    ctxTarget = null;
+}
+
+function initContextMenu() {
+    document.getElementById('ctx-edit').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        openEntryModal(dayIdx, entryIdx);
+    });
+
+    document.getElementById('ctx-duplicate').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        const original = state.days[dayIdx].entries[entryIdx];
+        const copy = { ...original, starred: false };
+        state.days[dayIdx].entries.splice(entryIdx + 1, 0, copy);
+        rerenderDayCard(dayIdx);
+        saveState();
+    });
+
+    document.getElementById('ctx-copy-to').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        document.getElementById('modal-day-index').value = dayIdx;
+        document.getElementById('modal-entry-index').value = entryIdx;
+        document.getElementById('btn-copy-to-entry').click();
+    });
+
+    document.getElementById('ctx-sub-ticket').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        openEntryModalPreFilled(dayIdx, entryIdx, 'ticket');
+    });
+
+    document.getElementById('ctx-sub-desc').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        openEntryModalPreFilled(dayIdx, entryIdx, 'desc');
+    });
+
+    document.getElementById('ctx-make-regular').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        document.getElementById('modal-day-index').value = dayIdx;
+        document.getElementById('modal-entry-index').value = entryIdx;
+        makeRegularEntry();
+    });
+
+    document.getElementById('ctx-star').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx, row } = ctxTarget;
+        hideContextMenu();
+        toggleEntryStarred(dayIdx, entryIdx, row.querySelector('.entry-btn-star'));
+    });
+
+    document.getElementById('ctx-delete').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        document.getElementById('modal-day-index').value = dayIdx;
+        document.getElementById('modal-entry-index').value = entryIdx;
+        deleteEntry();
+    });
+
+    // Close on outside click or Escape
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('entry-context-menu').contains(e.target)) hideContextMenu();
+        if (!document.getElementById('entry-quick-view').contains(e.target) &&
+            !e.target.closest('.entry-btn-eye')) hideQuickView();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { hideContextMenu(); hideQuickView(); }
+    });
+}
+
+/* ── QUICK VIEW ─────────────────────────────────────────── */
+let quickViewVisible = false;
+
+function showEntryQuickView(dayIdx, entryIdx, btnEl) {
+    const qv = document.getElementById('entry-quick-view');
+    // Toggle off if same button clicked again
+    if (quickViewVisible && qv.dataset.for === `${dayIdx}-${entryIdx}`) {
+        qv.style.display = 'none';
+        quickViewVisible = false;
+        return;
+    }
+    const entry = state.days[dayIdx]?.entries[entryIdx];
+    if (!entry) return;
+
+    const typeLabel = entry.type === 'servicedesk' ? 'Service Desk' : 'Jira';
+    const hhmm = `${String(entry.hh || 0).padStart(2,'0')}:${String(entry.mm || 0).padStart(2,'0')}`;
+
+    qv.innerHTML = `
+        <div class="qv-row"><span class="qv-label">Ticket</span><span class="qv-value">${escHtml(entry.ticket || '—')}</span></div>
+        <div class="qv-row"><span class="qv-label">Type</span><span class="qv-value">${escHtml(typeLabel)}</span></div>
+        <div class="qv-row"><span class="qv-label">Time</span><span class="qv-value">${hhmm}</span></div>
+        <div class="qv-row"><span class="qv-label">Desc</span><span class="qv-desc">${escHtml(entry.desc || '—')}</span></div>`;
+    qv.dataset.for = `${dayIdx}-${entryIdx}`;
+
+    // Position near button
+    const rect = btnEl.getBoundingClientRect();
+    qv.style.display = 'block';
+    const qvw = qv.offsetWidth, qvh = qv.offsetHeight;
+    const top = rect.bottom + 6 + qvh > window.innerHeight ? rect.top - qvh - 6 : rect.bottom + 6;
+    const left = Math.min(rect.left, window.innerWidth - qvw - 8);
+    qv.style.top  = top + 'px';
+    qv.style.left = left + 'px';
+    quickViewVisible = true;
+}
+
+function hideQuickView() {
+    document.getElementById('entry-quick-view').style.display = 'none';
+    quickViewVisible = false;
+}
+
+/* ── STAR ───────────────────────────────────────────────── */
+function toggleEntryStarred(dayIdx, entryIdx, btnEl) {
+    const entry = state.days[dayIdx]?.entries[entryIdx];
+    if (!entry) return;
+    entry.starred = !entry.starred;
+    // Update button UI without full rerender
+    btnEl.classList.toggle('starred', entry.starred);
+    btnEl.querySelector('i').className = entry.starred ? 'bi bi-star-fill' : 'bi bi-star';
+    btnEl.title = entry.starred ? 'Unstar' : 'Star';
+    // Pulse animation
+    btnEl.classList.remove('star-pulse');
+    void btnEl.offsetWidth; // reflow to re-trigger
+    btnEl.classList.add('star-pulse');
+    setTimeout(() => btnEl.classList.remove('star-pulse'), 300);
+    // Also sync to allDaysByDate
+    const dateStr = state.days[dayIdx].date;
+    if (state.allDaysByDate[dateStr]) {
+        state.allDaysByDate[dateStr].entries[entryIdx] = entry;
+    }
+    saveState();
+}
+
+function renderStarredList() {
+    const container = document.getElementById('starred-list');
+    const results = [];
+    Object.keys(state.allDaysByDate).sort().forEach(dateStr => {
+        const day = state.allDaysByDate[dateStr];
+        if (!day?.entries) return;
+        day.entries.forEach((entry, entryIdx) => {
+            if (entry.starred) results.push({ dateStr, entryIdx, entry });
+        });
+    });
+
+    if (!results.length) {
+        container.innerHTML = '<div class="search-no-results py-4">No starred entries yet.</div>';
+        return;
+    }
+
+    container.innerHTML = results.map((r, i) => {
+        const hhmm = `${String(r.entry.hh || 0).padStart(2,'0')}:${String(r.entry.mm || 0).padStart(2,'0')}`;
+        const typeLabel = r.entry.type === 'servicedesk' ? 'Service Desk' : 'Jira';
+        return `<div class="adv-result-card" data-sidx="${i}">
+            <div class="adv-result-line1">
+                <span>${escHtml(fmtSearchDate(r.dateStr))} &middot; ${escHtml(r.entry.ticket || '—')} &middot; ${escHtml(typeLabel)}</span>
+                <span class="adv-result-hours">${hhmm}</span>
+            </div>
+            <div class="adv-result-line2">${escHtml(r.entry.desc || '')}</div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.adv-result-card').forEach((el, i) => {
+        el.addEventListener('click', () => {
+            bootstrap.Modal.getInstance(document.getElementById('starredModal'))?.hide();
+            navigateToResult(results[i].dateStr, results[i].entryIdx);
+        });
+    });
 }
 
 /* ── SEARCH ─────────────────────────────────────────────── */
@@ -2405,6 +2825,17 @@ function initSidebar() {
         });
     }
 
+    // Starred Entries
+    const starredBtn = document.getElementById('menu-starred');
+    if (starredBtn) {
+        starredBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeSidebar();
+            renderStarredList();
+            new bootstrap.Modal(document.getElementById('starredModal')).show();
+        });
+    }
+
     // Keyboard Shortcuts Cheatsheet
     const cheatsheetBtn = document.getElementById('menu-cheatsheet');
     if (cheatsheetBtn) {
@@ -2474,7 +2905,14 @@ function initUpdater() {
     });
 
     window.updater.onError(() => {
-        showToast('Failed to download update.', 'danger');
+        if (manualUpdateCheck) {
+            showToast('Update check failed.', 'danger');
+            manualUpdateCheck = false;
+        } else if (downloadToastId) {
+            document.getElementById(downloadToastId)?.remove();
+            downloadToastId = null;
+            showToast('Failed to download update.', 'danger');
+        }
     });
 }
 
