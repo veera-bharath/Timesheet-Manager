@@ -413,10 +413,26 @@ body::before {
 
 .day-card-body {
   padding: 16px 20px;
+  animation: slideDown 0.25s ease both;
+}
+
+.day-card-body.collapsing {
+  animation: slideUp 0.22s ease forwards;
+  pointer-events: none;
 }
 
 .day-card-body.collapsed {
   display: none;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-10px); }
 }
 
 /* ── HOLIDAY TOGGLE ── */
@@ -784,6 +800,21 @@ body::before {
   border: 1px solid var(--border);
   color: var(--text-primary);
   border-radius: var(--radius-sm);
+  animation: toastSlideIn 0.25s ease both;
+}
+
+.toast-custom.toast-hiding {
+  animation: toastSlideOut 0.2s ease forwards;
+}
+
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(50px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastSlideOut {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(50px); }
 }
 
 /* ── SIDEBAR (OFFCANVAS) ── */
@@ -1017,6 +1048,16 @@ body::before {
   color: var(--warning);
 }
 
+.entry-btn-star.star-pulse {
+  animation: starPulse 0.3s ease;
+}
+
+@keyframes starPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.6); }
+  100% { transform: scale(1); }
+}
+
 /* ── CONTEXT MENU ── */
 .entry-context-menu {
   position: fixed;
@@ -1028,6 +1069,16 @@ body::before {
   min-width: 200px;
   padding: 4px 0;
   user-select: none;
+  transform-origin: top left;
+}
+
+.entry-context-menu.ctx-open {
+  animation: ctxPop 0.1s ease forwards;
+}
+
+@keyframes ctxPop {
+  from { opacity: 0; transform: scale(0.94) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .ctx-item {
@@ -1315,6 +1366,17 @@ kbd {
 
 .search-show-more:hover {
   background: var(--bg-card-hover);
+}
+
+/* Entry row staggered entrance */
+@keyframes entrySlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.entry-row {
+  animation: entrySlideIn 0.18s ease both;
+  animation-delay: calc(var(--i, 0) * 28ms);
 }
 
 /* Entry highlight flash */
