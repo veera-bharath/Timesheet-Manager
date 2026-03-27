@@ -1,6 +1,6 @@
 {
   "name": "timesheet-manager",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Weekly Jira & Service Desk Time Tracking Application",
   "main": "main.js",
   "scripts": {

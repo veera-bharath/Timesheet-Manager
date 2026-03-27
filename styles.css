@@ -82,6 +82,15 @@
   background: rgba(0, 0, 0, 0.05) !important;
   color: var(--text-primary) !important;
 }
+[data-theme="light"] .btn-outline-accent {
+  color: var(--text-primary);
+  border-color: rgba(0, 0, 0, 0.25);
+  background: transparent;
+}
+[data-theme="light"] .btn-outline-accent:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.35);
+}
 [data-theme="light"] .modal-dark {
   background: var(--bg-card);
 }
