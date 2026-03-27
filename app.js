@@ -15,6 +15,8 @@ const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
 const SEPARATOR = '------------------------------------------------------------------------------------------------------------------------------------------------------';
 
 /* ── STATE ─────────────────────────────────────────────── */
+let weekTransitionDir = null; // 'left' | 'right' | null
+
 let state = {
     reportTitle: 'Booked hours in Jira and Service Desk',
     employeeName: '',
@@ -266,18 +268,24 @@ function bindHeaderEvents() {
         const val = e.target.value;
         if (!val) return;
 
+        const prevWeek = state.weekValue;
         state.weekValue = val;
         state.days = buildWeekDays(getDateFromWeek(val));
         enforceExpandedState();
         updateWeekDisplay();
         saveState();
+        weekTransitionDir = prevWeek ? (val > prevWeek ? 'left' : 'right') : null;
         renderAll();
+        weekTransitionDir = null;
     });
 
     document.getElementById('btn-autofill-week').addEventListener('click', () => {
+        const prevWeek = state.weekValue;
         setCurrentWeek();
         saveState();
+        weekTransitionDir = prevWeek ? (state.weekValue > prevWeek ? 'left' : state.weekValue < prevWeek ? 'right' : null) : null;
         renderAll();
+        weekTransitionDir = null;
     });
 
     const updateTarget = () => {
@@ -333,6 +341,14 @@ function renderDays() {
     state.days.forEach((day, i) => {
         container.appendChild(buildDayCard(day, i));
     });
+    if (weekTransitionDir) {
+        container.classList.remove('week-slide-left', 'week-slide-right');
+        void container.offsetWidth;
+        container.classList.add(`week-slide-${weekTransitionDir}`);
+        container.addEventListener('animationend', () => {
+            container.classList.remove('week-slide-left', 'week-slide-right');
+        }, { once: true });
+    }
 }
 
 /* ── BUILD DAY CARD ────────────────────────────────────── */
@@ -607,8 +623,14 @@ function buildEntriesHTML(entries, dayIdx) {
 
 function rerenderDayCard(dayIdx) {
     const existing = document.getElementById(`day-card-${dayIdx}`);
+    const oldChipText = existing?.querySelector('.day-hours-total')?.textContent;
     const newCard = buildDayCard(state.days[dayIdx], dayIdx);
     existing.replaceWith(newCard);
+    const newChip = newCard.querySelector('.day-hours-total');
+    if (newChip && newChip.textContent !== oldChipText) {
+        newChip.classList.add('chip-bounce');
+        newChip.addEventListener('animationend', () => newChip.classList.remove('chip-bounce'), { once: true });
+    }
 }
 
 /* ── DRAG AND DROP (pointer-event based, no HTML5 drag API) ── */
@@ -772,13 +794,14 @@ function attachDragListeners(dayIdx, container) {
                 'width:' + rect.width + 'px',
                 'left:' + (e.clientX - offsetX) + 'px',
                 'top:' + (e.clientY - offsetY) + 'px',
-                'opacity:0.95',
+                'opacity:0.92',
                 'background:var(--bg-card)',
                 'border:1.5px solid var(--border-accent)',
                 'border-radius:8px',
-                'box-shadow:0 10px 32px rgba(0,0,0,0.6)',
+                'box-shadow:0 16px 40px rgba(0,0,0,0.7)',
                 'transition:none',
-                'cursor:grabbing'
+                'cursor:grabbing',
+                'transform:rotate(3deg) scale(1.03)'
             ].join(';');
             document.body.appendChild(ghost);
 
@@ -2071,7 +2094,9 @@ function initTheme() {
 }
 
 function applyTheme(theme) {
+    document.documentElement.classList.add('theme-transition');
     document.documentElement.setAttribute('data-theme', theme);
+    setTimeout(() => document.documentElement.classList.remove('theme-transition'), 400);
     const icon = document.getElementById('theme-icon');
     const toggleBtn = document.getElementById('btn-theme-toggle');
     
