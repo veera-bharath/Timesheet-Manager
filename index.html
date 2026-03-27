@@ -438,6 +438,36 @@
     </div>
   </div>
 
+  <!-- ENTRY CONTEXT MENU -->
+  <div id="entry-context-menu" class="entry-context-menu" style="display:none">
+    <div class="ctx-item" id="ctx-edit"><i class="bi bi-pencil-square"></i> Edit</div>
+    <div class="ctx-item" id="ctx-duplicate"><i class="bi bi-copy"></i> Duplicate</div>
+    <div class="ctx-item" id="ctx-copy-to"><i class="bi bi-calendar-plus"></i> Copy To</div>
+    <div class="ctx-item ctx-sub-ticket" id="ctx-sub-ticket" style="display:none"><i class="bi bi-ticket-detailed"></i> Add Sub-entry (same ticket)</div>
+    <div class="ctx-item ctx-sub-desc" id="ctx-sub-desc" style="display:none"><i class="bi bi-card-text"></i> Add Sub-entry (same desc)</div>
+    <div class="ctx-item ctx-make-regular" id="ctx-make-regular" style="display:none"><i class="bi bi-calendar-check"></i> Make Regular</div>
+    <div class="ctx-divider"></div>
+    <div class="ctx-item" id="ctx-star"><i class="bi bi-star"></i> <span id="ctx-star-label">Star</span></div>
+    <div class="ctx-divider"></div>
+    <div class="ctx-item ctx-danger" id="ctx-delete"><i class="bi bi-trash"></i> Delete</div>
+  </div>
+
+  <!-- ENTRY QUICK VIEW -->
+  <div id="entry-quick-view" class="entry-quick-view" style="display:none"></div>
+
+  <!-- STARRED ENTRIES MODAL -->
+  <div class="modal fade" id="starredModal" tabindex="-1" aria-labelledby="starredModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="starredModalLabel"><i class="bi bi-star-fill me-2"></i>Starred Entries</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="starred-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ADVANCED SEARCH MODAL -->
   <div class="modal fade" id="advSearchModal" tabindex="-1" aria-labelledby="advSearchModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -555,6 +585,10 @@
     </div>
     <div class="offcanvas-body p-0">
       <div class="sidebar-menu-list">
+        <a href="#" class="sidebar-menu-item" id="menu-starred">
+          <i class="bi bi-star-fill me-3"></i>
+          <span>Starred Entries</span>
+        </a>
         <a href="#" class="sidebar-menu-item" id="menu-cheatsheet">
           <i class="bi bi-keyboard me-3"></i>
           <span>Keyboard Shortcuts</span>
