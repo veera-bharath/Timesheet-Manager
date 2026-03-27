@@ -6,7 +6,7 @@
 'use strict';
 
 /* ── CONSTANTS ─────────────────────────────────────────── */
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
@@ -120,6 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (restored && state.weekValue) {
         // Restore saved week & name into inputs
         document.getElementById('week-picker').value = state.weekValue;
+        
+        const maxWeek = getWeekStrFromDate(new Date());
+        document.getElementById('btn-next-week').disabled = (state.weekValue >= maxWeek);
+        
         state.days = buildWeekDays(getDateFromWeek(state.weekValue));
         enforceExpandedState();
         updateWeekDisplay();
@@ -278,12 +282,29 @@ function enforceExpandedState() {
     }
 }
 
+function changeWeekBy(delta) {
+    const picker = document.getElementById('week-picker');
+    if (!picker.value) return;
+
+    const mon = getDateFromWeek(picker.value);
+    mon.setDate(mon.getDate() + (delta * 7));
+    
+    const newWeekStr = getWeekStrFromDate(mon);
+    const maxWeekStr = getWeekStrFromDate(new Date());
+
+    if (newWeekStr > maxWeekStr) return;
+
+    picker.value = newWeekStr;
+    picker.dispatchEvent(new Event('change'));
+}
+
 function setCurrentWeek() {
     const today = new Date();
     const weekVal = getWeekStrFromDate(today);
 
     document.getElementById('week-picker').value = weekVal;
     state.weekValue = weekVal;
+    document.getElementById('btn-next-week').disabled = true;
     state.days = buildWeekDays(getDateFromWeek(weekVal));
     enforceExpandedState();
     updateWeekDisplay();
@@ -291,6 +312,18 @@ function setCurrentWeek() {
 
 /* ── BIND HEADER EVENTS ────────────────────────────────── */
 function bindHeaderEvents() {
+    const weekPicker = document.getElementById('week-picker');
+    weekPicker.max = getWeekStrFromDate(new Date());
+
+    document.getElementById('btn-prev-week').addEventListener('click', function() {
+        changeWeekBy(-1);
+        this.blur();
+    });
+    document.getElementById('btn-next-week').addEventListener('click', function() {
+        changeWeekBy(1);
+        this.blur();
+    });
+
     document.getElementById('report-title').addEventListener('input', e => {
         state.reportTitle = e.target.value;
         saveState();
@@ -302,17 +335,29 @@ function bindHeaderEvents() {
         saveState();
     });
 
-    document.getElementById('week-picker').addEventListener('change', e => {
+    weekPicker.addEventListener('change', e => {
         const val = e.target.value;
         if (!val) return;
 
         const prevWeek = state.weekValue;
-        state.weekValue = val;
-        state.days = buildWeekDays(getDateFromWeek(val));
+        const maxWeek = getWeekStrFromDate(new Date());
+        const safeVal = val > maxWeek ? maxWeek : val;
+
+        if (safeVal !== val) {
+            e.target.value = safeVal;
+        }
+
+        document.getElementById('btn-next-week').disabled = (safeVal >= maxWeek);
+
+        if (safeVal === prevWeek) return;
+
+        state.weekValue = safeVal;
+
+        state.days = buildWeekDays(getDateFromWeek(safeVal));
         enforceExpandedState();
         updateWeekDisplay();
         saveState();
-        weekTransitionDir = prevWeek ? (val > prevWeek ? 'left' : 'right') : null;
+        weekTransitionDir = prevWeek ? (safeVal > prevWeek ? 'left' : 'right') : null;
         renderAll();
         weekTransitionDir = null;
     });
@@ -320,6 +365,7 @@ function bindHeaderEvents() {
     document.getElementById('btn-autofill-week').addEventListener('click', () => {
         const prevWeek = state.weekValue;
         setCurrentWeek();
+        document.getElementById('btn-next-week').disabled = true;
         saveState();
         weekTransitionDir = prevWeek ? (state.weekValue > prevWeek ? 'left' : state.weekValue < prevWeek ? 'right' : null) : null;
         renderAll();
@@ -1886,12 +1932,24 @@ document.addEventListener('keydown', e => {
             if (expandedIdx !== -1) openEntryModal(expandedIdx, -1);
             break;
 
-        case 'ArrowLeft':
+        case 'ArrowUp':
+            e.preventDefault();
             if (expandedIdx > 0) toggleDay(expandedIdx - 1);
             break;
 
-        case 'ArrowRight':
+        case 'ArrowDown':
+            e.preventDefault();
             if (expandedIdx < state.days.length - 1) toggleDay(expandedIdx + 1);
+            break;
+
+        case 'ArrowLeft':
+            e.preventDefault();
+            changeWeekBy(-1);
+            break;
+
+        case 'ArrowRight':
+            e.preventDefault();
+            changeWeekBy(1);
             break;
 
         case 'p':

@@ -78,7 +78,15 @@
 
             <div class="mb-3">
               <label class="form-label label-text">Timesheet Week</label>
-              <input type="week" id="week-picker" class="form-control dark-input" />
+              <div class="d-flex align-items-stretch gap-2 mb-2">
+                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-prev-week" title="Previous Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+                <input type="week" id="week-picker" class="form-control dark-input m-0 flex-grow-1" />
+                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-next-week" title="Next Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </div>
               <div class="form-text text-muted mt-1" id="week-display-label">Select a week</div>
             </div>
 
@@ -541,7 +549,8 @@
         <div class="modal-body">
           <div class="cheatsheet-group">
             <div class="cheatsheet-group-label">Navigation</div>
-            <div class="cheatsheet-row"><kbd>←</kbd><kbd>→</kbd> <span>Switch expanded day left / right</span></div>
+            <div class="cheatsheet-row"><kbd>↑</kbd><kbd>↓</kbd> <span>Switch expanded day up / down</span></div>
+            <div class="cheatsheet-row"><kbd>←</kbd><kbd>→</kbd> <span>Switch to previous / next week</span></div>
           </div>
           <div class="cheatsheet-group">
             <div class="cheatsheet-group-label">Entries</div>
