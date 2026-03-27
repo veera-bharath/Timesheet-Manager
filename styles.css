@@ -287,11 +287,17 @@ body::before {
   box-shadow: var(--shadow-card);
   position: relative;
   z-index: 1;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
 .glass-card:hover {
   border-color: var(--border-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .glass-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 /* ── FORM ── */
@@ -321,12 +327,13 @@ body::before {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.dark-input:focus {
+.dark-input:focus, .form-control.dark-input:focus, .form-select.dark-input:focus {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px var(--accent-glow) !important;
+  box-shadow: 0 0 0 3px var(--accent-glow);
   outline: none;
   background: var(--bg-input) !important;
   color: var(--text-primary) !important;
+  animation: inputFocusPulse 0.4s ease-out forwards;
 }
 
 .dark-input.is-invalid {
@@ -1322,6 +1329,7 @@ kbd {
 .header-search-inner:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
+  animation: inputFocusPulse 0.4s ease-out forwards;
 }
 
 .search-icon {
@@ -1644,8 +1652,42 @@ kbd {
   animation: emptyBreathe 4s ease-in-out infinite;
 }
 
+/* ── ANIMATION PART 4 ── */
+
+/* 1. Input Focus Glow Pulse */
+@keyframes inputFocusPulse {
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50% { box-shadow: 0 0 0 6px var(--accent-glow); }
+  100% { box-shadow: 0 0 0 3px var(--accent-glow); }
+}
+
+/* 3. Entry Delete Slide-Out */
+@keyframes entrySlideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(40px); opacity: 0; }
+}
+
+.entry-removing {
+  animation: entrySlideOut 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+/* 4. Copy-To Day Button Pop */
+@keyframes copyDayPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.copy-day-pop {
+  animation: copyDayPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .no-entries-msg {
     animation: none;
+  }
+  .dark-input:focus, .form-control.dark-input:focus, .form-select.dark-input:focus, .header-search-inner:focus-within {
+    animation: none !important;
   }
 }
