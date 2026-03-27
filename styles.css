@@ -1482,3 +1482,50 @@ kbd {
   color: var(--warning);
   opacity: 0.85;
 }
+
+/* ── ANIMATION PART 2 ── */
+
+/* 1. Week navigation slide */
+@keyframes weekSlideLeft {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes weekSlideRight {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.week-slide-left  { animation: weekSlideLeft  0.22s ease both; }
+.week-slide-right { animation: weekSlideRight 0.22s ease both; }
+
+/* 2. Total chip bounce */
+@keyframes chipBounce {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.18); }
+  65%  { transform: scale(0.93); }
+  100% { transform: scale(1); }
+}
+.day-hours-total.chip-bounce {
+  animation: chipBounce 0.32s ease;
+}
+
+/* 4. Theme transition — applied briefly via JS when switching */
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition:
+    background-color 0.3s ease,
+    color 0.25s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease !important;
+}
+
+/* 5. Modal scale entrance */
+.modal.fade .modal-dark {
+  transform: scale(0.96);
+  opacity: 0;
+  transition: transform 0.22s ease, opacity 0.2s ease;
+}
+.modal.show .modal-dark {
+  transform: scale(1);
+  opacity: 1;
+}
