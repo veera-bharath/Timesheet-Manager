@@ -550,7 +550,8 @@ function buildEntriesHTML(entries, dayIdx) {
     const groups = buildGroups(entries);
 
     let htmlFragments = [];
-    
+    let rowIndex = 0;
+
     groups.forEach((group, gi) => {
         const roman = ROMAN[gi] + '.';
 
@@ -583,8 +584,9 @@ function buildEntriesHTML(entries, dayIdx) {
             const starClass = e.starred ? 'starred' : '';
             const starIcon  = e.starred ? 'bi-star-fill' : 'bi-star';
 
+            const rowI = rowIndex++;
             htmlFragments.push(`
-    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
+    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}" style="--i:${rowI}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
       <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
@@ -802,9 +804,19 @@ function toggleDay(dayIdx) {
         saveState();
         rerenderDayCard(dayIdx);
     } else {
-        // Close the day
-        state.days[dayIdx].expanded = false;
-        rerenderDayCard(dayIdx);
+        // Animate close, then rerender collapsed
+        const body = document.getElementById(`day-body-${dayIdx}`);
+        if (body) {
+            body.classList.add('collapsing');
+            setTimeout(() => {
+                state.days[dayIdx].expanded = false;
+                rerenderDayCard(dayIdx);
+            }, 200);
+        } else {
+            state.days[dayIdx].expanded = false;
+            rerenderDayCard(dayIdx);
+        }
+        saveState();
     }
 }
 
@@ -1712,10 +1724,15 @@ function showToast(msg, type = 'success') {
       <div class="d-flex align-items-center gap-2 px-3 py-2">
         <i class="bi ${icons[type] || icons.info}" style="color:${colors[type] || colors.info}"></i>
         <span style="font-size:0.85rem">${msg}</span>
-        <button type="button" class="btn-close btn-close-white ms-auto" style="font-size:0.6rem" onclick="document.getElementById('${id}').remove()"></button>
+        <button type="button" class="btn-close btn-close-white ms-auto" style="font-size:0.6rem" onclick="(function(el){el.classList.add('toast-hiding');setTimeout(()=>el.remove(),200);})(document.getElementById('${id}'))"></button>
       </div>
     </div>`);
-    setTimeout(() => { const el = document.getElementById(id); if (el) el.remove(); }, 3000);
+    setTimeout(() => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('toast-hiding');
+        setTimeout(() => el.remove(), 200);
+    }, 3000);
 }
 
 /* ── UTILS ─────────────────────────────────────────────── */
@@ -2105,12 +2122,16 @@ function showEntryContextMenu(row, x, y) {
     document.getElementById('ctx-star-label').textContent = entry.starred ? 'Unstar' : 'Star';
     document.getElementById('ctx-star').querySelector('i').className = entry.starred ? 'bi bi-star-fill' : 'bi bi-star';
 
-    // Position menu
+    // Position and show menu with pop animation
+    menu.classList.remove('ctx-open');
     menu.style.display = 'block';
     const mw = menu.offsetWidth, mh = menu.offsetHeight;
     const vw = window.innerWidth, vh = window.innerHeight;
     menu.style.left = (x + mw > vw ? x - mw : x) + 'px';
     menu.style.top  = (y + mh > vh ? y - mh : y) + 'px';
+    // Force reflow so re-adding the class re-triggers the animation
+    void menu.offsetWidth;
+    menu.classList.add('ctx-open');
 }
 
 function hideContextMenu() {
@@ -2245,6 +2266,11 @@ function toggleEntryStarred(dayIdx, entryIdx, btnEl) {
     btnEl.classList.toggle('starred', entry.starred);
     btnEl.querySelector('i').className = entry.starred ? 'bi bi-star-fill' : 'bi bi-star';
     btnEl.title = entry.starred ? 'Unstar' : 'Star';
+    // Pulse animation
+    btnEl.classList.remove('star-pulse');
+    void btnEl.offsetWidth; // reflow to re-trigger
+    btnEl.classList.add('star-pulse');
+    setTimeout(() => btnEl.classList.remove('star-pulse'), 300);
     // Also sync to allDaysByDate
     const dateStr = state.days[dayIdx].date;
     if (state.allDaysByDate[dateStr]) {
@@ -2680,7 +2706,14 @@ function initUpdater() {
     });
 
     window.updater.onError(() => {
-        showToast('Failed to download update.', 'danger');
+        if (manualUpdateCheck) {
+            showToast('Update check failed.', 'danger');
+            manualUpdateCheck = false;
+        } else if (downloadToastId) {
+            document.getElementById(downloadToastId)?.remove();
+            downloadToastId = null;
+            showToast('Failed to download update.', 'danger');
+        }
     });
 }
 
