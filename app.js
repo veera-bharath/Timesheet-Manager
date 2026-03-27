@@ -101,6 +101,7 @@ function loadState() {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
     initTheme();
+    initRipple();
     initSidebar();
     initUpdater();
     initContextMenu();
@@ -127,6 +128,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderAll();
 });
+
+/* ── RIPPLE ────────────────────────────────────────────── */
+function initRipple() {
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('button, .btn');
+        if (!btn) return;
+        
+        // Exclude icon-only utility buttons
+        if (btn.classList.contains('btn-close') || 
+            btn.classList.contains('day-toggle-btn') || 
+            btn.classList.contains('day-quick-view-btn') || 
+            btn.classList.contains('search-adv-btn') ||
+            btn.classList.contains('copy-to-prev-week') ||
+            btn.classList.contains('copy-to-next-week') ||
+            btn.classList.contains('entry-btn-star')) {
+            return;
+        }
+
+        btn.classList.add('btn-ripple');
+        const rect = btn.getBoundingClientRect();
+        
+        // Fallback to center if keyboard-activated (clientX=0, clientY=0 usually, or near 0)
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        if (e.clientX === 0 && e.clientY === 0) {
+            x = rect.width / 2;
+            y = rect.height / 2;
+        }
+        
+        btn.style.setProperty('--x', `${x}px`);
+        btn.style.setProperty('--y', `${y}px`);
+        
+        btn.classList.remove('ripple-active');
+        void btn.offsetWidth; // Force reflow
+        btn.classList.add('ripple-active');
+    });
+}
 
 /* ── WEEK HELPERS ──────────────────────────────────────── */
 // Convert "2026-W11" to a Date object (Monday of that week)
@@ -402,9 +440,8 @@ function buildProgressRing(dayNumber, totalMins, isHoliday) {
     return `<div class="day-progress-ring" title="${tooltip}">
       <svg width="38" height="38" viewBox="0 0 38 38">
         <circle cx="19" cy="19" r="${r}" fill="none" style="stroke:${trackColor}" stroke-width="3"/>
-        <circle cx="19" cy="19" r="${r}" fill="none" style="stroke:${strokeColor}"
-          stroke-width="3" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
-          stroke-linecap="round" transform="rotate(-90 19 19)"/>
+        <circle cx="19" cy="19" r="${r}" fill="none" class="progress-ring-circle" style="stroke:${strokeColor}; --circ:${circ}; --offset:${offset};"
+          stroke-width="3" stroke-linecap="round" transform="rotate(-90 19 19)"/>
         <text x="19" y="19" text-anchor="middle" dominant-baseline="central"
           style="font-size:11px;font-weight:700;fill:${textColor};font-family:inherit">${dayNumber}</text>
       </svg>

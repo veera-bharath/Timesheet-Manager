@@ -240,6 +240,45 @@ body::before {
   color: var(--text-primary) !important;
 }
 
+/* ── BUTTON RIPPLE ── */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  width: 100px;
+  height: 100px;
+  top: var(--y, 50%);
+  left: var(--x, 50%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn-ripple.ripple-active::after {
+  animation: rippleAnim 0.6s ease-out forwards;
+}
+
+[data-theme="light"] .btn-ripple.btn-outline-light::after,
+[data-theme="light"] .btn-ripple.btn-outline-accent::after,
+[data-theme="light"] .add-entry-btn::after {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+@keyframes rippleAnim {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0.4; }
+  100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-ripple.ripple-active::after { animation: none; }
+}
+
 /* ── CARDS ── */
 .glass-card {
   background: var(--bg-card);
@@ -349,6 +388,23 @@ body::before {
 
 .day-progress-ring svg {
   display: block;
+}
+
+.progress-ring-circle {
+  stroke-dasharray: var(--circ);
+  stroke-dashoffset: var(--offset);
+  animation: fillProgressRing 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes fillProgressRing {
+  from { stroke-dashoffset: var(--circ); }
+  to { stroke-dashoffset: var(--offset); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-ring-circle {
+    animation: none;
+  }
 }
 
 .day-name {
@@ -1245,6 +1301,11 @@ kbd {
 .header-search-wrap {
   position: relative;
   flex: 1;
+  max-width: 260px;
+  transition: max-width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.header-search-wrap:focus-within {
   max-width: 420px;
 }
 
@@ -1528,4 +1589,63 @@ kbd {
 .modal.show .modal-dark {
   transform: scale(1);
   opacity: 1;
+}
+
+/* ── ANIMATION PART 3 ── */
+
+/* 4. Sidebar slide + overlay fade with stagger */
+.offcanvas.offcanvas-end {
+  transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.1) !important;
+}
+
+.offcanvas-backdrop {
+  transition: opacity 0.3s ease !important;
+}
+
+.sidebar-menu-item {
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.offcanvas.show .sidebar-menu-item {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.offcanvas.show .sidebar-menu-item:nth-child(1) { transition-delay: 0.05s; }
+.offcanvas.show .sidebar-menu-item:nth-child(2) { transition-delay: 0.08s; }
+.offcanvas.show .sidebar-menu-item:nth-child(3) { transition-delay: 0.11s; }
+.offcanvas.show .sidebar-menu-item:nth-child(4) { transition-delay: 0.14s; }
+.offcanvas.show .sidebar-menu-item:nth-child(5) { transition-delay: 0.17s; }
+.offcanvas.show .sidebar-menu-item:nth-child(6) { transition-delay: 0.20s; }
+.offcanvas.show .sidebar-menu-item:nth-child(7) { transition-delay: 0.23s; }
+.offcanvas.show .sidebar-menu-item:nth-child(8) { transition-delay: 0.26s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .offcanvas.offcanvas-end,
+  .offcanvas-backdrop,
+  .sidebar-menu-item,
+  .offcanvas.show .sidebar-menu-item {
+    transition: none !important;
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 5. Empty state breathe */
+@keyframes emptyBreathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.no-entries-msg {
+  animation: emptyBreathe 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .no-entries-msg {
+    animation: none;
+  }
 }
