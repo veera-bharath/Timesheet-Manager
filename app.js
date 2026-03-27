@@ -1123,6 +1123,8 @@ function deleteEntry() {
     const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
     if (entryIdx < 0) return;
 
+    entryModal.hide();
+
     // If there's a pending undo from a previous delete, commit it first
     if (lastDeleted) {
         clearTimeout(lastDeleted.timerId);
@@ -1130,11 +1132,22 @@ function deleteEntry() {
     }
 
     const deletedEntry = state.days[dayIdx].entries[entryIdx];
+    const rowEl = document.querySelector(`.entry-row[data-day="${dayIdx}"][data-entry="${entryIdx}"]`);
+
+    if (rowEl && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        rowEl.classList.add('entry-removing');
+        setTimeout(() => {
+            finishDeleteEntry(dayIdx, entryIdx, deletedEntry);
+        }, 250);
+    } else {
+        finishDeleteEntry(dayIdx, entryIdx, deletedEntry);
+    }
+}
+
+function finishDeleteEntry(dayIdx, entryIdx, deletedEntry) {
     state.days[dayIdx].entries.splice(entryIdx, 1);
-    entryModal.hide();
     rerenderDayCard(dayIdx);
     updateSummary();
-    // Defer saveState — give the user a chance to undo
 
     const timerId = setTimeout(() => {
         lastDeleted = null;
@@ -1253,12 +1266,20 @@ function renderCopyToWeek() {
         btn.dataset.date = dateStr;
         btn.innerHTML = `<span class="copy-day-name">${dayName}</span><span class="copy-day-num">${dayNum}</span>`;
         btn.addEventListener('click', () => {
-            if (copyToSelectedDates.includes(dateStr)) {
-                copyToSelectedDates = copyToSelectedDates.filter(d => d !== dateStr);
+            const idx = copyToSelectedDates.indexOf(dateStr);
+            if (idx > -1) {
+                copyToSelectedDates.splice(idx, 1);
+                btn.classList.remove('selected');
             } else {
                 copyToSelectedDates.push(dateStr);
+                btn.classList.add('selected');
             }
-            renderCopyToWeek();
+            
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                btn.classList.remove('copy-day-pop');
+                void btn.offsetWidth; // Reflow to restart animation
+                btn.classList.add('copy-day-pop');
+            }
         });
         container.appendChild(btn);
     }
@@ -1553,9 +1574,45 @@ function updateSummary() {
         }
     });
 
-    document.getElementById('total-hours').textContent = minsToHHMM(totalMins);
-    document.getElementById('total-days').textContent = workingDays;
-    document.getElementById('total-entries').textContent = totalEntries;
+    animateCountUp(document.getElementById('total-hours'), totalMins, true);
+    animateCountUp(document.getElementById('total-days'), workingDays, false);
+    animateCountUp(document.getElementById('total-entries'), totalEntries, false);
+}
+
+function animateCountUp(el, targetVal, isTimeFormat = false) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.textContent = isTimeFormat ? minsToHHMM(targetVal) : targetVal;
+        el.dataset.val = targetVal;
+        return;
+    }
+
+    const startVal = parseInt(el.dataset.val || '0', 10);
+    if (startVal === targetVal) {
+        el.textContent = isTimeFormat ? minsToHHMM(targetVal) : targetVal;
+        return;
+    }
+
+    if (el._animFrame) cancelAnimationFrame(el._animFrame);
+
+    const duration = 500;
+    const startTime = performance.now();
+
+    function step(currentTime) {
+        const elapsed = currentTime - startTime;
+        let progress = Math.min(elapsed / duration, 1);
+        progress = 1 - Math.pow(1 - progress, 4); // easeOutQuart
+
+        const current = Math.floor(startVal + (targetVal - startVal) * progress);
+        el.textContent = isTimeFormat ? minsToHHMM(current) : current;
+
+        if (progress < 1) {
+            el._animFrame = requestAnimationFrame(step);
+        } else {
+            el.textContent = isTimeFormat ? minsToHHMM(targetVal) : targetVal;
+            el.dataset.val = targetVal;
+        }
+    }
+    el._animFrame = requestAnimationFrame(step);
 }
 
 /* ── TXT GENERATION ────────────────────────────────────── */
