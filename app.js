@@ -101,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initSidebar();
     initUpdater();
+    initContextMenu();
     initSearch();
     initScheduledTasks();
     bindHeaderEvents();
@@ -486,20 +487,23 @@ function buildDayCard(day, dayIdx) {
     const addBtn = wrap.querySelector('.add-entry-btn');
     if (addBtn) addBtn.addEventListener('click', () => openEntryModal(dayIdx, -1));
 
-    // Entry row click (edit)
+    // Entry row: double-click → edit
     wrap.querySelectorAll('.entry-row').forEach(row => {
-        row.addEventListener('click', e => {
-            if (e.target.closest('.drag-handle')) return;
+        row.addEventListener('dblclick', e => {
+            if (e.target.closest('.drag-handle') || e.target.closest('.entry-btn-eye') || e.target.closest('.entry-btn-star')) return;
             openEntryModal(parseInt(row.dataset.day), parseInt(row.dataset.entry));
         });
-    });
 
-    // Quick-add inline buttons (keep ticket / keep desc)
-    wrap.querySelectorAll('.quick-add-inline').forEach(btn => {
-        btn.addEventListener('click', e => {
+        // Right-click → context menu
+        row.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            showEntryContextMenu(row, e.clientX, e.clientY);
+        });
+
+        // Star button → toggle
+        row.querySelector('.entry-btn-star').addEventListener('click', e => {
             e.stopPropagation();
-            const row = btn.closest('.entry-row');
-            openEntryModalPreFilled(parseInt(row.dataset.day), parseInt(row.dataset.entry), btn.dataset.keep);
+            toggleEntryStarred(parseInt(row.dataset.day), parseInt(row.dataset.entry), e.currentTarget);
         });
     });
 
@@ -576,28 +580,11 @@ function buildEntriesHTML(entries, dayIdx) {
                 descHtml = `<span class="entry-desc text-muted entry-grouped-hint">↳ Grouped below</span>`;
             }
 
-            let actTicketHtml = '';
-            let actDescHtml = '';
-
-            if (group.type === 'normal') {
-                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" data-keep="ticket">
-                    <i class="bi bi-plus"></i> <i class="bi bi-ticket-detailed"></i>
-                </button>`;
-                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" data-keep="desc">
-                    <i class="bi bi-plus"></i> <i class="bi bi-card-text"></i>
-                </button>`;
-            } else if (group.type === 'ticket_group') {
-                actTicketHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Sub-task (keep ticket)" data-keep="ticket">
-                    <i class="bi bi-plus"></i> <i class="bi bi-ticket-detailed"></i>
-                </button>`;
-            } else if (group.type === 'desc_group') {
-                actDescHtml = `<button type="button" class="btn btn-sm py-0 px-2 quick-add-inline" title="Add Ticket to Group (keep desc)" data-keep="desc">
-                    <i class="bi bi-plus"></i> <i class="bi bi-card-text"></i>
-                </button>`;
-            }
+            const starClass = e.starred ? 'starred' : '';
+            const starIcon  = e.starred ? 'bi-star-fill' : 'bi-star';
 
             htmlFragments.push(`
-    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}">
+    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
       <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
@@ -606,10 +593,8 @@ function buildEntriesHTML(entries, dayIdx) {
       ${e.recurringId ? '<span class="entry-recurring-badge" title="Recurring task"><i class="bi bi-arrow-repeat"></i></span>' : ''}
       ${e.isScheduled ? '<span class="entry-scheduled-badge" title="Scheduled task"><i class="bi bi-clock"></i></span>' : ''}
       ${descHtml}
-      <div class="entry-actions ms-auto d-flex align-items-center gap-2">
-        ${actTicketHtml}
-        ${actDescHtml}
-        <span class="entry-edit-hint ms-2"><i class="bi bi-pencil-square"></i></span>
+      <div class="ms-auto d-flex align-items-center gap-1">
+        <button class="entry-btn-star ${starClass}" title="${e.starred ? 'Unstar' : 'Star'}"><i class="bi ${starIcon}"></i></button>
       </div>
     </div>`);
         });
@@ -2094,6 +2079,216 @@ function applyTheme(theme) {
     }
 }
 
+/* ── CONTEXT MENU ───────────────────────────────────────── */
+let ctxTarget = null; // { dayIdx, entryIdx, row }
+
+function showEntryContextMenu(row, x, y) {
+    ctxTarget = {
+        dayIdx:   parseInt(row.dataset.day),
+        entryIdx: parseInt(row.dataset.entry),
+        groupType: row.dataset.groupType,
+        row
+    };
+    const entry = state.days[ctxTarget.dayIdx]?.entries[ctxTarget.entryIdx];
+    if (!entry) return;
+
+    const menu = document.getElementById('entry-context-menu');
+
+    // Show/hide conditional items
+    document.getElementById('ctx-sub-ticket').style.display =
+        (ctxTarget.groupType === 'normal' || ctxTarget.groupType === 'ticket_group') ? 'flex' : 'none';
+    document.getElementById('ctx-sub-desc').style.display =
+        (ctxTarget.groupType === 'normal' || ctxTarget.groupType === 'desc_group') ? 'flex' : 'none';
+    document.getElementById('ctx-make-regular').style.display = entry.isScheduled ? 'flex' : 'none';
+
+    // Star label
+    document.getElementById('ctx-star-label').textContent = entry.starred ? 'Unstar' : 'Star';
+    document.getElementById('ctx-star').querySelector('i').className = entry.starred ? 'bi bi-star-fill' : 'bi bi-star';
+
+    // Position menu
+    menu.style.display = 'block';
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    menu.style.left = (x + mw > vw ? x - mw : x) + 'px';
+    menu.style.top  = (y + mh > vh ? y - mh : y) + 'px';
+}
+
+function hideContextMenu() {
+    document.getElementById('entry-context-menu').style.display = 'none';
+    ctxTarget = null;
+}
+
+function initContextMenu() {
+    document.getElementById('ctx-edit').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        openEntryModal(dayIdx, entryIdx);
+    });
+
+    document.getElementById('ctx-duplicate').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        const original = state.days[dayIdx].entries[entryIdx];
+        const copy = { ...original, starred: false };
+        state.days[dayIdx].entries.splice(entryIdx + 1, 0, copy);
+        rerenderDayCard(dayIdx);
+        saveState();
+    });
+
+    document.getElementById('ctx-copy-to').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        document.getElementById('modal-day-index').value = dayIdx;
+        document.getElementById('modal-entry-index').value = entryIdx;
+        document.getElementById('btn-copy-to-entry').click();
+    });
+
+    document.getElementById('ctx-sub-ticket').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        openEntryModalPreFilled(dayIdx, entryIdx, 'ticket');
+    });
+
+    document.getElementById('ctx-sub-desc').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        openEntryModalPreFilled(dayIdx, entryIdx, 'desc');
+    });
+
+    document.getElementById('ctx-make-regular').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        document.getElementById('modal-day-index').value = dayIdx;
+        document.getElementById('modal-entry-index').value = entryIdx;
+        makeRegularEntry();
+    });
+
+    document.getElementById('ctx-star').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx, row } = ctxTarget;
+        hideContextMenu();
+        toggleEntryStarred(dayIdx, entryIdx, row.querySelector('.entry-btn-star'));
+    });
+
+    document.getElementById('ctx-delete').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        document.getElementById('modal-day-index').value = dayIdx;
+        document.getElementById('modal-entry-index').value = entryIdx;
+        deleteEntry();
+    });
+
+    // Close on outside click or Escape
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('entry-context-menu').contains(e.target)) hideContextMenu();
+        if (!document.getElementById('entry-quick-view').contains(e.target) &&
+            !e.target.closest('.entry-btn-eye')) hideQuickView();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { hideContextMenu(); hideQuickView(); }
+    });
+}
+
+/* ── QUICK VIEW ─────────────────────────────────────────── */
+let quickViewVisible = false;
+
+function showEntryQuickView(dayIdx, entryIdx, btnEl) {
+    const qv = document.getElementById('entry-quick-view');
+    // Toggle off if same button clicked again
+    if (quickViewVisible && qv.dataset.for === `${dayIdx}-${entryIdx}`) {
+        qv.style.display = 'none';
+        quickViewVisible = false;
+        return;
+    }
+    const entry = state.days[dayIdx]?.entries[entryIdx];
+    if (!entry) return;
+
+    const typeLabel = entry.type === 'servicedesk' ? 'Service Desk' : 'Jira';
+    const hhmm = `${String(entry.hh || 0).padStart(2,'0')}:${String(entry.mm || 0).padStart(2,'0')}`;
+
+    qv.innerHTML = `
+        <div class="qv-row"><span class="qv-label">Ticket</span><span class="qv-value">${escHtml(entry.ticket || '—')}</span></div>
+        <div class="qv-row"><span class="qv-label">Type</span><span class="qv-value">${escHtml(typeLabel)}</span></div>
+        <div class="qv-row"><span class="qv-label">Time</span><span class="qv-value">${hhmm}</span></div>
+        <div class="qv-row"><span class="qv-label">Desc</span><span class="qv-desc">${escHtml(entry.desc || '—')}</span></div>`;
+    qv.dataset.for = `${dayIdx}-${entryIdx}`;
+
+    // Position near button
+    const rect = btnEl.getBoundingClientRect();
+    qv.style.display = 'block';
+    const qvw = qv.offsetWidth, qvh = qv.offsetHeight;
+    const top = rect.bottom + 6 + qvh > window.innerHeight ? rect.top - qvh - 6 : rect.bottom + 6;
+    const left = Math.min(rect.left, window.innerWidth - qvw - 8);
+    qv.style.top  = top + 'px';
+    qv.style.left = left + 'px';
+    quickViewVisible = true;
+}
+
+function hideQuickView() {
+    document.getElementById('entry-quick-view').style.display = 'none';
+    quickViewVisible = false;
+}
+
+/* ── STAR ───────────────────────────────────────────────── */
+function toggleEntryStarred(dayIdx, entryIdx, btnEl) {
+    const entry = state.days[dayIdx]?.entries[entryIdx];
+    if (!entry) return;
+    entry.starred = !entry.starred;
+    // Update button UI without full rerender
+    btnEl.classList.toggle('starred', entry.starred);
+    btnEl.querySelector('i').className = entry.starred ? 'bi bi-star-fill' : 'bi bi-star';
+    btnEl.title = entry.starred ? 'Unstar' : 'Star';
+    // Also sync to allDaysByDate
+    const dateStr = state.days[dayIdx].date;
+    if (state.allDaysByDate[dateStr]) {
+        state.allDaysByDate[dateStr].entries[entryIdx] = entry;
+    }
+    saveState();
+}
+
+function renderStarredList() {
+    const container = document.getElementById('starred-list');
+    const results = [];
+    Object.keys(state.allDaysByDate).sort().forEach(dateStr => {
+        const day = state.allDaysByDate[dateStr];
+        if (!day?.entries) return;
+        day.entries.forEach((entry, entryIdx) => {
+            if (entry.starred) results.push({ dateStr, entryIdx, entry });
+        });
+    });
+
+    if (!results.length) {
+        container.innerHTML = '<div class="search-no-results py-4">No starred entries yet.</div>';
+        return;
+    }
+
+    container.innerHTML = results.map((r, i) => {
+        const hhmm = `${String(r.entry.hh || 0).padStart(2,'0')}:${String(r.entry.mm || 0).padStart(2,'0')}`;
+        const typeLabel = r.entry.type === 'servicedesk' ? 'Service Desk' : 'Jira';
+        return `<div class="adv-result-card" data-sidx="${i}">
+            <div class="adv-result-line1">
+                <span>${escHtml(fmtSearchDate(r.dateStr))} &middot; ${escHtml(r.entry.ticket || '—')} &middot; ${escHtml(typeLabel)}</span>
+                <span class="adv-result-hours">${hhmm}</span>
+            </div>
+            <div class="adv-result-line2">${escHtml(r.entry.desc || '')}</div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.adv-result-card').forEach((el, i) => {
+        el.addEventListener('click', () => {
+            bootstrap.Modal.getInstance(document.getElementById('starredModal'))?.hide();
+            navigateToResult(results[i].dateStr, results[i].entryIdx);
+        });
+    });
+}
+
 /* ── SEARCH ─────────────────────────────────────────────── */
 const SEARCH_PAGE_SIZE = 10;
 let advSearchResults = [];
@@ -2402,6 +2597,17 @@ function initSidebar() {
             e.preventDefault();
             closeSidebar();
             aboutModal.show();
+        });
+    }
+
+    // Starred Entries
+    const starredBtn = document.getElementById('menu-starred');
+    if (starredBtn) {
+        starredBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeSidebar();
+            renderStarredList();
+            new bootstrap.Modal(document.getElementById('starredModal')).show();
         });
     }
 
