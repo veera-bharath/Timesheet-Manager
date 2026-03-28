@@ -38,7 +38,7 @@ function createWindow() {
     y: savedBounds ? savedBounds.y : undefined,
     minWidth: 800,
     minHeight: 600,
-    icon: path.join(__dirname, 'favicon.png'),
+    icon: path.join(__dirname, '../../favicon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
