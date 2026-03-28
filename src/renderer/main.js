@@ -43,7 +43,7 @@ let state = {
 /* ── PERSISTENCE (electron-store) ──────────────────────── */
 const LS_KEY = 'timesheetState_v1';
 
-function saveState() {
+async function saveState() {
     try {
         state.days.forEach(d => {
             if (d && d.date) state.allDaysByDate[d.date] = d;
@@ -58,25 +58,25 @@ function saveState() {
             recurringTasks: state.recurringTasks,
             dailyTargetMins: state.dailyTargetMins
         };
-        window.electronStore.set(LS_KEY, toSave);
+        await window.electronStore.set(LS_KEY, toSave);
     } catch (e) { console.warn('Could not save state', e); }
 }
 
-function loadState() {
+async function loadState() {
     try {
         // One-time migration from localStorage → electron-store
-        if (!window.electronStore.has(LS_KEY)) {
+        if (!await window.electronStore.has(LS_KEY)) {
             const raw = localStorage.getItem(LS_KEY);
             if (raw) {
                 const parsed = JSON.parse(raw);
                 if (parsed) {
-                    window.electronStore.set(LS_KEY, parsed);
+                    await window.electronStore.set(LS_KEY, parsed);
                     localStorage.removeItem(LS_KEY);
                 }
             }
         }
 
-        const saved = window.electronStore.get(LS_KEY);
+        const saved = await window.electronStore.get(LS_KEY);
         if (!saved) return false;
 
         state.reportTitle = saved.reportTitle || 'Booked hours in Jira and Service Desk';
@@ -98,7 +98,7 @@ function loadState() {
 }
 
 /* ── INIT ──────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
     initTheme();
     initRipple();
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSearch();
     initScheduledTasks();
     bindHeaderEvents();
-    const restored = loadState();
+    const restored = await loadState();
 
     // Always apply these inputs if we have them in state, regardless of whether a week was previously saved or not
     document.getElementById('report-title').value = state.reportTitle || '';
