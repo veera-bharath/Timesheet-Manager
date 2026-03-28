@@ -7,7 +7,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: 'main.js'
+          index: 'src/main/index.js'
         }
       }
     }
@@ -17,13 +17,13 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: 'preload.js'
+          index: 'src/preload/index.js'
         }
       }
     }
   },
   renderer: {
-    root: '.',
+    root: 'src/renderer',
     plugins: [
       viteStaticCopy({
         targets: [{ src: 'vendor', dest: '.' }]
@@ -32,7 +32,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: 'index.html'
+          index: 'src/renderer/index.html'
         }
       }
     }
