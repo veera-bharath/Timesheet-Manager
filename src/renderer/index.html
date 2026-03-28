@@ -595,6 +595,11 @@
     </div>
     <div class="offcanvas-body p-0">
       <div class="sidebar-menu-list">
+        <a href="#" class="sidebar-menu-item" id="menu-settings">
+          <i class="bi bi-gear me-3"></i>
+          <span>Settings</span>
+        </a>
+        <div class="sidebar-menu-divider"></div>
         <a href="#" class="sidebar-menu-item" id="menu-starred">
           <i class="bi bi-star-fill me-3"></i>
           <span>Starred Entries</span>
@@ -660,6 +665,89 @@
             <button type="button" class="btn btn-gradient px-5" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+      <div class="modal-content settings-modal-content">
+
+        <!-- Header -->
+        <div class="settings-header">
+          <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-gear-fill settings-header-icon"></i>
+            <span class="settings-header-title">Settings</span>
+          </div>
+          <button type="button" class="btn-close btn-close-white" id="btn-settings-close" aria-label="Close"></button>
+        </div>
+
+        <!-- Body: left nav + right content -->
+        <div class="settings-body">
+
+          <!-- Left Nav -->
+          <nav class="settings-nav">
+            <div class="settings-nav-item" data-section="general">
+              <i class="bi bi-sliders"></i>
+              <span>General</span>
+            </div>
+            <div class="settings-nav-item" data-section="appearance">
+              <i class="bi bi-palette"></i>
+              <span>Appearance</span>
+            </div>
+            <div class="settings-nav-item settings-nav-parent" data-section="management">
+              <i class="bi bi-grid"></i>
+              <span>Management</span>
+              <i class="bi bi-chevron-right settings-nav-chevron"></i>
+            </div>
+            <div class="settings-nav-sub" id="sub-management">
+              <div class="settings-nav-subitem" data-section="ticket-types">
+                <i class="bi bi-tag"></i>
+                <span>Ticket Types</span>
+              </div>
+              <div class="settings-nav-subitem" data-section="leave-types">
+                <i class="bi bi-calendar-x"></i>
+                <span>Leave Types</span>
+              </div>
+            </div>
+            <div class="settings-nav-item settings-nav-parent" data-section="developer">
+              <i class="bi bi-code-slash"></i>
+              <span>Developer</span>
+              <i class="bi bi-chevron-right settings-nav-chevron"></i>
+            </div>
+            <div class="settings-nav-sub" id="sub-developer">
+              <div class="settings-nav-subitem" data-section="error-logs">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Error Logs</span>
+              </div>
+            </div>
+            <div class="settings-nav-item" data-section="about">
+              <i class="bi bi-info-circle"></i>
+              <span>About</span>
+            </div>
+          </nav>
+
+          <!-- Right Content -->
+          <div class="settings-content" id="settings-content"></div>
+
+        </div>
+
+        <!-- Unsaved Changes Overlay -->
+        <div class="settings-unsaved-overlay" id="settings-unsaved-overlay" style="display:none">
+          <div class="settings-unsaved-dialog">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-exclamation-triangle" style="color:var(--warning);font-size:1.1rem"></i>
+              <span class="fw-semibold" style="font-size:0.95rem;color:var(--text-primary)">Unsaved Changes</span>
+            </div>
+            <p class="settings-unsaved-msg" id="settings-unsaved-msg"></p>
+            <div class="d-flex gap-2 justify-content-end">
+              <button class="btn btn-outline-light btn-sm px-3" id="btn-settings-keep">Keep Editing</button>
+              <button class="btn btn-gradient btn-sm px-3" id="btn-settings-discard">Discard</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
