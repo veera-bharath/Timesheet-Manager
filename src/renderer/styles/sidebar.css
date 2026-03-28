@@ -1,0 +1,93 @@
+/* ── SIDEBAR (OFFCANVAS) ── */
+
+.offcanvas-dark {
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+  color: var(--text-primary);
+  width: 320px !important;
+}
+
+.sidebar-menu-list {
+  display: flex;
+  flex-direction: column;
+  padding-top: 10px;
+}
+
+.sidebar-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 24px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.sidebar-menu-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-left-color: var(--success);
+}
+
+.sidebar-menu-item i {
+  font-size: 1.2rem;
+  width: 24px;
+  opacity: 0.7;
+}
+
+.sidebar-menu-item.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.sidebar-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 15px 24px;
+}
+
+.sidebar-footer {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.text-muted-v {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+[data-theme="light"] .text-muted-v {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+[data-theme="light"] .sidebar-footer {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* About Modal Specifics */
+#aboutModal .modal-content {
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+}
+
+#aboutModal .text-muted {
+  color: var(--text-secondary) !important;
+  opacity: 0.85;
+}
+
+#aboutModal h3 {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] #aboutModal .modal-content {
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+[data-theme="light"] #aboutModal .text-muted {
+  color: var(--text-muted) !important;
+  opacity: 1;
+}
