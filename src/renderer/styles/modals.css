@@ -1,0 +1,46 @@
+/* ── MODAL ── */
+
+.modal-dark {
+  background: #1b1b1b;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+}
+
+.modal-dark .modal-header {
+  border-bottom: 1px solid var(--border);
+  padding: 18px 24px;
+}
+
+.modal-dark .modal-title {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.modal-dark .modal-footer {
+  border-top: 1px solid var(--border);
+}
+
+.modal-dark .modal-body {
+  padding: 24px;
+}
+
+.form-text {
+  color: var(--text-muted) !important;
+  font-size: 0.72rem;
+}
+
+/* ── TXT PREVIEW ── */
+
+.txt-output {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  color: #a5f3d0;
+  background: #151515;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.7;
+}

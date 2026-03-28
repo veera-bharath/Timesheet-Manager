@@ -1,0 +1,26 @@
+/* ── ENTRY DAY TOTAL ── */
+
+.entry-day-total {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.entry-day-total .total-arrow {
+  color: var(--text-muted);
+}
+
+.entry-day-total .total-new {
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.entry-day-total .total-new.over {
+  color: var(--warning);
+}
+
+.entry-day-total .total-new.ok {
+  color: var(--success);
+}

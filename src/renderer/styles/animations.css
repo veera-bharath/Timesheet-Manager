@@ -1,0 +1,135 @@
+/* ── ANIMATIONS ── */
+
+/* 1. Week navigation slide */
+@keyframes weekSlideLeft {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes weekSlideRight {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.week-slide-left  { animation: weekSlideLeft  0.22s ease both; }
+.week-slide-right { animation: weekSlideRight 0.22s ease both; }
+
+/* 2. Total chip bounce */
+@keyframes chipBounce {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.18); }
+  65%  { transform: scale(0.93); }
+  100% { transform: scale(1); }
+}
+.day-hours-total.chip-bounce {
+  animation: chipBounce 0.32s ease;
+}
+
+/* 3. Theme transition — applied briefly via JS when switching */
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition:
+    background-color 0.3s ease,
+    color 0.25s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease !important;
+}
+
+/* 4. Modal scale entrance */
+.modal.fade .modal-dark {
+  transform: scale(0.96);
+  opacity: 0;
+  transition: transform 0.22s ease, opacity 0.2s ease;
+}
+.modal.show .modal-dark {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* 5. Sidebar slide + overlay fade with stagger */
+.offcanvas.offcanvas-end {
+  transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.1) !important;
+}
+
+.offcanvas-backdrop {
+  transition: opacity 0.3s ease !important;
+}
+
+.sidebar-menu-item {
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.offcanvas.show .sidebar-menu-item {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.offcanvas.show .sidebar-menu-item:nth-child(1) { transition-delay: 0.05s; }
+.offcanvas.show .sidebar-menu-item:nth-child(2) { transition-delay: 0.08s; }
+.offcanvas.show .sidebar-menu-item:nth-child(3) { transition-delay: 0.11s; }
+.offcanvas.show .sidebar-menu-item:nth-child(4) { transition-delay: 0.14s; }
+.offcanvas.show .sidebar-menu-item:nth-child(5) { transition-delay: 0.17s; }
+.offcanvas.show .sidebar-menu-item:nth-child(6) { transition-delay: 0.20s; }
+.offcanvas.show .sidebar-menu-item:nth-child(7) { transition-delay: 0.23s; }
+.offcanvas.show .sidebar-menu-item:nth-child(8) { transition-delay: 0.26s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .offcanvas.offcanvas-end,
+  .offcanvas-backdrop,
+  .sidebar-menu-item,
+  .offcanvas.show .sidebar-menu-item {
+    transition: none !important;
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 6. Empty state breathe */
+@keyframes emptyBreathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.no-entries-msg {
+  animation: emptyBreathe 4s ease-in-out infinite;
+}
+
+/* 7. Input Focus Glow Pulse */
+@keyframes inputFocusPulse {
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50% { box-shadow: 0 0 0 6px var(--accent-glow); }
+  100% { box-shadow: 0 0 0 3px var(--accent-glow); }
+}
+
+/* 8. Entry Delete Slide-Out */
+@keyframes entrySlideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(40px); opacity: 0; }
+}
+
+.entry-removing {
+  animation: entrySlideOut 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+/* 9. Copy-To Day Button Pop */
+@keyframes copyDayPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.copy-day-pop {
+  animation: copyDayPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .no-entries-msg {
+    animation: none;
+  }
+  .dark-input:focus, .form-control.dark-input:focus, .form-select.dark-input:focus, .header-search-inner:focus-within {
+    animation: none !important;
+  }
+}
