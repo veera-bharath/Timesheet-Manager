@@ -250,6 +250,24 @@
   flex-shrink: 0;
 }
 
+/* ── SETTINGS FORM ── */
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-form-actions {
+  padding-top: 4px;
+}
+
 /* ── PLACEHOLDER ── */
 
 .settings-placeholder {

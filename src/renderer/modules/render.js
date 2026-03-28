@@ -14,8 +14,6 @@ let weekTransitionDir = null;
 export function setWeekTransitionDir(v) { weekTransitionDir = v; }
 
 export function renderAll() {
-    if (state.reportTitle) document.getElementById('report-title').value = state.reportTitle;
-    if (state.employeeName) document.getElementById('emp-name').value = state.employeeName;
     renderDays();
     updateSummary();
 }

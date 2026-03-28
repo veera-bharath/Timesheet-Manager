@@ -64,16 +64,21 @@
         <!-- Week Range & Employee Info -->
         <div class="card glass-card mb-4 position-sticky" style="top: 85px;">
           <div class="card-body">
-            <h5 class="section-label"><i class="bi bi-person-badge me-2"></i>Sheet Details</h5>
-
-            <div class="mb-3">
-              <label class="form-label label-text">Report Title</label>
-              <input type="text" id="report-title" class="form-control dark-input" placeholder="Report Title" />
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h5 class="section-label mb-0"><i class="bi bi-person-badge me-2"></i>Sheet Details</h5>
+              <button class="btn btn-sm btn-outline-accent px-2 py-1" id="btn-edit-sheet-details" title="Edit in Settings">
+                <i class="bi bi-pencil" style="font-size:0.8rem"></i>
+              </button>
             </div>
 
             <div class="mb-3">
-              <label class="form-label label-text">Employee Name</label>
-              <input type="text" id="emp-name" class="form-control dark-input" placeholder="e.g. John Doe" />
+              <div class="label-text">Report Title</div>
+              <div class="sheet-detail-value" id="display-report-title">—</div>
+            </div>
+
+            <div class="mb-3">
+              <div class="label-text">Employee Name</div>
+              <div class="sheet-detail-value" id="display-emp-name">—</div>
             </div>
 
             <div class="mb-3">
@@ -95,13 +100,8 @@
             </button>
 
             <div class="mb-3 mt-3">
-              <label class="form-label label-text">Daily Target</label>
-              <div class="d-flex align-items-center gap-2">
-                <input type="number" id="target-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="08" style="max-width:64px" />
-                <span class="label-text">hrs</span>
-                <input type="number" id="target-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" style="max-width:64px" />
-                <span class="label-text">min</span>
-              </div>
+              <div class="label-text">Daily Target</div>
+              <div class="sheet-detail-value" id="display-daily-target">—</div>
             </div>
 
             <hr class="border-secondary my-4 opacity-25">

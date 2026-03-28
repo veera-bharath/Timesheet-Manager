@@ -5,6 +5,7 @@ import { updateSummary } from './summary.js';
 import { renderAll, renderDays, setWeekTransitionDir } from './render.js';
 import { openPreview, doPrint, copyTxt, downloadTxt } from './report.js';
 import { saveEntry, deleteEntry, makeRegularEntry, updateEntryDayTotal } from './entry-modal.js';
+import { openSettings } from './settings.js';
 
 export function bindHeaderEvents() {
     const weekPicker = document.getElementById('week-picker');
@@ -19,15 +20,8 @@ export function bindHeaderEvents() {
         this.blur();
     });
 
-    document.getElementById('report-title').addEventListener('input', e => {
-        state.reportTitle = e.target.value;
-        saveState();
-    });
-
-    document.getElementById('emp-name').addEventListener('input', e => {
-        state.employeeName = e.target.value.trim();
-        updateSummary();
-        saveState();
+    document.getElementById('btn-edit-sheet-details').addEventListener('click', () => {
+        openSettings('general');
     });
 
     weekPicker.addEventListener('change', e => {
@@ -66,18 +60,6 @@ export function bindHeaderEvents() {
         setWeekTransitionDir(null);
     });
 
-    const updateTarget = () => {
-        const hh = parseInt(document.getElementById('target-hh').value) || 0;
-        const mm = parseInt(document.getElementById('target-mm').value) || 0;
-        const mins = hh * 60 + mm;
-        if (mins < 1) return;
-        state.dailyTargetMins = mins;
-        renderDays();
-        saveState();
-    };
-    document.getElementById('target-hh').addEventListener('change', updateTarget);
-    document.getElementById('target-mm').addEventListener('change', updateTarget);
-
     document.getElementById('btn-preview').addEventListener('click', openPreview);
     document.getElementById('btn-print').addEventListener('click', doPrint);
     document.getElementById('btn-copy-txt').addEventListener('click', copyTxt);
@@ -90,7 +72,6 @@ export function bindHeaderEvents() {
         ['modal-hh',          'modal-mm'],
         ['recurring-hh',      'recurring-mm'],
         ['scheduled-form-hh', 'scheduled-form-mm'],
-        ['target-hh',         'target-mm'],
     ].forEach(([hhId, mmId]) => {
         document.getElementById(hhId).addEventListener('input', function () {
             if (this.value.length >= 2) document.getElementById(mmId).focus();
