@@ -8,6 +8,7 @@ import { showToast } from './toast.js';
 import { updateSummary } from './summary.js';
 import { renderDays } from './render.js';
 import { escHtml } from './utils.js';
+import { applyTheme } from './theme.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
@@ -234,14 +235,36 @@ export function updateSheetDetailsDisplay() {
 }
 
 function renderAppearance(el) {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+
     el.innerHTML = `
         <div class="settings-section-header">
             <h2 class="settings-section-title">Appearance</h2>
             <p class="settings-section-desc">Customize the look of the app.</p>
         </div>
         <div class="settings-section-body">
-            <p class="settings-placeholder">Theme settings — coming soon.</p>
+            <div class="settings-form-group">
+                <label class="label-text">Theme</label>
+                <div class="settings-theme-options">
+                    <button class="settings-theme-btn ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
+                        <i class="bi bi-moon-fill"></i>
+                        <span>Dark</span>
+                    </button>
+                    <button class="settings-theme-btn ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
+                        <i class="bi bi-sun-fill"></i>
+                        <span>Light</span>
+                    </button>
+                </div>
+                <p class="form-text mt-2">Changes apply immediately.</p>
+            </div>
         </div>`;
+
+    el.querySelectorAll('.settings-theme-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyTheme(btn.dataset.theme);
+            localStorage.setItem('theme', btn.dataset.theme);
+        });
+    });
 }
 
 function renderManagement(el) {
