@@ -268,6 +268,46 @@
   padding-top: 4px;
 }
 
+/* ── THEME PICKER ── */
+
+.settings-theme-options {
+  display: flex;
+  gap: 12px;
+}
+
+.settings-theme-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 28px;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 100px;
+}
+
+.settings-theme-btn i {
+  font-size: 1.4rem;
+}
+
+.settings-theme-btn:hover {
+  border-color: var(--border-accent);
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.settings-theme-btn.active {
+  border-color: var(--success);
+  background: rgba(34, 211, 160, 0.08);
+  color: var(--success);
+}
+
 /* ── PLACEHOLDER ── */
 
 .settings-placeholder {
