@@ -6,17 +6,27 @@ import { saveEntry, openEntryModal } from './entry-modal.js';
 import { toggleDay, renderAll } from './render.js';
 import { changeWeekBy } from './week.js';
 import { openPreview, openDayQuickView, doPrint } from './report.js';
+import { openSettings } from './settings.js';
 
 /* ── SIDEBAR & ABOUT ────────────────────────────────────── */
 export function initSidebar() {
-    const aboutBtn = document.getElementById('menu-about');
     const sidebarEl = document.getElementById('appSidebar');
+    const aboutBtn = document.getElementById('menu-about');
     const aboutModalEl = document.getElementById('aboutModal');
 
     const closeSidebar = () => {
         const oc = bootstrap.Offcanvas.getInstance(sidebarEl);
         if (oc) oc.hide(); else new bootstrap.Offcanvas(sidebarEl).hide();
     };
+
+    const settingsBtn = document.getElementById('menu-settings');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeSidebar();
+            openSettings();
+        });
+    }
 
     if (aboutBtn && sidebarEl && aboutModalEl) {
         const aboutModal = new bootstrap.Modal(aboutModalEl);
