@@ -2,6 +2,13 @@
    SETTINGS — full-screen modal shell, nav routing, dirty state
    ============================================================= */
 
+import { state } from './state.js';
+import { saveState } from './store.js';
+import { showToast } from './toast.js';
+import { updateSummary } from './summary.js';
+import { renderDays } from './render.js';
+import { escHtml } from './utils.js';
+
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
     'general':      { parent: null,         label: 'General',      isParent: false },
@@ -136,14 +143,94 @@ function renderSection(section) {
 }
 
 function renderGeneral(el) {
+    const tgt = state.dailyTargetMins || 480;
+    const hhVal = Math.floor(tgt / 60);
+    const mmVal = tgt % 60;
+
     el.innerHTML = `
         <div class="settings-section-header">
             <h2 class="settings-section-title">General</h2>
             <p class="settings-section-desc">Sheet details used in the generated timesheet report.</p>
         </div>
         <div class="settings-section-body">
-            <p class="settings-placeholder">Sheet Details — coming soon.</p>
+            <div class="settings-form">
+                <div class="settings-form-group">
+                    <label class="label-text" for="settings-report-title">Report Title</label>
+                    <input type="text" id="settings-report-title" class="form-control dark-input"
+                        placeholder="e.g. Booked hours in Jira and Service Desk"
+                        value="${escHtml(state.reportTitle || '')}" />
+                </div>
+                <div class="settings-form-group">
+                    <label class="label-text" for="settings-emp-name">Employee Name</label>
+                    <input type="text" id="settings-emp-name" class="form-control dark-input"
+                        placeholder="e.g. John Doe"
+                        value="${escHtml(state.employeeName || '')}" />
+                </div>
+                <div class="settings-form-group">
+                    <label class="label-text">Daily Target</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="number" id="settings-target-hh" class="form-control dark-input text-center"
+                            min="0" max="23" placeholder="08" value="${hhVal}" style="max-width:64px" />
+                        <span class="label-text">hrs</span>
+                        <input type="number" id="settings-target-mm" class="form-control dark-input text-center"
+                            min="0" max="59" placeholder="00" value="${mmVal}" style="max-width:64px" />
+                        <span class="label-text">min</span>
+                    </div>
+                </div>
+                <div class="settings-form-actions">
+                    <button class="btn btn-gradient px-4" id="btn-save-general">
+                        <i class="bi bi-check-lg me-1"></i> Save
+                    </button>
+                </div>
+            </div>
         </div>`;
+
+    // Mark dirty on any change
+    const markGeneralDirty = () => markDirty('general');
+    el.querySelector('#settings-report-title').addEventListener('input', markGeneralDirty);
+    el.querySelector('#settings-emp-name').addEventListener('input', markGeneralDirty);
+    el.querySelector('#settings-target-hh').addEventListener('input', markGeneralDirty);
+    el.querySelector('#settings-target-mm').addEventListener('input', markGeneralDirty);
+
+    // HH auto-advance to MM
+    el.querySelector('#settings-target-hh').addEventListener('input', function () {
+        if (this.value.length >= 2) el.querySelector('#settings-target-mm').focus();
+    });
+
+    // Save
+    el.querySelector('#btn-save-general').addEventListener('click', () => {
+        const title = el.querySelector('#settings-report-title').value.trim();
+        const name  = el.querySelector('#settings-emp-name').value.trim();
+        const hh    = parseInt(el.querySelector('#settings-target-hh').value) || 0;
+        const mm    = parseInt(el.querySelector('#settings-target-mm').value) || 0;
+        const mins  = hh * 60 + mm;
+
+        state.reportTitle    = title;
+        state.employeeName   = name;
+        state.dailyTargetMins = mins > 0 ? mins : 480;
+
+        saveState();
+        updateSummary();
+        renderDays();
+        updateSheetDetailsDisplay();
+        clearDirty();
+        showToast('Sheet details saved.', 'success');
+    });
+}
+
+/* ── SHEET DETAILS DISPLAY (main page read-only panel) ───── */
+export function updateSheetDetailsDisplay() {
+    const titleEl  = document.getElementById('display-report-title');
+    const nameEl   = document.getElementById('display-emp-name');
+    const targetEl = document.getElementById('display-daily-target');
+
+    if (titleEl)  titleEl.textContent  = state.reportTitle  || '—';
+    if (nameEl)   nameEl.textContent   = state.employeeName || '—';
+    if (targetEl) {
+        const hh = Math.floor(state.dailyTargetMins / 60);
+        const mm = state.dailyTargetMins % 60;
+        targetEl.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    }
 }
 
 function renderAppearance(el) {

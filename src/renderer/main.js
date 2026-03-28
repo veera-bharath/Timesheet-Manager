@@ -15,7 +15,7 @@ import { initEntryModal } from './modules/entry-modal.js';
 import { initCopyTo } from './modules/copy-to.js';
 import { initReport } from './modules/report.js';
 import { bindHeaderEvents } from './modules/header.js';
-import { initSettings } from './modules/settings.js';
+import { initSettings, updateSheetDetailsDisplay } from './modules/settings.js';
 import { renderAll } from './modules/render.js';
 import { state } from './modules/state.js';
 import { getWeekStrFromDate, getDateFromWeek, buildWeekDays, enforceExpandedState, updateWeekDisplay } from './modules/week.js';
@@ -39,11 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const restored = await loadState();
 
-    document.getElementById('report-title').value = state.reportTitle || '';
-    document.getElementById('emp-name').value = state.employeeName || '';
-    const tgt = state.dailyTargetMins || 480;
-    document.getElementById('target-hh').value = Math.floor(tgt / 60);
-    document.getElementById('target-mm').value = tgt % 60;
+    updateSheetDetailsDisplay();
 
     if (restored && state.weekValue) {
         document.getElementById('week-picker').value = state.weekValue;
