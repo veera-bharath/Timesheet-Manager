@@ -67,33 +67,15 @@ function createWindow() {
 }
 
 // ── IPC: electron-store ──────────────────────────────────
-ipcMain.on('store-get', (event, key) => {
-  event.returnValue = store.get(key, null);
-});
-ipcMain.on('store-set', (event, key, value) => {
-  store.set(key, value);
-  event.returnValue = true;
-});
-ipcMain.on('store-delete', (event, key) => {
-  store.delete(key);
-  event.returnValue = true;
-});
-ipcMain.on('store-has', (event, key) => {
-  event.returnValue = store.has(key);
-});
+ipcMain.handle('store-get', (_event, key) => store.get(key, null));
+ipcMain.handle('store-set', (_event, key, value) => { store.set(key, value); });
+ipcMain.handle('store-delete', (_event, key) => { store.delete(key); });
+ipcMain.handle('store-has', (_event, key) => store.has(key));
 
 // ── IPC: auto-updater ────────────────────────────────────
-ipcMain.on('check-for-updates', () => {
-  autoUpdater.checkForUpdates();
-});
-
-ipcMain.on('download-update', () => {
-  autoUpdater.downloadUpdate();
-});
-
-ipcMain.on('install-update', () => {
-  autoUpdater.quitAndInstall();
-});
+ipcMain.handle('check-for-updates', () => autoUpdater.checkForUpdates());
+ipcMain.handle('download-update', () => autoUpdater.downloadUpdate());
+ipcMain.handle('install-update', () => autoUpdater.quitAndInstall());
 
 // Forward updater events to renderer
 autoUpdater.on('update-available', (info) => {
