@@ -2,7 +2,7 @@
    SETTINGS — full-screen modal shell, nav routing, dirty state
    ============================================================= */
 
-import { state } from './state.js';
+import { state, APP_VERSION } from './state.js';
 import { saveState } from './store.js';
 import { showToast } from './toast.js';
 import { updateSummary } from './summary.js';
@@ -30,6 +30,45 @@ let currentSection = 'general';
 let dirtySection   = null;
 let _pendingTarget = null;   // section key or '__close__'
 let settingsModalInst = null;
+
+/* ── CHANGELOG ──────────────────────────────────────────── */
+const CHANGELOG_KEY = 'changelog_v1';
+
+export async function loadChangelog() {
+    try {
+        const saved = await window.electronStore.get(CHANGELOG_KEY);
+        // Discard the old bogus seed (single "Initial release." entry)
+        const isBogus = Array.isArray(saved) && saved.length === 1 && saved[0]?.notes === 'Initial release.';
+        if (saved && Array.isArray(saved) && saved.length > 0 && !isBogus) {
+            state.changelog = saved;
+        }
+    } catch (e) { /* silent */ }
+    // Refresh from GitHub in background (non-blocking)
+    _refreshChangelogFromGitHub().catch(() => {});
+}
+
+async function _refreshChangelogFromGitHub() {
+    try {
+        const res = await fetch('https://api.github.com/repos/veera-bharath/Timesheet-Manager/releases');
+        if (!res.ok) return;
+        const releases = await res.json();
+        if (!Array.isArray(releases) || releases.length === 0) return;
+        state.changelog = releases.map(r => ({
+            version: r.tag_name.replace(/^v/, ''),
+            date: r.published_at ? r.published_at.slice(0, 10) : '',
+            notes: r.body || '',
+        }));
+        await window.electronStore.set(CHANGELOG_KEY, state.changelog);
+    } catch (e) { /* offline or API error — silently keep existing data */ }
+}
+
+export async function addChangelogEntry(version, notes, date) {
+    if (!Array.isArray(state.changelog)) state.changelog = [];
+    // Avoid duplicate versions
+    if (state.changelog.some(e => e.version === version)) return;
+    state.changelog.unshift({ version, date: date || new Date().toISOString().slice(0, 10), notes: notes || '' });
+    try { await window.electronStore.set(CHANGELOG_KEY, state.changelog); } catch (e) { /* silent */ }
+}
 
 /* ── INIT ───────────────────────────────────────────────── */
 export function initSettings() {
@@ -340,15 +379,99 @@ function renderErrorLogs(el) {
     renderErrorLogSection(el, navigateTo);
 }
 
+function _renderMarkdown(md) {
+    if (!md) return '';
+    let h = escHtml(md);
+    // Headings
+    h = h.replace(/^### (.+)$/gm, '<p class="cl-md-h3">$1</p>');
+    h = h.replace(/^## (.+)$/gm,  '<p class="cl-md-h2">$1</p>');
+    h = h.replace(/^# (.+)$/gm,   '<p class="cl-md-h1">$1</p>');
+    // Bold + italic
+    h = h.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    h = h.replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>');
+    h = h.replace(/\*(.+?)\*/g,         '<em>$1</em>');
+    // Inline code
+    h = h.replace(/`([^`]+)`/g, '<code class="cl-md-code">$1</code>');
+    // List items
+    h = h.replace(/^[-*+] (.+)$/gm, '<div class="cl-md-li">$1</div>');
+    // Links (escHtml turns & → &amp; in URLs, which is valid in href)
+    h = h.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    // Strip newlines immediately adjacent to block elements (headings, list items)
+    h = h.replace(/\n*(<(?:p class="cl-md-h\d"|div class="cl-md-li")[^>]*>)/g, '$1');
+    h = h.replace(/(<\/(?:p|div)>)\n*/g, '$1');
+    // Remaining blank lines → single line break, single newlines → <br>
+    h = h.replace(/\n{2,}/g, '<br>').replace(/\n/g, '<br>');
+    // Collapse consecutive <br> tags
+    h = h.replace(/(<br>\s*){2,}/g, '<br>');
+    return h;
+}
+
 function renderAbout(el) {
+    const allChangelog = state.changelog || [];
+    const changelog = allChangelog.slice(0, 10);
+
+    const changelogHtml = changelog.length === 0
+        ? '<p class="settings-placeholder">No changelog entries yet.</p>'
+        : changelog.map((entry, i) => `
+            <div class="cl-entry ${i === 0 ? 'open' : ''}">
+                <button class="cl-header">
+                    <span class="cl-version">v${escHtml(entry.version)}</span>
+                    ${entry.date ? `<span class="cl-date">${escHtml(entry.date)}</span>` : ''}
+                    <i class="bi bi-chevron-down cl-chevron ms-auto"></i>
+                </button>
+                <div class="cl-body">
+                    <div class="cl-notes">${_renderMarkdown(entry.notes || '')}</div>
+                </div>
+            </div>`).join('');
+
     el.innerHTML = `
         <div class="settings-section-header">
             <h2 class="settings-section-title">About</h2>
             <p class="settings-section-desc">App information and release history.</p>
         </div>
         <div class="settings-section-body">
-            <p class="settings-placeholder">About & Changelog — coming soon.</p>
+            <div class="about-app-card">
+                <img src="${document.querySelector('link[rel=\'icon\']')?.href || 'favicon.png'}" alt="App Logo" class="about-logo">
+                <div>
+                    <div class="about-app-name">Timesheet Manager</div>
+                    <div class="about-version">v${escHtml(APP_VERSION)}</div>
+                    <div class="about-built-with">Developed by <strong>Veera Bharath</strong></div>
+                    <div class="about-built-with">Built with Electron + Vite</div>
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3 mb-4">
+                <a href="https://github.com/veera-bharath/Timesheet-Manager" target="_blank"
+                   class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-github me-1"></i> GitHub
+                </a>
+                <a href="https://github.com/veera-bharath/Timesheet-Manager/issues/new" target="_blank"
+                   class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-bug me-1"></i> Report a Bug
+                </a>
+            </div>
+            <h3 class="settings-subsection-title">Changelog</h3>
+            <div class="cl-list">${changelogHtml}</div>
+            ${allChangelog.length > 10 ? `
+            <div class="mt-3">
+                <a href="https://github.com/veera-bharath/Timesheet-Manager/releases" target="_blank"
+                   class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> View all ${allChangelog.length} releases on GitHub
+                </a>
+            </div>` : ''}
         </div>`;
+
+    el.querySelectorAll('.cl-header').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.closest('.cl-entry').classList.toggle('open');
+        });
+    });
+
+    // If we have no changelog yet, fetch now and re-render when done
+    if (changelog.length === 0) {
+        _refreshChangelogFromGitHub().then(() => {
+            if (state.changelog.length > 0) renderAbout(el);
+        }).catch(() => {});
+    }
 }
 
 /* ── CLOSE / UNSAVED OVERLAY ────────────────────────────── */
