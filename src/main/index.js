@@ -1,10 +1,12 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, screen, Tray, nativeImage, Notification } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const { autoUpdater } = require('electron-updater');
 
 const store = new Store();
 const WINDOW_BOUNDS_KEY = 'windowBounds';
+const LS_KEY = 'timesheetState_v1';
+const NOTIFICATION_KEY = 'notificationSettings';
 
 // Disable auto-download — we control when to download
 autoUpdater.autoDownload = false;
@@ -26,7 +28,102 @@ function getValidBounds() {
   return onScreen ? saved : null;
 }
 
+function minsToHHMM(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function getTodayStats() {
+  const saved = store.get(LS_KEY);
+  const targetMins = saved?.dailyTargetMins || 480;
+  if (!saved) return { totalMins: 0, targetMins, isHoliday: false };
+
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const dayData = saved.allDaysByDate?.[dateStr];
+
+  if (!dayData) return { totalMins: 0, targetMins, isHoliday: false };
+  if (dayData.isHoliday || dayData.leaveTypeId) return { totalMins: 0, targetMins, isHoliday: true };
+
+  const totalMins = (dayData.entries || []).reduce((sum, e) =>
+    sum + (parseInt(e.hh) || 0) * 60 + (parseInt(e.mm) || 0), 0);
+
+  return { totalMins, targetMins, isHoliday: false };
+}
+
 let mainWindow;
+let tray = null;
+let isQuitting = false;
+
+function showMainWindow() {
+  if (!mainWindow) return;
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send('navigate-to-today');
+}
+
+function buildTrayMenu() {
+  const { totalMins, targetMins, isHoliday } = getTodayStats();
+  const statusLabel = isHoliday
+    ? 'Today: Holiday / Leave'
+    : `Today: ${minsToHHMM(totalMins)} / ${minsToHHMM(targetMins)}`;
+
+  return Menu.buildFromTemplate([
+    { label: statusLabel, enabled: false },
+    { type: 'separator' },
+    { label: 'Open Timesheet Manager', click: () => showMainWindow() },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { isQuitting = true; app.quit(); } }
+  ]);
+}
+
+function createTray() {
+  const iconPath = path.join(__dirname, '../../favicon.png');
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(icon);
+  tray.setToolTip('Timesheet Manager');
+  tray.setContextMenu(buildTrayMenu());
+
+  tray.on('click', () => showMainWindow());
+  tray.on('right-click', () => {
+    tray.setContextMenu(buildTrayMenu());
+    tray.popUpContextMenu();
+  });
+}
+
+function scheduleNotifications() {
+  setInterval(() => {
+    const settings = store.get(NOTIFICATION_KEY, { enabled: true, time: '17:30', lastFiredDate: '' });
+    if (!settings.enabled) return;
+
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    if (currentTime !== settings.time) return;
+    if (settings.lastFiredDate === todayStr) return;
+
+    const { totalMins, targetMins, isHoliday } = getTodayStats();
+    if (isHoliday || totalMins >= targetMins) return;
+
+    const remaining = targetMins - totalMins;
+    const notification = new Notification({
+      title: 'Timesheet Manager',
+      body: `Don't forget to log your time!\nToday: ${minsToHHMM(totalMins)} logged — ${minsToHHMM(remaining)} remaining`,
+      icon: iconPath(),
+    });
+
+    notification.on('click', () => showMainWindow());
+    notification.show();
+
+    store.set(NOTIFICATION_KEY, { ...settings, lastFiredDate: todayStr });
+  }, 30000); // check every 30 seconds
+}
+
+function iconPath() {
+  return path.join(__dirname, '../../favicon.png');
+}
 
 function createWindow() {
   const savedBounds = getValidBounds();
@@ -46,8 +143,12 @@ function createWindow() {
     }
   });
 
-  mainWindow.on('close', () => {
+  mainWindow.on('close', (e) => {
     store.set(WINDOW_BOUNDS_KEY, mainWindow.getBounds());
+    if (!isQuitting) {
+      e.preventDefault();
+      mainWindow.hide();
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -99,8 +200,12 @@ autoUpdater.on('error', (err) => {
 });
 
 // ── App lifecycle ────────────────────────────────────────
+app.on('before-quit', () => { isQuitting = true; });
+
 app.whenReady().then(() => {
   createWindow();
+  createTray();
+  scheduleNotifications();
 
   // Check for updates silently after window is ready
   mainWindow.webContents.once('did-finish-load', () => {

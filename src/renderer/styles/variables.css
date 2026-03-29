@@ -22,6 +22,7 @@
   --radius: 14px;
   --radius-sm: 8px;
   --header-h: 68px;
+  --entry-ticket-color: #c8c8c8;
 }
 
 [data-theme="light"] {
@@ -43,6 +44,7 @@
   --glass: rgba(255, 255, 255, 0.8);
   --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.05);
   --shadow-glow: 0 0 20px rgba(0, 0, 0, 0.05);
+  --entry-ticket-color: var(--text-primary);
 }
 
 [data-theme="light"] .app-header {
@@ -104,9 +106,14 @@
   background: rgba(0, 0, 0, 0.04);
 }
 [data-theme="light"] .total-chip-value,
-[data-theme="light"] .entry-ticket,
 [data-theme="light"] .modal-title {
   color: var(--text-primary);
+}
+[data-theme="light"] .entry-ticket {
+  color: var(--text-primary) !important;
+}
+[data-theme="light"] .entry-ticket.text-muted {
+  color: var(--text-secondary) !important;
 }
 [data-theme="light"] .day-hours-total {
     background: rgba(5, 150, 105, 0.1);
@@ -132,4 +139,30 @@
     background:
         radial-gradient(ellipse 80% 50% at 20% -10%, rgba(0, 0, 0, 0.03) 0%, transparent 60%),
         radial-gradient(ellipse 60% 40% at 80% 110%, rgba(5, 150, 105, 0.04) 0%, transparent 60%);
+}
+
+[data-theme="light"] .no-ticket-banner {
+    background: rgba(220, 38, 38, 0.07);
+    border-color: rgba(220, 38, 38, 0.3);
+    border-left-color: #dc2626;
+    color: #991b1b;
+}
+[data-theme="light"] .no-ticket-banner .bi-exclamation-triangle-fill {
+    color: #dc2626;
+}
+[data-theme="light"] .no-ticket-banner #btn-dismiss-no-ticket {
+    color: #991b1b;
+}
+
+[data-theme="light"] .underlogged-banner {
+    background: rgba(180, 83, 9, 0.07);
+    border-color: rgba(180, 83, 9, 0.3);
+    border-left-color: #b45309;
+    color: #78350f;
+}
+[data-theme="light"] .underlogged-banner .bi-clock-history {
+    color: #b45309;
+}
+[data-theme="light"] .underlogged-banner #btn-dismiss-underlogged {
+    color: #78350f;
 }

@@ -15,15 +15,18 @@ import { renderErrorLogSection } from './error-log.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
-    'general':      { parent: null,         label: 'General',      isParent: false },
-    'appearance':   { parent: null,         label: 'Appearance',   isParent: false },
-    'management':   { parent: null,         label: 'Management',   isParent: true  },
-    'ticket-types': { parent: 'management', label: 'Ticket Types', isParent: false },
-    'leave-types':  { parent: 'management', label: 'Leave Types',  isParent: false },
-    'developer':    { parent: null,         label: 'Developer',    isParent: true  },
-    'error-logs':   { parent: 'developer',  label: 'Error Logs',   isParent: false },
-    'about':        { parent: null,         label: 'About',        isParent: false },
+    'general':       { parent: null,         label: 'General',       isParent: false },
+    'appearance':    { parent: null,         label: 'Appearance',    isParent: false },
+    'notifications': { parent: null,         label: 'Notifications', isParent: false },
+    'management':    { parent: null,         label: 'Management',    isParent: true  },
+    'ticket-types':  { parent: 'management', label: 'Ticket Types',  isParent: false },
+    'leave-types':   { parent: 'management', label: 'Leave Types',   isParent: false },
+    'developer':     { parent: null,         label: 'Developer',     isParent: true  },
+    'error-logs':    { parent: 'developer',  label: 'Error Logs',    isParent: false },
+    'about':         { parent: null,         label: 'About',         isParent: false },
 };
+
+const NOTIFICATION_KEY = 'notificationSettings';
 
 /* ── STATE ──────────────────────────────────────────────── */
 let currentSection = 'general';
@@ -174,9 +177,10 @@ function updateNav(section) {
 function renderSection(section) {
     const el = document.getElementById('settings-content');
     switch (section) {
-        case 'general':      return renderGeneral(el);
-        case 'appearance':   return renderAppearance(el);
-        case 'management':   return renderManagement(el);
+        case 'general':        return renderGeneral(el);
+        case 'appearance':     return renderAppearance(el);
+        case 'notifications':  return renderNotifications(el);
+        case 'management':     return renderManagement(el);
         case 'ticket-types': return renderTicketTypes(el);
         case 'leave-types':  return renderLeaveTypes(el);
         case 'developer':    return renderDeveloper(el);
@@ -306,6 +310,61 @@ function renderAppearance(el) {
             applyTheme(btn.dataset.theme);
             localStorage.setItem('theme', btn.dataset.theme);
         });
+    });
+}
+
+async function renderNotifications(el) {
+    const saved = await window.electronStore.get(NOTIFICATION_KEY) || { enabled: true, time: '17:30' };
+    const enabled = saved.enabled !== false;
+    const time = saved.time || '17:30';
+
+    el.innerHTML = `
+        <div class="settings-section-header">
+            <h2 class="settings-section-title">Notifications</h2>
+            <p class="settings-section-desc">Daily reminder to log your time before end of day.</p>
+        </div>
+        <div class="settings-section-body">
+            <div class="settings-form">
+                <div class="settings-form-group">
+                    <label class="label-text">Daily Reminder</label>
+                    <div class="form-check form-switch mt-1">
+                        <input class="form-check-input" type="checkbox" id="notif-enabled" ${enabled ? 'checked' : ''} />
+                        <label class="form-check-label label-text" for="notif-enabled">
+                            Enable daily reminder notification
+                        </label>
+                    </div>
+                    <p class="form-text text-muted mt-1">Shows a system notification if your daily target isn't met yet.</p>
+                </div>
+                <div class="settings-form-group" id="notif-time-group" style="${enabled ? '' : 'opacity:0.4;pointer-events:none'}">
+                    <label class="label-text" for="notif-time">Reminder Time</label>
+                    <input type="time" id="notif-time" class="form-control dark-input" value="${time}" style="max-width:140px" />
+                </div>
+                <div class="settings-form-actions">
+                    <button class="btn btn-gradient px-4" id="btn-save-notifications">
+                        <i class="bi bi-check-lg me-1"></i> Save
+                    </button>
+                </div>
+            </div>
+        </div>`;
+
+    const enabledToggle = el.querySelector('#notif-enabled');
+    const timeGroup = el.querySelector('#notif-time-group');
+
+    enabledToggle.addEventListener('change', () => {
+        timeGroup.style.opacity = enabledToggle.checked ? '1' : '0.4';
+        timeGroup.style.pointerEvents = enabledToggle.checked ? '' : 'none';
+        markDirty('notifications');
+    });
+
+    el.querySelector('#notif-time').addEventListener('change', () => markDirty('notifications'));
+
+    el.querySelector('#btn-save-notifications').addEventListener('click', async () => {
+        const newEnabled = el.querySelector('#notif-enabled').checked;
+        const newTime = el.querySelector('#notif-time').value || '17:30';
+        const current = await window.electronStore.get(NOTIFICATION_KEY) || {};
+        await window.electronStore.set(NOTIFICATION_KEY, { ...current, enabled: newEnabled, time: newTime });
+        clearDirty();
+        showToast('Notification settings saved.', 'success');
     });
 }
 

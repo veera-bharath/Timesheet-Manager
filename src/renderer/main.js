@@ -24,6 +24,7 @@ import { updateSummary } from './modules/summary.js';
 import { initOnboarding, needsOnboarding, showOnboarding } from './modules/onboarding.js';
 import { initNoTicketBanner, updateNoTicketBanner } from './modules/no-ticket-reminder.js';
 import { initUnderloggedBanner, updateUnderloggedBanner } from './modules/underlogged-reminder.js';
+import { setCurrentWeek } from './modules/week.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
@@ -78,4 +79,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     initKeyboard();
     updateNoTicketBanner();
     updateUnderloggedBanner();
+
+    // Navigate to today when triggered from tray or notification click
+    if (window.tray) {
+        window.tray.onNavigateToToday(() => {
+            setCurrentWeek();
+            renderAll();
+            updateSummary();
+        });
+    }
 });

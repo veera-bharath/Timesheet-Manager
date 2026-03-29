@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('electronStore', {
     has: (key) => ipcRenderer.invoke('store-has', key),
 });
 
+contextBridge.exposeInMainWorld('tray', {
+    onNavigateToToday: (cb) => ipcRenderer.on('navigate-to-today', () => cb()),
+});
+
 contextBridge.exposeInMainWorld('updater', {
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),
