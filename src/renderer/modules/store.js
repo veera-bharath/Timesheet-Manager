@@ -1,0 +1,66 @@
+import { state, LS_KEY, DEFAULT_TICKET_TYPES, DEFAULT_LEAVE_TYPES } from './state.js';
+import { logError } from './error-log.js';
+
+export async function saveState() {
+    try {
+        state.days.forEach(d => {
+            if (d && d.date) state.allDaysByDate[d.date] = d;
+        });
+
+        const toSave = {
+            reportTitle: state.reportTitle,
+            employeeName: state.employeeName,
+            weekValue: state.weekValue,
+            allDaysByDate: state.allDaysByDate,
+            lastOpenedDateByWeek: state.lastOpenedDateByWeek,
+            recurringTasks: state.recurringTasks,
+            dailyTargetMins: state.dailyTargetMins,
+            ticketTypes: state.ticketTypes,
+            leaveTypes: state.leaveTypes,
+        };
+        await window.electronStore.set(LS_KEY, toSave);
+    } catch (e) { console.warn('Could not save state', e); logError('store/save', e); }
+}
+
+export async function loadState() {
+    try {
+        if (!await window.electronStore.has(LS_KEY)) {
+            const raw = localStorage.getItem(LS_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed) {
+                    await window.electronStore.set(LS_KEY, parsed);
+                    localStorage.removeItem(LS_KEY);
+                }
+            }
+        }
+
+        const saved = await window.electronStore.get(LS_KEY);
+        if (!saved) {
+            state.ticketTypes = [...DEFAULT_TICKET_TYPES];
+            state.leaveTypes  = [...DEFAULT_LEAVE_TYPES];
+            return false;
+        }
+
+        state.reportTitle = saved.reportTitle || 'Booked hours in Jira and Service Desk';
+        state.employeeName = saved.employeeName || '';
+        state.weekValue = saved.weekValue || '';
+        state.allDaysByDate = saved.allDaysByDate || {};
+        state.lastOpenedDateByWeek = saved.lastOpenedDateByWeek || {};
+        state.recurringTasks = saved.recurringTasks || [];
+        state.dailyTargetMins = saved.dailyTargetMins || 480;
+        state.ticketTypes = saved.ticketTypes && saved.ticketTypes.length > 0
+            ? saved.ticketTypes
+            : [...DEFAULT_TICKET_TYPES];
+        state.leaveTypes = saved.leaveTypes && saved.leaveTypes.length > 0
+            ? saved.leaveTypes
+            : [...DEFAULT_LEAVE_TYPES];
+
+        if (saved.days && Array.isArray(saved.days)) {
+            saved.days.forEach(d => {
+                if (d && d.date) state.allDaysByDate[d.date] = d;
+            });
+        }
+        return true;
+    } catch (e) { logError('store/load', e); return false; }
+}

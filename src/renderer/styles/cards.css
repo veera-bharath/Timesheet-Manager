@@ -1,0 +1,252 @@
+/* ── CARDS ── */
+
+.glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  z-index: 1;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.glass-card:hover {
+  border-color: var(--border-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] .glass-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ── FORM ── */
+
+.label-text {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+
+.section-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b0b0b0;
+  margin-bottom: 16px;
+}
+
+.dark-input {
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: 0.88rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dark-input:focus, .form-control.dark-input:focus, .form-select.dark-input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  outline: none;
+  background: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  animation: inputFocusPulse 0.4s ease-out forwards;
+}
+
+.dark-input.is-invalid {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 1px var(--danger) !important;
+}
+
+.dark-input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.dark-input option {
+  background: #282828;
+  color: var(--text-primary);
+}
+
+/* ── DAY CARDS ── */
+
+.day-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+  transition: all 0.25s;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.day-card:hover {
+  border-color: var(--border-accent);
+}
+
+.day-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(255, 255, 255, 0.025);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+
+.day-card-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.day-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.day-progress-ring {
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.day-progress-ring svg {
+  display: block;
+}
+
+.progress-ring-circle {
+  stroke-dasharray: var(--circ);
+  stroke-dashoffset: var(--offset);
+  animation: fillProgressRing 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes fillProgressRing {
+  from { stroke-dashoffset: var(--circ); }
+  to { stroke-dashoffset: var(--offset); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-ring-circle {
+    animation: none;
+  }
+}
+
+.day-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.day-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.day-hours-total {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--success);
+  background: rgba(34, 211, 160, 0.1);
+  border: 1px solid rgba(34, 211, 160, 0.2);
+  border-radius: 20px;
+  padding: 3px 12px;
+}
+
+.day-hours-total.zero {
+  color: var(--text-muted);
+  background: transparent;
+  border-color: var(--border);
+}
+
+.day-holiday-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--warning);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 20px;
+  padding: 3px 12px;
+}
+
+.day-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.day-toggle-btn, .day-quick-view-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.day-toggle-btn:hover, .day-quick-view-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.day-card-body {
+  padding: 16px 20px;
+  animation: slideDown 0.25s ease both;
+}
+
+.day-card-body.collapsing {
+  animation: slideUp 0.22s ease forwards;
+  pointer-events: none;
+}
+
+.day-card-body.collapsed {
+  display: none;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-10px); }
+}
+
+/* ── SHEET DETAIL READ-ONLY DISPLAY ── */
+
+.sheet-detail-value {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  padding: 5px 0;
+  word-break: break-word;
+}
+
+/* ── HOLIDAY TOGGLE ── */
+
+.holiday-check-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.holiday-check-wrap input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--warning);
+  cursor: pointer;
+}
+
+.holiday-check-wrap label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}

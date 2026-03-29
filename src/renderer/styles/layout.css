@@ -1,0 +1,60 @@
+/* ── TOTALS BAR ── */
+
+.total-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.week-progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  background: rgba(34, 211, 160, 0.12);
+  border-radius: var(--radius-sm);
+  transition: width 0.6s ease-out, background 0.4s ease;
+  z-index: 0;
+}
+
+.week-progress-fill.over {
+  background: rgba(251, 191, 36, 0.12);
+}
+
+[data-theme="light"] .week-progress-fill {
+  background: rgba(5, 150, 105, 0.1);
+}
+
+[data-theme="light"] .week-progress-fill.over {
+  background: rgba(217, 119, 6, 0.1);
+}
+
+.total-chip-label,
+.total-chip-value {
+  position: relative;
+  z-index: 1;
+}
+
+.total-chip-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.total-chip-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: #d4d4d4;
+  line-height: 1.2;
+}

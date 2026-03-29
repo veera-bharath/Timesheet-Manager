@@ -1,12 +1,14 @@
 {
   "name": "timesheet-manager",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "description": "Weekly Jira & Service Desk Time Tracking Application",
-  "main": "main.js",
+  "main": "out/main/index.js",
   "scripts": {
-    "start": "electron .",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "pack": "electron-vite build && electron-builder --dir",
+    "dist": "electron-vite build && electron-builder"
   },
   "keywords": [
     "timesheet",
@@ -20,6 +22,10 @@
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "out/**",
+      "favicon.png"
+    ],
     "win": {
       "target": "nsis",
       "icon": "favicon.png"
@@ -36,7 +42,9 @@
   },
   "devDependencies": {
     "electron": "^41.0.0",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
+    "vite-plugin-static-copy": "^4.0.0"
   },
   "dependencies": {
     "electron-store": "^8.2.0",

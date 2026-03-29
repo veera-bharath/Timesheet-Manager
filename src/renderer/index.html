@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="vendor/fonts/fonts.css" />
   <link rel="stylesheet" href="vendor/bootstrap/css/bootstrap.min.css" />
   <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles/main.css" />
 </head>
 
 <body>
@@ -64,16 +64,21 @@
         <!-- Week Range & Employee Info -->
         <div class="card glass-card mb-4 position-sticky" style="top: 85px;">
           <div class="card-body">
-            <h5 class="section-label"><i class="bi bi-person-badge me-2"></i>Sheet Details</h5>
-
-            <div class="mb-3">
-              <label class="form-label label-text">Report Title</label>
-              <input type="text" id="report-title" class="form-control dark-input" placeholder="Report Title" />
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h5 class="section-label mb-0"><i class="bi bi-person-badge me-2"></i>Sheet Details</h5>
+              <button class="btn btn-sm btn-outline-accent px-2 py-1" id="btn-edit-sheet-details" title="Edit in Settings">
+                <i class="bi bi-pencil" style="font-size:0.8rem"></i>
+              </button>
             </div>
 
             <div class="mb-3">
-              <label class="form-label label-text">Employee Name</label>
-              <input type="text" id="emp-name" class="form-control dark-input" placeholder="e.g. John Doe" />
+              <div class="label-text">Report Title</div>
+              <div class="sheet-detail-value" id="display-report-title">—</div>
+            </div>
+
+            <div class="mb-3">
+              <div class="label-text">Employee Name</div>
+              <div class="sheet-detail-value" id="display-emp-name">—</div>
             </div>
 
             <div class="mb-3">
@@ -95,13 +100,8 @@
             </button>
 
             <div class="mb-3 mt-3">
-              <label class="form-label label-text">Daily Target</label>
-              <div class="d-flex align-items-center gap-2">
-                <input type="number" id="target-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="08" style="max-width:64px" />
-                <span class="label-text">hrs</span>
-                <input type="number" id="target-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" style="max-width:64px" />
-                <span class="label-text">min</span>
-              </div>
+              <div class="label-text">Daily Target</div>
+              <div class="sheet-detail-value" id="display-daily-target">—</div>
             </div>
 
             <hr class="border-secondary my-4 opacity-25">
@@ -214,10 +214,7 @@
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
-              <select id="modal-type" class="form-select dark-input">
-                <option value="jira">Jira</option>
-                <option value="servicedesk">Service Desk</option>
-              </select>
+              <select id="modal-type" class="form-select dark-input"></select>
             </div>
             <div class="col-12">
               <label class="form-label label-text">Description</label>
@@ -323,10 +320,7 @@
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
-              <select id="recurring-type" class="form-select dark-input">
-                <option value="jira">Jira</option>
-                <option value="servicedesk">Service Desk</option>
-              </select>
+              <select id="recurring-type" class="form-select dark-input"></select>
             </div>
             <div class="col-12">
               <label class="form-label label-text">Description</label>
@@ -426,10 +420,7 @@
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
-              <select id="scheduled-form-type" class="form-select dark-input">
-                <option value="jira">Jira</option>
-                <option value="servicedesk">Service Desk</option>
-              </select>
+              <select id="scheduled-form-type" class="form-select dark-input"></select>
             </div>
             <div class="col-12">
               <label class="form-label label-text">Description</label>
@@ -595,6 +586,11 @@
     </div>
     <div class="offcanvas-body p-0">
       <div class="sidebar-menu-list">
+        <a href="#" class="sidebar-menu-item" id="menu-settings">
+          <i class="bi bi-gear me-3"></i>
+          <span>Settings</span>
+        </a>
+        <div class="sidebar-menu-divider"></div>
         <a href="#" class="sidebar-menu-item" id="menu-starred">
           <i class="bi bi-star-fill me-3"></i>
           <span>Starred Entries</span>
@@ -607,10 +603,6 @@
           <i class="bi bi-cloud-arrow-down me-3"></i>
           <span>Check for Updates</span>
         </a>
-        <a href="#" class="sidebar-menu-item" id="menu-about">
-          <i class="bi bi-info-circle me-3"></i>
-          <span>About Timesheet Manager</span>
-        </a>
         <a href="#" class="sidebar-menu-item" id="menu-recurring">
           <i class="bi bi-arrow-repeat me-3"></i>
           <span>Recurring Tasks</span>
@@ -618,10 +610,6 @@
         <a href="#" class="sidebar-menu-item" id="menu-scheduled">
           <i class="bi bi-clock me-3"></i>
           <span>Scheduled Tasks</span>
-        </a>
-        <a href="#" class="sidebar-menu-item" id="btn-theme-toggle">
-          <i class="bi bi-moon-fill me-3" id="theme-icon"></i>
-          <span>Toggle Theme</span>
         </a>
       </div>
       
@@ -634,38 +622,91 @@
     </div>
   </div>
 
-  <!-- ABOUT MODAL -->
-  <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content modal-dark text-center">
-        <div class="modal-body p-5">
-          <div class="mb-4">
-            <img src="favicon.png" alt="App Logo" style="width: 80px; height: 80px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+  <!-- SETTINGS MODAL -->
+  <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+      <div class="modal-content settings-modal-content">
+
+        <!-- Header -->
+        <div class="settings-header">
+          <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-gear-fill settings-header-icon"></i>
+            <span class="settings-header-title">Settings</span>
           </div>
-          <h3 class="mb-1">Timesheet Manager</h3>
-          <p class="text-accent mb-2">v<span class="app-version"></span></p>
-          <p class="text-muted-v mb-4" style="font-size: 0.9rem;">Developed by <span class="text-white fw-bold">Veera Bharath</span></p>
-          <div class="text-start mb-4">
-            <p class="text-muted mb-2">Developed for seamless Jira & Service Desk time tracking.</p>
-            <ul class="list-unstyled text-muted" style="font-size: 0.9rem;">
-              <li><i class="bi bi-check2-circle text-success me-2"></i> Weekly group-based reordering</li>
-              <li><i class="bi bi-check2-circle text-success me-2"></i> Instant TXT export / Print</li>
-              <li><i class="bi bi-check2-circle text-success me-2"></i> Dark Mode / Light Mode support</li>
-            </ul>
-          </div>
-          <div class="d-flex flex-column gap-2 align-items-center">
-            <a href="https://github.com/veera-bharath/Timesheet-Manager" target="_blank" class="btn btn-outline-light px-4 w-100 mb-2">
-              <i class="bi bi-github me-2"></i> View on GitHub
-            </a>
-            <button type="button" class="btn btn-gradient px-5" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn-close btn-close-white" id="btn-settings-close" aria-label="Close"></button>
+        </div>
+
+        <!-- Body: left nav + right content -->
+        <div class="settings-body">
+
+          <!-- Left Nav -->
+          <nav class="settings-nav">
+            <div class="settings-nav-item" data-section="general">
+              <i class="bi bi-sliders"></i>
+              <span>General</span>
+            </div>
+            <div class="settings-nav-item" data-section="appearance">
+              <i class="bi bi-palette"></i>
+              <span>Appearance</span>
+            </div>
+            <div class="settings-nav-item settings-nav-parent" data-section="management">
+              <i class="bi bi-grid"></i>
+              <span>Management</span>
+              <i class="bi bi-chevron-right settings-nav-chevron"></i>
+            </div>
+            <div class="settings-nav-sub" id="sub-management">
+              <div class="settings-nav-subitem" data-section="ticket-types">
+                <i class="bi bi-tag"></i>
+                <span>Ticket Types</span>
+              </div>
+              <div class="settings-nav-subitem" data-section="leave-types">
+                <i class="bi bi-calendar-x"></i>
+                <span>Leave Types</span>
+              </div>
+            </div>
+            <div class="settings-nav-item settings-nav-parent" data-section="developer">
+              <i class="bi bi-code-slash"></i>
+              <span>Developer</span>
+              <i class="bi bi-chevron-right settings-nav-chevron"></i>
+            </div>
+            <div class="settings-nav-sub" id="sub-developer">
+              <div class="settings-nav-subitem" data-section="error-logs">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Error Logs</span>
+              </div>
+            </div>
+            <div class="settings-nav-item" data-section="about">
+              <i class="bi bi-info-circle"></i>
+              <span>About</span>
+            </div>
+          </nav>
+
+          <!-- Right Content -->
+          <div class="settings-content" id="settings-content"></div>
+
+        </div>
+
+        <!-- Unsaved Changes Overlay -->
+        <div class="settings-unsaved-overlay" id="settings-unsaved-overlay" style="display:none">
+          <div class="settings-unsaved-dialog">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-exclamation-triangle" style="color:var(--warning);font-size:1.1rem"></i>
+              <span class="fw-semibold" style="font-size:0.95rem;color:var(--text-primary)">Unsaved Changes</span>
+            </div>
+            <p class="settings-unsaved-msg" id="settings-unsaved-msg"></p>
+            <div class="d-flex gap-2 justify-content-end">
+              <button class="btn btn-outline-light btn-sm px-3" id="btn-settings-keep">Keep Editing</button>
+              <button class="btn btn-gradient btn-sm px-3" id="btn-settings-discard">Discard</button>
+            </div>
           </div>
         </div>
+
       </div>
     </div>
   </div>
 
   <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 
 </html>
