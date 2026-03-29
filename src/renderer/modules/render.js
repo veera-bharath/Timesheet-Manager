@@ -148,9 +148,14 @@ export function buildEntriesHTML(entries, dayIdx) {
             let tktStr = (e.ticket || '');
             const typeObj = getTypeById(e.type);
             const ticketColor = typeObj ? typeObj.color : '#c8c8c8';
-            let ticketHtml = `<span class="entry-ticket" style="color:${ticketColor}">${escHtml(tktStr || '—')}</span>`;
-            if (group.type === 'ticket_group' && !isFirst) {
-                ticketHtml = `<span class="entry-ticket text-muted entry-grouped-hint">${escHtml(tktStr || '—')}</span>`;
+            let ticketHtml;
+            if (e.noTicket) {
+                ticketHtml = `<span class="entry-ticket entry-no-ticket-label">NO TICKET</span>`;
+            } else {
+                ticketHtml = `<span class="entry-ticket" style="color:${ticketColor}">${escHtml(tktStr || '—')}</span>`;
+                if (group.type === 'ticket_group' && !isFirst) {
+                    ticketHtml = `<span class="entry-ticket text-muted entry-grouped-hint">${escHtml(tktStr || '—')}</span>`;
+                }
             }
 
             const hhmm = `${String(e.hh || 0).padStart(2, '0')}:${String(e.mm || 0).padStart(2, '0')}`;
@@ -172,7 +177,7 @@ export function buildEntriesHTML(entries, dayIdx) {
 
             const rowI = rowIndex++;
             return `
-    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}" style="--i:${rowI}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
+    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}${e.noTicket ? ' entry-no-ticket' : ''}" style="--i:${rowI}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
       <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}

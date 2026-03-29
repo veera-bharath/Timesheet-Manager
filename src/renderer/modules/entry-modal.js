@@ -5,12 +5,18 @@ import { updateSummary } from './summary.js';
 import { populateTypeSelect } from './ticket-types.js';
 // Circular — resolved at call time
 import { rerenderDayCard, renderAll } from './render.js';
+import { updateNoTicketBanner } from './no-ticket-reminder.js';
 
 let entryModal;
 export let lastDeleted = null;
 
 export function initEntryModal() {
     entryModal = new bootstrap.Modal(document.getElementById('entryModal'));
+
+    document.getElementById('modal-no-ticket').addEventListener('change', function () {
+        document.getElementById('modal-ticket-wrap').style.display = this.checked ? 'none' : '';
+        if (!this.checked) document.getElementById('modal-ticket').value = '';
+    });
 }
 
 export function openEntryModal(dayIdx, entryIdx) {
@@ -30,7 +36,10 @@ export function openEntryModal(dayIdx, entryIdx) {
         title.innerHTML = `<i class="bi bi-plus-circle me-2"></i>Add Entry — ${WEEK_DAYS[dayIdx]}`;
     } else {
         const e = state.days[dayIdx].entries[entryIdx];
-        document.getElementById('modal-ticket').value = e.ticket || '';
+        const noTicketToggle = document.getElementById('modal-no-ticket');
+        noTicketToggle.checked = !!e.noTicket;
+        document.getElementById('modal-ticket-wrap').style.display = e.noTicket ? 'none' : '';
+        document.getElementById('modal-ticket').value = e.noTicket ? '' : (e.ticket || '');
         document.getElementById('modal-hh').value = e.hh ?? 0;
         document.getElementById('modal-mm').value = String(e.mm ?? 0).padStart(2, '0');
         populateTypeSelect(document.getElementById('modal-type'), e.type || state.ticketTypes[0]?.id || 'jira');
@@ -115,6 +124,8 @@ export function openEntryModalPreFilled(dayIdx, fromEntryIdx, keepField) {
 }
 
 export function clearEntryModal() {
+    document.getElementById('modal-no-ticket').checked = false;
+    document.getElementById('modal-ticket-wrap').style.display = '';
     document.getElementById('modal-ticket').value = '';
     document.getElementById('modal-hh').value = '';
     document.getElementById('modal-mm').value = '00';
@@ -137,11 +148,12 @@ export function saveEntryInternal() {
     const tkt = ticketInput.value.trim();
     const desc = descInput.value.trim();
 
+    const isNoTicket = document.getElementById('modal-no-ticket').checked;
     let hasError = false;
 
     [ticketInput, descInput, hhInput, mmInput].forEach(el => el.classList.remove('is-invalid'));
 
-    if (!tkt) { ticketInput.classList.add('is-invalid'); hasError = true; }
+    if (!isNoTicket && !tkt) { ticketInput.classList.add('is-invalid'); hasError = true; }
     if (!desc) { descInput.classList.add('is-invalid'); hasError = true; }
     if (hh === 0 && mm === 0) {
         hhInput.classList.add('is-invalid');
@@ -197,13 +209,15 @@ export function saveEntryInternal() {
 export function commitEntry(dayIdx, entryIdx) {
     const groupId = document.getElementById('modal-group-id').value;
     const groupType = document.getElementById('modal-group-type-ref').value;
-    const tkt = document.getElementById('modal-ticket').value.trim();
+    const isNoTicket = document.getElementById('modal-no-ticket').checked;
+    const tkt = isNoTicket ? 'NO-TICKET' : document.getElementById('modal-ticket').value.trim();
     const hh = parseInt(document.getElementById('modal-hh').value) || 0;
     const mm = parseInt(document.getElementById('modal-mm').value) || 0;
     const type = document.getElementById('modal-type').value;
     const desc = document.getElementById('modal-desc').value.trim();
 
     const entry = { ticket: tkt, hh, mm, type, desc };
+    if (isNoTicket) entry.noTicket = true;
     if (groupId) { entry.groupId = groupId; entry.groupType = groupType; }
 
     if (entryIdx === -1) {
@@ -218,6 +232,7 @@ export function commitEntry(dayIdx, entryIdx) {
     rerenderDayCard(dayIdx);
     updateSummary();
     saveState();
+    updateNoTicketBanner();
     entryModal.hide();
 }
 
@@ -256,6 +271,7 @@ export function finishDeleteEntry(dayIdx, entryIdx, deletedEntry) {
     state.days[dayIdx].entries.splice(entryIdx, 1);
     rerenderDayCard(dayIdx);
     updateSummary();
+    updateNoTicketBanner();
 
     const timerId = setTimeout(() => {
         lastDeleted = null;

@@ -56,6 +56,14 @@
 
   <!-- MAIN CONTENT -->
   <main class="container-fluid px-4 py-4">
+
+    <!-- NO-TICKET REMINDER BANNER -->
+    <div id="no-ticket-banner" class="no-ticket-banner" style="display:none">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span id="no-ticket-banner-msg"></span>
+      <button id="btn-dismiss-no-ticket" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+    </div>
+
     <div class="row g-4">
 
       <!-- LEFT COLUMN: Details & Summary -->
@@ -196,7 +204,13 @@
           <input type="hidden" id="modal-group-id" />
           <input type="hidden" id="modal-group-type-ref" />
           <div class="row g-3">
-            <div class="col-12 col-lg-5">
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="modal-no-ticket" />
+                <label class="form-check-label" for="modal-no-ticket" style="font-size:0.82rem;color:var(--text-secondary);cursor:pointer">No ticket yet</label>
+              </div>
+            </div>
+            <div id="modal-ticket-wrap" class="col-12 col-lg-5">
               <label class="form-label label-text">Ticket / Reference ID</label>
               <input type="text" id="modal-ticket" class="form-control dark-input"
                 placeholder="e.g. JIRA-123 or #123" />
