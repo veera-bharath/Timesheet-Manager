@@ -1,4 +1,4 @@
-import { state, LS_KEY, DEFAULT_TICKET_TYPES } from './state.js';
+import { state, LS_KEY, DEFAULT_TICKET_TYPES, DEFAULT_LEAVE_TYPES } from './state.js';
 
 export async function saveState() {
     try {
@@ -15,6 +15,7 @@ export async function saveState() {
             recurringTasks: state.recurringTasks,
             dailyTargetMins: state.dailyTargetMins,
             ticketTypes: state.ticketTypes,
+            leaveTypes: state.leaveTypes,
         };
         await window.electronStore.set(LS_KEY, toSave);
     } catch (e) { console.warn('Could not save state', e); }
@@ -36,6 +37,7 @@ export async function loadState() {
         const saved = await window.electronStore.get(LS_KEY);
         if (!saved) {
             state.ticketTypes = [...DEFAULT_TICKET_TYPES];
+            state.leaveTypes  = [...DEFAULT_LEAVE_TYPES];
             return false;
         }
 
@@ -49,6 +51,9 @@ export async function loadState() {
         state.ticketTypes = saved.ticketTypes && saved.ticketTypes.length > 0
             ? saved.ticketTypes
             : [...DEFAULT_TICKET_TYPES];
+        state.leaveTypes = saved.leaveTypes && saved.leaveTypes.length > 0
+            ? saved.leaveTypes
+            : [...DEFAULT_LEAVE_TYPES];
 
         if (saved.days && Array.isArray(saved.days)) {
             saved.days.forEach(d => {
