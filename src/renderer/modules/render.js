@@ -9,6 +9,7 @@ import { toggleEntryStarred } from './star.js';
 import { openDayQuickView } from './report.js';
 import { showEntryQuickView } from './context-menu.js';
 import { getTypeById } from './ticket-types.js';
+import { getLeaveLabel, resolveLeaveTypeId, populateLeaveSelect } from './leave-types.js';
 
 let weekTransitionDir = null;
 
@@ -198,7 +199,7 @@ export function buildDayCard(day, dayIdx) {
 
     let topRightBadge = '';
     if (day.isHoliday) {
-        topRightBadge = `<span class="day-holiday-badge"><i class="bi bi-umbrella me-1"></i>${escHtml(day.holidayLabel || 'Offshore Holiday')}</span>`;
+        topRightBadge = `<span class="day-holiday-badge"><i class="bi bi-umbrella me-1"></i>${escHtml(getLeaveLabel(day))}</span>`;
     } else if (totalMins > 0) {
         topRightBadge = `<span class="day-hours-total">${totalHrsStr} hrs</span>`;
     } else {
@@ -230,9 +231,6 @@ export function buildDayCard(day, dayIdx) {
         <label for="holiday-${dayIdx}">Mark as Holiday / Leave</label>
         <select id="holiday-label-${dayIdx}" class="form-select dark-input ms-2"
           style="max-width:200px;display:${day.isHoliday ? 'block' : 'none'}">
-          <option value="Offshore Holiday" ${(day.holidayLabel || 'Offshore Holiday') === 'Offshore Holiday' ? 'selected' : ''}>Offshore Holiday</option>
-          <option value="Sick Leave"       ${day.holidayLabel === 'Sick Leave' ? 'selected' : ''}>Sick Leave</option>
-          <option value="Planned Leave"    ${day.holidayLabel === 'Planned Leave' ? 'selected' : ''}>Planned Leave</option>
         </select>
       </div>
       <div class="entries-list" id="entries-${dayIdx}" ${day.isHoliday ? 'style="opacity:0.4;pointer-events:none"' : ''}>
@@ -255,16 +253,28 @@ export function buildDayCard(day, dayIdx) {
 
     const cb = wrap.querySelector(`#holiday-${dayIdx}`);
     const lbl = wrap.querySelector(`#holiday-label-${dayIdx}`);
+
+    // Populate leave type select dynamically
+    populateLeaveSelect(lbl, resolveLeaveTypeId(day));
+
     cb.addEventListener('change', () => {
         state.days[dayIdx].isHoliday = cb.checked;
         lbl.style.display = cb.checked ? 'block' : 'none';
-        if (!cb.checked) state.days[dayIdx].holidayLabel = 'Offshore Holiday';
+        if (!cb.checked) {
+            state.days[dayIdx].leaveTypeId = '';
+        } else {
+            state.days[dayIdx].leaveTypeId = resolveLeaveTypeId(state.days[dayIdx]);
+        }
         rerenderDayCard(dayIdx);
         updateSummary();
         saveState();
     });
     lbl.addEventListener('change', () => {
-        state.days[dayIdx].holidayLabel = lbl.value;
+        state.days[dayIdx].leaveTypeId = lbl.value;
+        // Keep holidayLabel in sync for backward compat fallback
+        const leaveType = state.leaveTypes?.find(t => t.id === lbl.value);
+        if (leaveType) state.days[dayIdx].holidayLabel = leaveType.label;
+        rerenderDayCard(dayIdx);
         updateSummary();
         saveState();
     });

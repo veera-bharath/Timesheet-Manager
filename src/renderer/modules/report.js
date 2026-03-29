@@ -5,6 +5,7 @@ import { getDateFromWeek } from './week.js';
 import { calcDayTotalMins } from './summary.js';
 import { minsToHHMM } from './utils.js';
 import { getTypeById } from './ticket-types.js';
+import { getLeaveLabel } from './leave-types.js';
 // Circular — resolved at call time
 import { buildGroups } from './render.js';
 
@@ -29,7 +30,7 @@ export function generateTxt() {
 
         if (day.isHoliday) {
             lines.push(`${displayDate} :   `);
-            lines.push(`\ti)\t${day.holidayLabel || 'Offshore Holiday'}`);
+            lines.push(`\ti)\t${getLeaveLabel(day)}`);
             lines.push('');
         } else {
             const totalMins = calcDayTotalMins(day);

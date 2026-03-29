@@ -10,6 +10,7 @@ import { renderDays } from './render.js';
 import { escHtml } from './utils.js';
 import { applyTheme } from './theme.js';
 import { renderTicketTypesSection } from './ticket-types.js';
+import { renderLeaveTypesSection } from './leave-types.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
@@ -308,16 +309,7 @@ function renderTicketTypes(el) {
 }
 
 function renderLeaveTypes(el) {
-    el.innerHTML = `
-        <div class="settings-section-header">
-            <button class="settings-back-btn"><i class="bi bi-arrow-left"></i> Management</button>
-            <h2 class="settings-section-title">Leave Types</h2>
-            <p class="settings-section-desc">Configure leave and holiday categories for marking days.</p>
-        </div>
-        <div class="settings-section-body">
-            <p class="settings-placeholder">Leave Types — coming soon.</p>
-        </div>`;
-    el.querySelector('.settings-back-btn').addEventListener('click', () => navigateTo('management'));
+    renderLeaveTypesSection(el, navigateTo);
 }
 
 function renderDeveloper(el) {

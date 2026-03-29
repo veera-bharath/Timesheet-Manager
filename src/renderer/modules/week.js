@@ -48,6 +48,7 @@ export function buildWeekDays(monDt) {
             const newDay = {
                 date: dStr,
                 isHoliday: false,
+                leaveTypeId: '',
                 holidayLabel: 'Offshore Holiday',
                 expanded: false,
                 entries: []

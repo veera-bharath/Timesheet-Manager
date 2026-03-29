@@ -96,7 +96,7 @@ function executeCopyTo() {
         if (!state.allDaysByDate[dateStr]) {
             state.allDaysByDate[dateStr] = {
                 date: dateStr, isHoliday: false,
-                holidayLabel: 'Offshore Holiday', expanded: false, entries: []
+                leaveTypeId: '', holidayLabel: 'Offshore Holiday', expanded: false, entries: []
             };
         }
         state.allDaysByDate[dateStr].entries.push({ ...entryCopy });

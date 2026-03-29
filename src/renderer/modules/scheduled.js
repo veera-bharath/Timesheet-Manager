@@ -186,7 +186,7 @@ function saveScheduledTask() {
     if (!state.allDaysByDate[scheduledDate]) {
         state.allDaysByDate[scheduledDate] = {
             date: scheduledDate, isHoliday: false,
-            holidayLabel: 'Offshore Holiday', expanded: false, entries: []
+            leaveTypeId: '', holidayLabel: 'Offshore Holiday', expanded: false, entries: []
         };
     }
     state.allDaysByDate[scheduledDate].entries.push({ ticket: tkt, hh, mm, type, desc, isScheduled: true });
