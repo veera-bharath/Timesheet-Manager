@@ -147,7 +147,7 @@ export function buildEntriesHTML(entries, dayIdx) {
 
             let tktStr = (e.ticket || '');
             const typeObj = getTypeById(e.type);
-            const ticketColor = typeObj ? typeObj.color : '#c8c8c8';
+            const ticketColor = typeObj ? typeObj.color : 'var(--entry-ticket-color)';
             let ticketHtml;
             if (e.noTicket) {
                 ticketHtml = `<span class="entry-ticket entry-no-ticket-label">NO TICKET</span>`;
