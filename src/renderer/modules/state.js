@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '2.0.0';
 
 export const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 export const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
