@@ -93,3 +93,47 @@ All data stored via **electron-store** (not localStorage). The central `state` o
 ## Git Workflow
 
 Follows Gitflow. Feature branches use the pattern `feature/tm-<ticket-number>-<description>`. PRs merge into `develop`; releases merge into `main` and are tagged (e.g., `v1.4.0`).
+
+### Branch Lifecycle Rules
+
+Follow these steps **in order** when working on any issue:
+
+1. **Sync develop first** — always pull the latest `develop` before creating a branch:
+   ```bash
+   git checkout develop && git pull origin develop
+   ```
+
+2. **Move issue to In Progress** — before creating the branch, move the GitHub issue to "In Progress" status:
+   ```bash
+   gh issue edit <number> --add-label "in progress"
+   # or use project board field if applicable
+   ```
+
+3. **Create the feature branch** from the updated `develop`:
+   ```bash
+   git checkout -b feature/tm-<issue-number>-<short-description>
+   ```
+
+4. **Do NOT commit after finishing the code** — wait for the developer to test the changes. Only proceed to step 5 after the developer explicitly confirms the changes work.
+
+5. **After developer confirms** — commit the changes and open a PR targeting `develop`:
+   ```bash
+   gh pr create --base develop --title "feat(tm-<number>): ..." --body "..."
+   ```
+   Then move the GitHub issue to "In Review" status.
+
+6. **PR review & merge** — after the PR is created, ask the developer: *"Ready to review and merge?"*. Only if they confirm:
+   - Review the code changes in the PR
+   - Merge the PR into `develop`
+   - Close the GitHub issue
+   ```bash
+   gh pr merge <pr-number> --squash
+   gh issue close <number>
+   ```
+
+### Rules Summary
+
+- Never create a branch without pulling `develop` first.
+- Never commit without developer confirmation that the feature works.
+- Never merge a PR without explicitly asking the developer for approval.
+- Always close the GitHub issue after a successful merge.
