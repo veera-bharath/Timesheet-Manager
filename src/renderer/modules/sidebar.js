@@ -6,14 +6,12 @@ import { saveEntry, openEntryModal } from './entry-modal.js';
 import { toggleDay, renderAll } from './render.js';
 import { changeWeekBy } from './week.js';
 import { openPreview, openDayQuickView, doPrint } from './report.js';
-import { openSettings } from './settings.js';
+import { openSettings, addChangelogEntry } from './settings.js';
 import { logError } from './error-log.js';
 
 /* ── SIDEBAR & ABOUT ────────────────────────────────────── */
 export function initSidebar() {
     const sidebarEl = document.getElementById('appSidebar');
-    const aboutBtn = document.getElementById('menu-about');
-    const aboutModalEl = document.getElementById('aboutModal');
 
     const closeSidebar = () => {
         const oc = bootstrap.Offcanvas.getInstance(sidebarEl);
@@ -29,14 +27,6 @@ export function initSidebar() {
         });
     }
 
-    if (aboutBtn && sidebarEl && aboutModalEl) {
-        const aboutModal = new bootstrap.Modal(aboutModalEl);
-        aboutBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            closeSidebar();
-            aboutModal.show();
-        });
-    }
 
     const starredBtn = document.getElementById('menu-starred');
     if (starredBtn) {
@@ -109,6 +99,7 @@ export function initUpdater() {
             document.getElementById(downloadToastId)?.remove();
             downloadToastId = null;
         }
+        addChangelogEntry(info.version, info.releaseNotes || '');
         showUpdateToast(
             `v${info.version} ready to install.`,
             'Restart & Install',

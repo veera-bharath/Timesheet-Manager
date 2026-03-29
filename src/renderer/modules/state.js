@@ -33,4 +33,5 @@ export const state = {
     leaveTypes: [],
     errorLog: [],
     errorLogRetentionDays: 30,
+    changelog: [],
 };
