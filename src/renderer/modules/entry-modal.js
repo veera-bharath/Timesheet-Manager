@@ -6,6 +6,7 @@ import { populateTypeSelect } from './ticket-types.js';
 // Circular — resolved at call time
 import { rerenderDayCard, renderAll } from './render.js';
 import { updateNoTicketBanner } from './no-ticket-reminder.js';
+import { updateUnderloggedBanner } from './underlogged-reminder.js';
 
 let entryModal;
 export let lastDeleted = null;
@@ -233,6 +234,7 @@ export function commitEntry(dayIdx, entryIdx) {
     updateSummary();
     saveState();
     updateNoTicketBanner();
+    updateUnderloggedBanner();
     entryModal.hide();
 }
 
@@ -272,6 +274,7 @@ export function finishDeleteEntry(dayIdx, entryIdx, deletedEntry) {
     rerenderDayCard(dayIdx);
     updateSummary();
     updateNoTicketBanner();
+    updateUnderloggedBanner();
 
     const timerId = setTimeout(() => {
         lastDeleted = null;
