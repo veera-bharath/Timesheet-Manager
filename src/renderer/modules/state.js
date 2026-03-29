@@ -31,4 +31,6 @@ export const state = {
     dailyTargetMins: 480,
     ticketTypes: [],
     leaveTypes: [],
+    errorLog: [],
+    errorLogRetentionDays: 30,
 };

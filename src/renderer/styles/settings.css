@@ -421,3 +421,74 @@
   background: var(--bg-input);
   cursor: pointer;
 }
+
+/* ── ERROR LOGS ── */
+
+.el-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.el-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.el-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+
+.el-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.el-timestamp {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.el-context-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--info, #818cf8);
+  background: rgba(129, 140, 248, 0.1);
+  border: 1px solid rgba(129, 140, 248, 0.2);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.el-message {
+  font-size: 0.83rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.el-stack {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
