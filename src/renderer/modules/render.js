@@ -133,9 +133,13 @@ export function buildEntriesHTML(entries, dayIdx) {
 
     groups.forEach((group, gi) => {
         const roman = ROMAN[gi] + '.';
+        const isMulti = group.items.length > 1;
 
-        group.items.forEach((e, itemIdx) => {
-            let actualOriginalIndex = group.indices[itemIdx];
+        const groupTotalMins = group.items.reduce((sum, e) => sum + (e.hh || 0) * 60 + (e.mm || 0), 0);
+        const groupTotalStr = minsToHHMM(groupTotalMins);
+
+        const rowsHtml = group.items.map((e, itemIdx) => {
+            const actualOriginalIndex = group.indices[itemIdx];
             const isFirst = itemIdx === 0;
             const isLast = itemIdx === group.items.length - 1;
 
@@ -167,7 +171,7 @@ export function buildEntriesHTML(entries, dayIdx) {
             const starIcon  = e.starred ? 'bi-star-fill' : 'bi-star';
 
             const rowI = rowIndex++;
-            htmlFragments.push(`
+            return `
     <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}" style="--i:${rowI}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
       <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
@@ -180,8 +184,13 @@ export function buildEntriesHTML(entries, dayIdx) {
       <div class="ms-auto d-flex align-items-center gap-1">
         <button class="entry-btn-star ${starClass}" title="${e.starred ? 'Unstar' : 'Star'}"><i class="bi ${starIcon}"></i></button>
       </div>
-    </div>`);
-        });
+    </div>`;
+        }).join('');
+
+        htmlFragments.push(`<div class="entry-group${isMulti ? ' entry-group-multi' : ''}" data-group-idx="${gi}">
+  ${rowsHtml}
+  <div class="entry-group-total" title="${isMulti ? 'Group total' : 'Time'}">${groupTotalStr}</div>
+</div>`);
     });
 
     return htmlFragments.join('');
@@ -233,12 +242,12 @@ export function buildDayCard(day, dayIdx) {
           style="max-width:200px;display:${day.isHoliday ? 'block' : 'none'}">
         </select>
       </div>
-      <div class="entries-list" id="entries-${dayIdx}" ${day.isHoliday ? 'style="opacity:0.4;pointer-events:none"' : ''}>
+      <div class="entries-list${day.entries && day.entries.length > 0 ? ' has-entries' : ''}" id="entries-${dayIdx}" ${day.isHoliday ? 'style="opacity:0.4;pointer-events:none"' : ''}>
+        ${day.isHoliday ? '' : `<button class="add-entry-btn" data-day="${dayIdx}">
+          <i class="bi bi-plus-circle"></i> Add Entry
+        </button>`}
         ${buildEntriesHTML(day.entries, dayIdx)}
       </div>
-      ${day.isHoliday ? '' : `<button class="add-entry-btn" data-day="${dayIdx}">
-        <i class="bi bi-plus-circle"></i> Add Entry
-      </button>`}
     </div>
   `;
 
