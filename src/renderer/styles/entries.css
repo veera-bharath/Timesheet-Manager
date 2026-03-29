@@ -284,6 +284,63 @@
   100% { transform: scale(1); }
 }
 
+/* ── NO-TICKET REMINDER BANNER ── */
+
+.no-ticket-banner {
+  align-items: center;
+  gap: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  color: #fca5a5;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.no-ticket-banner .bi-exclamation-triangle-fill {
+  color: var(--danger);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.no-ticket-banner #btn-dismiss-no-ticket {
+  background: none;
+  border: none;
+  color: #fca5a5;
+  margin-left: auto;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  opacity: 0.7;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.no-ticket-banner #btn-dismiss-no-ticket:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* ── NO-TICKET ENTRIES ── */
+
+.entry-row.entry-no-ticket {
+  border-left-color: var(--danger) !important;
+}
+
+.entry-no-ticket-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--danger) !important;
+  min-width: 120px;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
 /* ── SCHEDULED ENTRIES ── */
 
 .entry-row.entry-scheduled {

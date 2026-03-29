@@ -22,6 +22,7 @@ import { state } from './modules/state.js';
 import { getWeekStrFromDate, getDateFromWeek, buildWeekDays, enforceExpandedState, updateWeekDisplay } from './modules/week.js';
 import { updateSummary } from './modules/summary.js';
 import { initOnboarding, needsOnboarding, showOnboarding } from './modules/onboarding.js';
+import { initNoTicketBanner, updateNoTicketBanner } from './modules/no-ticket-reminder.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
@@ -29,6 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initRipple();
     initSettings();
     initOnboarding();
+    initNoTicketBanner();
     initSidebar();
     initUpdater();
     initContextMenu();
@@ -72,4 +74,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateSummary();
     initKeyboard();
+    updateNoTicketBanner();
 });
