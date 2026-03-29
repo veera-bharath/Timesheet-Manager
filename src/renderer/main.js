@@ -21,12 +21,14 @@ import { renderAll } from './modules/render.js';
 import { state } from './modules/state.js';
 import { getWeekStrFromDate, getDateFromWeek, buildWeekDays, enforceExpandedState, updateWeekDisplay } from './modules/week.js';
 import { updateSummary } from './modules/summary.js';
+import { initOnboarding, needsOnboarding, showOnboarding } from './modules/onboarding.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
     initTheme();
     initRipple();
     initSettings();
+    initOnboarding();
     initSidebar();
     initUpdater();
     initContextMenu();
@@ -41,6 +43,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const restored = await loadState();
     await loadErrorLog();
     await loadChangelog();
+
+    if (needsOnboarding()) await showOnboarding();
 
     updateSheetDetailsDisplay();
 
