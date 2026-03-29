@@ -7,6 +7,7 @@ import { toggleDay, renderAll } from './render.js';
 import { changeWeekBy } from './week.js';
 import { openPreview, openDayQuickView, doPrint } from './report.js';
 import { openSettings } from './settings.js';
+import { logError } from './error-log.js';
 
 /* ── SIDEBAR & ABOUT ────────────────────────────────────── */
 export function initSidebar() {
@@ -115,7 +116,8 @@ export function initUpdater() {
         );
     });
 
-    window.updater.onError(() => {
+    window.updater.onError((err) => {
+        logError('update', err || new Error('Updater error'));
         if (manualUpdateCheck) {
             showToast('Update check failed.', 'danger');
             manualUpdateCheck = false;

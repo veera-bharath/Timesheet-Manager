@@ -1,4 +1,5 @@
 import { state, LS_KEY, DEFAULT_TICKET_TYPES, DEFAULT_LEAVE_TYPES } from './state.js';
+import { logError } from './error-log.js';
 
 export async function saveState() {
     try {
@@ -18,7 +19,7 @@ export async function saveState() {
             leaveTypes: state.leaveTypes,
         };
         await window.electronStore.set(LS_KEY, toSave);
-    } catch (e) { console.warn('Could not save state', e); }
+    } catch (e) { console.warn('Could not save state', e); logError('store/save', e); }
 }
 
 export async function loadState() {
@@ -61,5 +62,5 @@ export async function loadState() {
             });
         }
         return true;
-    } catch (e) { return false; }
+    } catch (e) { logError('store/load', e); return false; }
 }

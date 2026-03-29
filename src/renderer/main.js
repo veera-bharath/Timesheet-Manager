@@ -16,6 +16,7 @@ import { initCopyTo } from './modules/copy-to.js';
 import { initReport } from './modules/report.js';
 import { bindHeaderEvents } from './modules/header.js';
 import { initSettings, updateSheetDetailsDisplay } from './modules/settings.js';
+import { loadErrorLog } from './modules/error-log.js';
 import { renderAll } from './modules/render.js';
 import { state } from './modules/state.js';
 import { getWeekStrFromDate, getDateFromWeek, buildWeekDays, enforceExpandedState, updateWeekDisplay } from './modules/week.js';
@@ -38,6 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindHeaderEvents();
 
     const restored = await loadState();
+    await loadErrorLog();
 
     updateSheetDetailsDisplay();
 

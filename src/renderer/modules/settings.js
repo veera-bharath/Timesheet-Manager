@@ -11,6 +11,7 @@ import { escHtml } from './utils.js';
 import { applyTheme } from './theme.js';
 import { renderTicketTypesSection } from './ticket-types.js';
 import { renderLeaveTypesSection } from './leave-types.js';
+import { renderErrorLogSection } from './error-log.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
@@ -336,16 +337,7 @@ function renderDeveloper(el) {
 }
 
 function renderErrorLogs(el) {
-    el.innerHTML = `
-        <div class="settings-section-header">
-            <button class="settings-back-btn"><i class="bi bi-arrow-left"></i> Developer</button>
-            <h2 class="settings-section-title">Error Logs</h2>
-            <p class="settings-section-desc">Application error log for troubleshooting.</p>
-        </div>
-        <div class="settings-section-body">
-            <p class="settings-placeholder">Error Logs — coming soon.</p>
-        </div>`;
-    el.querySelector('.settings-back-btn').addEventListener('click', () => navigateTo('developer'));
+    renderErrorLogSection(el, navigateTo);
 }
 
 function renderAbout(el) {
