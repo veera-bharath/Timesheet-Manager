@@ -1,4 +1,4 @@
-import { state, LS_KEY } from './state.js';
+import { state, LS_KEY, DEFAULT_TICKET_TYPES } from './state.js';
 
 export async function saveState() {
     try {
@@ -13,7 +13,8 @@ export async function saveState() {
             allDaysByDate: state.allDaysByDate,
             lastOpenedDateByWeek: state.lastOpenedDateByWeek,
             recurringTasks: state.recurringTasks,
-            dailyTargetMins: state.dailyTargetMins
+            dailyTargetMins: state.dailyTargetMins,
+            ticketTypes: state.ticketTypes,
         };
         await window.electronStore.set(LS_KEY, toSave);
     } catch (e) { console.warn('Could not save state', e); }
@@ -33,7 +34,10 @@ export async function loadState() {
         }
 
         const saved = await window.electronStore.get(LS_KEY);
-        if (!saved) return false;
+        if (!saved) {
+            state.ticketTypes = [...DEFAULT_TICKET_TYPES];
+            return false;
+        }
 
         state.reportTitle = saved.reportTitle || 'Booked hours in Jira and Service Desk';
         state.employeeName = saved.employeeName || '';
@@ -42,6 +46,9 @@ export async function loadState() {
         state.lastOpenedDateByWeek = saved.lastOpenedDateByWeek || {};
         state.recurringTasks = saved.recurringTasks || [];
         state.dailyTargetMins = saved.dailyTargetMins || 480;
+        state.ticketTypes = saved.ticketTypes && saved.ticketTypes.length > 0
+            ? saved.ticketTypes
+            : [...DEFAULT_TICKET_TYPES];
 
         if (saved.days && Array.isArray(saved.days)) {
             saved.days.forEach(d => {

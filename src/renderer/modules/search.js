@@ -1,6 +1,7 @@
 import { state, SEARCH_PAGE_SIZE } from './state.js';
 import { saveState } from './store.js';
-import { escHtml, fmtDate, fmtSearchDate, fmtTypeLabel, fmtHHMM } from './utils.js';
+import { escHtml, fmtDate, fmtSearchDate, fmtHHMM } from './utils.js';
+import { getTypeLabel } from './ticket-types.js';
 import { getWeekStrFromDate, getDateFromWeek, buildWeekDays, updateWeekDisplay, enforceExpandedState } from './week.js';
 // Circular — resolved at call time
 import { renderAll } from './render.js';
@@ -16,7 +17,7 @@ function searchCurrentWeek(query) {
         if (!day || !day.entries) return;
         day.entries.forEach((entry, entryIdx) => {
             const matchTicket = entry.ticket && entry.ticket.toLowerCase().includes(q);
-            const matchType   = fmtTypeLabel(entry.type).toLowerCase().includes(q);
+            const matchType   = getTypeLabel(entry.type).toLowerCase().includes(q);
             const matchDesc   = entry.desc && entry.desc.toLowerCase().includes(q);
             if (matchTicket || matchType || matchDesc) {
                 results.push({ dateStr: day.date, dayIdx, entryIdx, entry });
@@ -61,7 +62,7 @@ function renderSearchDropdown(results, query, showAll) {
     const remaining = results.length - 5;
     let html = '';
     visible.forEach((r, i) => {
-        const line1 = `${escHtml(fmtSearchDate(r.dateStr))} &middot; ${escHtml(r.entry.ticket || '—')} &middot; ${escHtml(fmtTypeLabel(r.entry.type))}`;
+        const line1 = `${escHtml(fmtSearchDate(r.dateStr))} &middot; ${escHtml(r.entry.ticket || '—')} &middot; ${escHtml(getTypeLabel(r.entry.type))}`;
         const desc = r.entry.desc || '';
         html += `<div class="search-result-item" data-idx="${i}" tabindex="-1">
             <div class="search-result-line1">${line1}</div>
@@ -211,7 +212,7 @@ function runAdvancedSearch() {
         day.entries.forEach((entry, entryIdx) => {
             if (q) {
                 const mTicket = fieldTicket && entry.ticket && entry.ticket.toLowerCase().includes(q);
-                const mType   = fieldType   && fmtTypeLabel(entry.type).toLowerCase().includes(q);
+                const mType   = fieldType   && getTypeLabel(entry.type).toLowerCase().includes(q);
                 const mDesc   = fieldDesc   && entry.desc && entry.desc.toLowerCase().includes(q);
                 if (!mTicket && !mType && !mDesc) return;
             }
@@ -236,7 +237,7 @@ function renderAdvancedResults() {
 
     container.innerHTML = pageItems.map((r, i) => {
         const hhmm = fmtHHMM(r.entry.hh, r.entry.mm);
-        const line1Left = `${escHtml(fmtSearchDate(r.dateStr))} &middot; ${escHtml(r.entry.ticket || '—')} &middot; ${escHtml(fmtTypeLabel(r.entry.type))}`;
+        const line1Left = `${escHtml(fmtSearchDate(r.dateStr))} &middot; ${escHtml(r.entry.ticket || '—')} &middot; ${escHtml(getTypeLabel(r.entry.type))}`;
         const desc = r.entry.desc || '';
         return `<div class="adv-result-card" data-pidx="${i}">
             <div class="adv-result-line1">
