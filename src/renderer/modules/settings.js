@@ -9,6 +9,7 @@ import { updateSummary } from './summary.js';
 import { renderDays } from './render.js';
 import { escHtml } from './utils.js';
 import { applyTheme } from './theme.js';
+import { renderTicketTypesSection } from './ticket-types.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
@@ -303,16 +304,7 @@ function renderManagement(el) {
 }
 
 function renderTicketTypes(el) {
-    el.innerHTML = `
-        <div class="settings-section-header">
-            <button class="settings-back-btn"><i class="bi bi-arrow-left"></i> Management</button>
-            <h2 class="settings-section-title">Ticket Types</h2>
-            <p class="settings-section-desc">Configure the ticket types available when adding or editing entries.</p>
-        </div>
-        <div class="settings-section-body">
-            <p class="settings-placeholder">Ticket Types — coming soon.</p>
-        </div>`;
-    el.querySelector('.settings-back-btn').addEventListener('click', () => navigateTo('management'));
+    renderTicketTypesSection(el, navigateTo);
 }
 
 function renderLeaveTypes(el) {

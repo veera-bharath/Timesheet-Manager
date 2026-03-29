@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { saveState } from './store.js';
 import { showToast } from './toast.js';
 import { escHtml, fmtDate } from './utils.js';
+import { getTypeById, populateTypeSelect } from './ticket-types.js';
 // Circular — resolved at call time
 import { rerenderDayCard } from './render.js';
 import { updateSummary } from './summary.js';
@@ -77,7 +78,9 @@ function renderScheduledList() {
         const dt = new Date(dateStr + 'T00:00:00');
         const dateLabel = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
         const hhmm = `${String(entry.hh || 0).padStart(2, '0')}:${String(entry.mm || 0).padStart(2, '0')}`;
-        const isSd = entry.type === 'servicedesk';
+        const entryTypeObj = getTypeById(entry.type);
+        const isSd = entryTypeObj?.hasPrefix === true;
+        const sdLabel = isSd ? entryTypeObj.label : '';
         const isPast = dateStr <= fmtDate(new Date());
         html += `
         <div class="recurring-rule-card mb-2${isPast ? ' opacity-50' : ''}">
@@ -90,7 +93,7 @@ function renderScheduledList() {
               <div class="d-flex align-items-center gap-2 flex-wrap">
                 <span class="fw-semibold" style="font-size:0.9rem">${escHtml(entry.ticket || '—')}</span>
                 <span class="text-muted" style="font-size:0.8rem">${hhmm}</span>
-                ${isSd ? '<span class="entry-type-badge">Service Desk</span>' : ''}
+                ${isSd ? `<span class="entry-type-badge">${escHtml(sdLabel)}</span>` : ''}
               </div>
               <div class="text-muted mt-1" style="font-size:0.8rem">${escHtml(entry.desc || '')}</div>
             </div>
@@ -132,7 +135,7 @@ function openScheduledForm() {
     document.getElementById('scheduled-form-ticket').classList.remove('is-invalid');
     document.getElementById('scheduled-form-hh').value = '';
     document.getElementById('scheduled-form-mm').value = '00';
-    document.getElementById('scheduled-form-type').value = 'jira';
+    populateTypeSelect(document.getElementById('scheduled-form-type'), state.ticketTypes[0]?.id || 'jira');
     document.getElementById('scheduled-form-desc').value = '';
     document.getElementById('scheduled-form-desc').classList.remove('is-invalid');
     scheduledFormModal.show();

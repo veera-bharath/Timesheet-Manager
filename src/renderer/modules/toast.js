@@ -11,6 +11,11 @@ export function showConfirm(message, onYes) {
     yesBtn.onclick = () => { confirmModal.hide(); cleanup(); onYes(); };
     noBtn.onclick = () => { confirmModal.hide(); cleanup(); };
     confirmModal.show();
+    // If another modal is already open, push the new backdrop above it
+    requestAnimationFrame(() => {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        if (backdrops.length >= 2) backdrops[backdrops.length - 1].style.zIndex = '1059';
+    });
 }
 
 export function showToast(msg, type = 'success') {

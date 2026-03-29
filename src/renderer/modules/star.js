@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { saveState } from './store.js';
-import { escHtml, fmtSearchDate, fmtHHMM, fmtTypeLabel } from './utils.js';
+import { escHtml, fmtSearchDate, fmtHHMM } from './utils.js';
+import { getTypeLabel } from './ticket-types.js';
 import { navigateToResult } from './search.js';
 
 export function toggleEntryStarred(dayIdx, entryIdx, btnEl) {
@@ -39,7 +40,7 @@ export function renderStarredList() {
 
     container.innerHTML = results.map((r, i) => {
         const hhmm = fmtHHMM(r.entry.hh, r.entry.mm);
-        const typeLabel = fmtTypeLabel(r.entry.type);
+        const typeLabel = getTypeLabel(r.entry.type);
         return `<div class="adv-result-card" data-sidx="${i}">
             <div class="adv-result-line1">
                 <span>${escHtml(fmtSearchDate(r.dateStr))} &middot; ${escHtml(r.entry.ticket || '—')} &middot; ${escHtml(typeLabel)}</span>

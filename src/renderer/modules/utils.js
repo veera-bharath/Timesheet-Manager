@@ -37,10 +37,6 @@ export function fmtSearchDate(dateStr) {
     return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
 }
 
-export function fmtTypeLabel(type) {
-    return type === 'servicedesk' ? 'Service Desk' : 'Jira';
-}
-
 export function padTicket(ticket) {
     const target = 11;
     if (ticket.length < target) return ticket + ' '.repeat(target - ticket.length);

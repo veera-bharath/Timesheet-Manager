@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { saveState } from './store.js';
 import { escHtml } from './utils.js';
+import { getTypeLabel } from './ticket-types.js';
 // Circular — resolved at call time
 import { rerenderDayCard } from './render.js';
 import { openEntryModal, openEntryModalPreFilled, makeRegularEntry, deleteEntry } from './entry-modal.js';
@@ -134,7 +135,7 @@ export function showEntryQuickView(dayIdx, entryIdx, btnEl) {
     const entry = state.days[dayIdx]?.entries[entryIdx];
     if (!entry) return;
 
-    const typeLabel = entry.type === 'servicedesk' ? 'Service Desk' : 'Jira';
+    const typeLabel = getTypeLabel(entry.type);
     const hhmm = `${String(entry.hh || 0).padStart(2,'0')}:${String(entry.mm || 0).padStart(2,'0')}`;
 
     qv.innerHTML = `

@@ -8,6 +8,7 @@ import { showEntryContextMenu } from './context-menu.js';
 import { toggleEntryStarred } from './star.js';
 import { openDayQuickView } from './report.js';
 import { showEntryQuickView } from './context-menu.js';
+import { getTypeById } from './ticket-types.js';
 
 let weekTransitionDir = null;
 
@@ -140,13 +141,16 @@ export function buildEntriesHTML(entries, dayIdx) {
             const rStr = isFirst ? roman : '';
 
             let tktStr = (e.ticket || '');
-            let ticketHtml = `<span class="entry-ticket ${e.type === 'servicedesk' ? 'servicedesk' : ''}">${escHtml(tktStr || '—')}</span>`;
+            const typeObj = getTypeById(e.type);
+            const ticketColor = typeObj ? typeObj.color : '#c8c8c8';
+            let ticketHtml = `<span class="entry-ticket" style="color:${ticketColor}">${escHtml(tktStr || '—')}</span>`;
             if (group.type === 'ticket_group' && !isFirst) {
                 ticketHtml = `<span class="entry-ticket text-muted entry-grouped-hint">${escHtml(tktStr || '—')}</span>`;
             }
 
             const hhmm = `${String(e.hh || 0).padStart(2, '0')}:${String(e.mm || 0).padStart(2, '0')}`;
-            const isSd = e.type === 'servicedesk';
+            const showBadge = typeObj?.hasPrefix === true;
+            const badgeLabel = showBadge ? typeObj.label : '';
 
             let showDesc = true;
             if (group.type === 'desc_group' && !isLast) {
@@ -168,7 +172,7 @@ export function buildEntriesHTML(entries, dayIdx) {
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
       <span class="entry-hours">${hhmm}</span>
-      ${isSd ? '<span class="entry-type-badge">Service Desk</span>' : ''}
+      ${showBadge ? `<span class="entry-type-badge">${escHtml(badgeLabel)}</span>` : ''}
       ${e.recurringId ? '<span class="entry-recurring-badge" title="Recurring task"><i class="bi bi-arrow-repeat"></i></span>' : ''}
       ${e.isScheduled ? '<span class="entry-scheduled-badge" title="Scheduled task"><i class="bi bi-clock"></i></span>' : ''}
       ${descHtml}

@@ -2,6 +2,7 @@ import { state, WEEK_DAYS } from './state.js';
 import { saveState } from './store.js';
 import { showToast, showConfirm } from './toast.js';
 import { updateSummary } from './summary.js';
+import { populateTypeSelect } from './ticket-types.js';
 // Circular — resolved at call time
 import { rerenderDayCard, renderAll } from './render.js';
 
@@ -32,7 +33,7 @@ export function openEntryModal(dayIdx, entryIdx) {
         document.getElementById('modal-ticket').value = e.ticket || '';
         document.getElementById('modal-hh').value = e.hh ?? 0;
         document.getElementById('modal-mm').value = String(e.mm ?? 0).padStart(2, '0');
-        document.getElementById('modal-type').value = e.type || 'jira';
+        populateTypeSelect(document.getElementById('modal-type'), e.type || state.ticketTypes[0]?.id || 'jira');
         document.getElementById('modal-desc').value = e.desc || '';
         document.getElementById('modal-group-id').value = e.groupId || '';
         document.getElementById('modal-group-type-ref').value = e.groupType || '';
@@ -104,7 +105,7 @@ export function openEntryModalPreFilled(dayIdx, fromEntryIdx, keepField) {
 
     if (keepField === 'ticket') {
         document.getElementById('modal-ticket').value = e.ticket || '';
-        document.getElementById('modal-type').value = e.type || 'jira';
+        populateTypeSelect(document.getElementById('modal-type'), e.type || state.ticketTypes[0]?.id || 'jira');
     } else if (keepField === 'desc') {
         document.getElementById('modal-desc').value = e.desc || '';
     }
@@ -117,7 +118,7 @@ export function clearEntryModal() {
     document.getElementById('modal-ticket').value = '';
     document.getElementById('modal-hh').value = '';
     document.getElementById('modal-mm').value = '00';
-    document.getElementById('modal-type').value = 'jira';
+    populateTypeSelect(document.getElementById('modal-type'), state.ticketTypes[0]?.id || 'jira');
     document.getElementById('modal-desc').value = '';
     document.getElementById('modal-group-id').value = '';
     document.getElementById('modal-group-type-ref').value = '';

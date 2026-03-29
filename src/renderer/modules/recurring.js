@@ -2,6 +2,7 @@ import { state, RECURRING_DAY_NAMES, DAY_IDX_TO_NAME } from './state.js';
 import { saveState } from './store.js';
 import { showToast } from './toast.js';
 import { escHtml, fmtDate } from './utils.js';
+import { getTypeById, populateTypeSelect } from './ticket-types.js';
 import { getDateFromWeek, getWeekStrFromDate } from './week.js';
 // Circular — resolved at call time
 import { rerenderDayCard } from './render.js';
@@ -119,14 +120,18 @@ function renderRecurringList() {
         container.innerHTML = `<p class="text-muted text-center py-4">No recurring tasks yet. Click "Add Recurring Task" to create one.</p>`;
         return;
     }
-    container.innerHTML = state.recurringTasks.map(rule => `
+    container.innerHTML = state.recurringTasks.map(rule => {
+        const rTypeObj = getTypeById(rule.type);
+        const rColor   = rTypeObj ? rTypeObj.color : '#c8c8c8';
+        const rBadge   = rTypeObj?.hasPrefix ? `<span class="entry-type-badge">${escHtml(rTypeObj.label)}</span>` : '';
+        return `
     <div class="recurring-rule-card mb-3">
       <div class="d-flex align-items-start justify-content-between gap-2">
         <div class="flex-fill">
           <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="entry-ticket ${rule.type === 'servicedesk' ? 'servicedesk' : ''}">${escHtml(rule.ticket || '—')}</span>
+            <span class="entry-ticket" style="color:${rColor}">${escHtml(rule.ticket || '—')}</span>
             <span class="entry-hours">${String(rule.hh || 0).padStart(2,'0')}:${String(rule.mm || 0).padStart(2,'0')}</span>
-            ${rule.type === 'servicedesk' ? '<span class="entry-type-badge">Service Desk</span>' : ''}
+            ${rBadge}
           </div>
           <div class="text-muted" style="font-size:0.85rem">${escHtml(rule.desc || '')}</div>
           <div class="d-flex gap-1 mt-2">
@@ -142,7 +147,8 @@ function renderRecurringList() {
           </button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+    }).join('');
 
     container.querySelectorAll('[data-action="edit"]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -160,7 +166,7 @@ function openRecurringForm(rule) {
     document.getElementById('recurring-ticket').value = rule ? rule.ticket : '';
     document.getElementById('recurring-hh').value = rule ? rule.hh : '';
     document.getElementById('recurring-mm').value = rule ? String(rule.mm || 0).padStart(2, '0') : '00';
-    document.getElementById('recurring-type').value = rule ? rule.type : 'jira';
+    populateTypeSelect(document.getElementById('recurring-type'), rule ? rule.type : (state.ticketTypes[0]?.id || 'jira'));
     document.getElementById('recurring-desc').value = rule ? rule.desc : '';
     document.getElementById('recurringFormTitle').innerHTML =
         `<i class="bi bi-arrow-repeat me-2"></i>${rule ? 'Edit' : 'Add'} Recurring Task`;

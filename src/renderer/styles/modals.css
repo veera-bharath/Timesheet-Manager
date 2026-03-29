@@ -44,3 +44,8 @@
   overflow-x: auto;
   line-height: 1.7;
 }
+
+/* Ensure confirm modal always renders above other open modals (e.g. settings) */
+#confirmModal {
+  z-index: 1060;
+}

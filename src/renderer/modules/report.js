@@ -4,6 +4,7 @@ import { escHtml, fmtDate, fmtDisplayDate, padTicket } from './utils.js';
 import { getDateFromWeek } from './week.js';
 import { calcDayTotalMins } from './summary.js';
 import { minsToHHMM } from './utils.js';
+import { getTypeById } from './ticket-types.js';
 // Circular — resolved at call time
 import { buildGroups } from './render.js';
 
@@ -57,10 +58,12 @@ export function generateTxt() {
                         const ticket = padTicket(tktStr);
 
                         const hhmm = `${String(e.hh || 0).padStart(2, '0')}:${String(e.mm || 0).padStart(2, '0')}`;
-                        const sdTag = e.type === 'servicedesk' ? '(Service desk) ' : '';
+                        const eTypeObj = getTypeById(e.type);
+                        const sdTag = eTypeObj?.prefixText || '';
 
                         let desc = e.desc || '';
-                        if (sdTag && desc.toLowerCase().startsWith('(service desk)')) {
+                        // Legacy: strip manually typed "(Service desk)" prefix from older entries
+                        if (e.type === 'servicedesk' && desc.toLowerCase().startsWith('(service desk)')) {
                             desc = desc.substring(15).trim();
                             if (desc.startsWith('-')) desc = desc.substring(1).trim();
                         }
