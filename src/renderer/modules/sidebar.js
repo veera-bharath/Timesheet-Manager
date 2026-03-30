@@ -4,7 +4,8 @@ import { escHtml } from './utils.js';
 import { renderStarredList } from './star.js';
 import { saveEntry, openEntryModal } from './entry-modal.js';
 import { toggleDay, renderAll } from './render.js';
-import { changeWeekBy } from './week.js';
+import { changeWeekBy, setCurrentWeek } from './week.js';
+import { updateSummary } from './summary.js';
 import { openPreview, openDayQuickView, doPrint } from './report.js';
 import { openSettings, addChangelogEntry } from './settings.js';
 import { logError } from './error-log.js';
@@ -200,6 +201,13 @@ export function initKeyboard() {
         }
 
         switch (e.key) {
+            case 'g':
+            case 'G':
+                setCurrentWeek();
+                renderAll();
+                updateSummary();
+                break;
+
             case 'n':
             case 'N':
                 if (!e.altKey && expandedIdx !== -1) openEntryModal(expandedIdx, -1);
