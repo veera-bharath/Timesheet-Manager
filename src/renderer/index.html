@@ -211,10 +211,14 @@
           <input type="hidden" id="modal-group-id" />
           <input type="hidden" id="modal-group-type-ref" />
           <div class="row g-3">
-            <div class="col-12">
+            <div class="col-12 d-flex align-items-center gap-4">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="modal-no-ticket" />
                 <label class="form-check-label" for="modal-no-ticket" style="font-size:0.82rem;color:var(--text-secondary);cursor:pointer">No ticket yet</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="modal-logged" />
+                <label class="form-check-label" for="modal-logged" style="font-size:0.82rem;color:var(--text-secondary);cursor:pointer"><i class="bi bi-journal-check me-1"></i>Already logged to timesheet</label>
               </div>
             </div>
             <div id="modal-ticket-wrap" class="col-12 col-lg-5">
@@ -469,6 +473,7 @@
     <div class="ctx-item ctx-make-regular" id="ctx-make-regular" style="display:none"><i class="bi bi-calendar-check"></i> Make Regular</div>
     <div class="ctx-divider"></div>
     <div class="ctx-item" id="ctx-star"><i class="bi bi-star"></i> <span id="ctx-star-label">Star</span></div>
+    <div class="ctx-item" id="ctx-logged"><i class="bi bi-journal"></i> <span id="ctx-logged-label">Mark as logged</span></div>
     <div class="ctx-divider"></div>
     <div class="ctx-item ctx-danger" id="ctx-delete"><i class="bi bi-trash"></i> Delete</div>
   </div>

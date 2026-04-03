@@ -247,7 +247,8 @@
 /* ── ENTRY ROW BUTTONS ── */
 
 .entry-btn-eye,
-.entry-btn-star {
+.entry-btn-star,
+.entry-btn-logged {
   background: none;
   border: none;
   padding: 3px 5px;
@@ -272,6 +273,19 @@
 
 .entry-btn-star.starred {
   color: var(--warning);
+}
+
+.entry-btn-logged:hover {
+  color: var(--success);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.entry-btn-logged.logged {
+  color: var(--success);
+}
+
+.entry-row.entry-logged {
+  opacity: 0.65;
 }
 
 .entry-btn-star.star-pulse {

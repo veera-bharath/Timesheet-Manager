@@ -77,15 +77,16 @@ export function generateDayTxt(day) {
                     }
 
                     const showDesc = !(group.type === 'desc_group' && !isLast);
+                    const loggedMark = e.logged ? '  (✓ logged)' : '';
 
                     if (!showDesc) {
-                        lines.push(`${indent}${rStr}${ticket} ${timeStr}`);
+                        lines.push(`${indent}${rStr}${ticket} ${timeStr}${loggedMark}`);
                     } else {
                         const descLines = desc ? desc.split(/\r?\n/) : [];
                         if (descLines.length === 0) {
-                            lines.push(`${indent}${rStr}${ticket} ${timeStr}`);
+                            lines.push(`${indent}${rStr}${ticket} ${timeStr}${loggedMark}`);
                         } else {
-                            lines.push(`${indent}${rStr}${ticket} ${timeStr}- ${sdTag}${descLines[0]}`);
+                            lines.push(`${indent}${rStr}${ticket} ${timeStr}- ${sdTag}${descLines[0]}${loggedMark}`);
                             if (descLines.length > 1) {
                                 const indentStr = indent + romanBlank + ' '.repeat(`${ticket} ${timeStr}- ${sdTag}`.length);
                                 for (let j = 1; j < descLines.length; j++) {

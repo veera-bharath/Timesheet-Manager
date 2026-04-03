@@ -47,6 +47,8 @@ export function openEntryModal(dayIdx, entryIdx) {
         document.getElementById('modal-desc').value = e.desc || '';
         document.getElementById('modal-group-id').value = e.groupId || '';
         document.getElementById('modal-group-type-ref').value = e.groupType || '';
+        // Auto-unmark logged when editing — entry may change and need re-logging
+        document.getElementById('modal-logged').checked = false;
         deleteBtn.style.display = 'inline-flex';
         if (e.isScheduled) {
             makeRegularBtn.style.display = 'inline-flex';
@@ -126,6 +128,7 @@ export function openEntryModalPreFilled(dayIdx, fromEntryIdx, keepField) {
 
 export function clearEntryModal() {
     document.getElementById('modal-no-ticket').checked = false;
+    document.getElementById('modal-logged').checked = false;
     document.getElementById('modal-ticket-wrap').style.display = '';
     document.getElementById('modal-ticket').value = '';
     document.getElementById('modal-hh').value = '';
@@ -217,8 +220,10 @@ export function commitEntry(dayIdx, entryIdx) {
     const type = document.getElementById('modal-type').value;
     const desc = document.getElementById('modal-desc').value.trim();
 
+    const isLogged = document.getElementById('modal-logged').checked;
     const entry = { ticket: tkt, hh, mm, type, desc };
     if (isNoTicket) entry.noTicket = true;
+    if (isLogged) entry.logged = true;
     if (groupId) { entry.groupId = groupId; entry.groupType = groupType; }
 
     if (entryIdx === -1) {
@@ -227,6 +232,7 @@ export function commitEntry(dayIdx, entryIdx) {
         const existing = state.days[dayIdx].entries[entryIdx];
         if (existing && existing.recurringId) entry.recurringId = existing.recurringId;
         if (existing && existing.isScheduled) entry.isScheduled = existing.isScheduled;
+        // logged is NOT carried over from existing — modal already pre-unchecked it (auto-unmark on edit)
         state.days[dayIdx].entries[entryIdx] = entry;
     }
 
