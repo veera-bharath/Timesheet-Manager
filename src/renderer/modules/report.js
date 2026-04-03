@@ -16,85 +16,101 @@ export function initReport() {
     previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
     dayEntriesModal = new bootstrap.Modal(document.getElementById('dayEntriesModal'));
     document.getElementById('btn-copy-day-entries').addEventListener('click', copyDayQuickView);
+
+    // Strip HTML from clipboard when manually copying from preview panes.
+    // Chromium includes text/html with full styling by default; Teams and
+    // other rich-text apps prefer HTML, so they paste with dark backgrounds.
+    const forcePlainTextCopy = (e) => {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) return;
+        e.clipboardData.setData('text/plain', selection.toString());
+        e.preventDefault();
+    };
+    document.getElementById('txt-preview').addEventListener('copy', forcePlainTextCopy);
+    document.getElementById('day-entries-content').addEventListener('copy', forcePlainTextCopy);
+}
+
+const DAY_ROMAN_WIDTH = 6; // wide enough for 'viii)' + 1 space
+
+export function generateDayTxt(day) {
+    const displayDate = fmtDisplayDate(day.date);
+    const lines = [];
+    const indent = '  '; // 2-space initial indent, no tabs
+
+    if (day.isHoliday) {
+        lines.push(`${displayDate} :   `);
+        lines.push(`${indent}${'i)'.padEnd(DAY_ROMAN_WIDTH)}${getLeaveLabel(day)}`);
+    } else {
+        const totalMins = calcDayTotalMins(day);
+        const hrsStr = minsToHHMM(totalMins);
+        lines.push(`${displayDate} : ${hrsStr} hrs`);
+
+        if (day.entries && day.entries.length > 0) {
+            const groups = buildGroups(day.entries);
+
+            groups.forEach((group, gi) => {
+                const roman = (ROMAN[gi] + ')').padEnd(DAY_ROMAN_WIDTH);
+                const romanBlank = ' '.repeat(DAY_ROMAN_WIDTH);
+
+                group.items.forEach((e, itemIdx) => {
+                    const isFirst = itemIdx === 0;
+                    const isLast = itemIdx === group.items.length - 1;
+                    const rStr = isFirst ? roman : romanBlank;
+
+                    let tktStr = (e.ticket || '');
+                    if (group.type === 'ticket_group' && !isFirst) tktStr = '';
+                    const ticket = padTicket(tktStr);
+
+                    const h = parseInt(e.hh) || 0;
+                    const m = parseInt(e.mm) || 0;
+                    const timeFmt = h === 0 ? `(${m}m)` : m === 0 ? `(${h}h)` : `(${h}h ${m}m)`;
+                    const timeStr = timeFmt.padEnd(10);
+
+                    const eTypeObj = getTypeById(e.type);
+                    const sdTag = eTypeObj?.prefixText || '';
+
+                    let desc = e.desc || '';
+                    // Legacy: strip manually typed "(Service desk)" prefix from older entries
+                    if (e.type === 'servicedesk' && desc.toLowerCase().startsWith('(service desk)')) {
+                        desc = desc.substring(15).trim();
+                        if (desc.startsWith('-')) desc = desc.substring(1).trim();
+                    }
+
+                    const showDesc = !(group.type === 'desc_group' && !isLast);
+                    const loggedMark = e.logged ? '  (✓ logged)' : '';
+
+                    if (!showDesc) {
+                        lines.push(`${indent}${rStr}${ticket} ${timeStr}${loggedMark}`);
+                    } else {
+                        const descLines = desc ? desc.split(/\r?\n/) : [];
+                        if (descLines.length === 0) {
+                            lines.push(`${indent}${rStr}${ticket} ${timeStr}${loggedMark}`);
+                        } else {
+                            lines.push(`${indent}${rStr}${ticket} ${timeStr}- ${sdTag}${descLines[0]}${loggedMark}`);
+                            if (descLines.length > 1) {
+                                const indentStr = indent + romanBlank + ' '.repeat(`${ticket} ${timeStr}- ${sdTag}`.length);
+                                for (let j = 1; j < descLines.length; j++) {
+                                    lines.push(`${indentStr}${descLines[j]}`);
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+    }
+
+    return lines.join('\r\n');
 }
 
 export function generateTxt() {
-    const monDt = getDateFromWeek(state.weekValue);
-
-    let lines = [];
+    const lines = [];
     lines.push(state.reportTitle || 'Booked hours in Jira and Service Desk');
     lines.push(SEPARATOR);
 
     state.days.forEach((day) => {
-        const displayDate = fmtDisplayDate(day.date);
-
-        if (day.isHoliday) {
-            lines.push(`${displayDate} :   `);
-            lines.push(`\ti)\t${getLeaveLabel(day)}`);
-            lines.push('');
-        } else {
-            const totalMins = calcDayTotalMins(day);
-            const hrsStr = minsToHHMM(totalMins);
-            lines.push(`${displayDate} : ${hrsStr} hrs`);
-
-            if (!day.entries || day.entries.length === 0) {
-                lines.push('');
-            } else {
-                const groups = buildGroups(day.entries);
-
-                groups.forEach((group, gi) => {
-                    const roman = ROMAN[gi] + ')';
-                    const romanBlank = ' '.repeat(roman.length);
-
-                    group.items.forEach((e, itemIdx) => {
-                        const isFirst = itemIdx === 0;
-                        const isLast = itemIdx === group.items.length - 1;
-
-                        const rStr = isFirst ? roman : romanBlank;
-
-                        let tktStr = (e.ticket || '');
-                        if (group.type === 'ticket_group' && !isFirst) {
-                            tktStr = '';
-                        }
-                        const ticket = padTicket(tktStr);
-
-                        const hhmm = `${String(e.hh || 0).padStart(2, '0')}:${String(e.mm || 0).padStart(2, '0')}`;
-                        const eTypeObj = getTypeById(e.type);
-                        const sdTag = eTypeObj?.prefixText || '';
-
-                        let desc = e.desc || '';
-                        // Legacy: strip manually typed "(Service desk)" prefix from older entries
-                        if (e.type === 'servicedesk' && desc.toLowerCase().startsWith('(service desk)')) {
-                            desc = desc.substring(15).trim();
-                            if (desc.startsWith('-')) desc = desc.substring(1).trim();
-                        }
-
-                        let showDesc = true;
-                        if (group.type === 'desc_group' && !isLast) {
-                            showDesc = false;
-                        }
-
-                        if (!showDesc) {
-                            lines.push(`\t${rStr}\t${ticket} (hrs: ${hhmm}) `);
-                        } else {
-                            const descLines = desc ? desc.split(/\r?\n/) : [];
-                            if (descLines.length === 0) {
-                                lines.push(`\t${rStr}\t${ticket} (hrs: ${hhmm})`);
-                            } else {
-                                lines.push(`\t${rStr}\t${ticket} (hrs: ${hhmm}) - ${sdTag}${descLines[0]}`);
-                                if (descLines.length > 1) {
-                                    const indentStr = '\t' + ' '.repeat(rStr.length) + '\t' + ' '.repeat(`${ticket} (hrs: ${hhmm}) - ${sdTag}`.length);
-                                    for (let j = 1; j < descLines.length; j++) {
-                                        lines.push(`${indentStr}${descLines[j]}`);
-                                    }
-                                }
-                            }
-                        }
-                    });
-                });
-                lines.push('');
-            }
-        }
+        lines.push(generateDayTxt(day));
+        lines.push('');
     });
 
     return lines.join('\r\n');
@@ -108,31 +124,11 @@ export function openPreview() {
 
 export function openDayQuickView(dayIdx) {
     const day = state.days[dayIdx];
-    if (!day || !day.entries || day.entries.length === 0) return;
+    if (!day || (!day.isHoliday && (!day.entries || day.entries.length === 0))) return;
 
     const displayDate = fmtDisplayDate(day.date);
-    document.getElementById('dayEntriesModalLabel').innerHTML = `<i class="bi bi-card-text me-2"></i>Day Entries — ${WEEK_DAYS[dayIdx]}, ${displayDate}`;
-
-    let contentStr = '';
-    day.entries.forEach((e, idx) => {
-        const h = parseInt(e.hh) || 0;
-        const m = parseInt(e.mm) || 0;
-
-        let timeParts = [];
-        if (h > 0) timeParts.push(`${h}h`);
-        if (m > 0) timeParts.push(`${m}m`);
-        const formattedTime = timeParts.join(' ');
-
-        const tkt = e.ticket ? e.ticket.trim() : 'No Ticket';
-        const desc = e.desc ? e.desc.trim() : 'No description provided';
-
-        contentStr += `${tkt} (${formattedTime})\n${desc}`;
-        if (idx < day.entries.length - 1) {
-            contentStr += '\n\n';
-        }
-    });
-
-    document.getElementById('day-entries-content').textContent = contentStr;
+    document.getElementById('dayEntriesModalLabel').innerHTML = `<i class="bi bi-card-text me-2"></i>Day Preview — ${WEEK_DAYS[dayIdx]}, ${displayDate}`;
+    document.getElementById('day-entries-content').textContent = generateDayTxt(day);
     dayEntriesModal.show();
 }
 

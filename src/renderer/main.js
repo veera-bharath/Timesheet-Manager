@@ -21,12 +21,19 @@ import { renderAll } from './modules/render.js';
 import { state } from './modules/state.js';
 import { getWeekStrFromDate, getDateFromWeek, buildWeekDays, enforceExpandedState, updateWeekDisplay } from './modules/week.js';
 import { updateSummary } from './modules/summary.js';
+import { initOnboarding, needsOnboarding, showOnboarding } from './modules/onboarding.js';
+import { initNoTicketBanner, updateNoTicketBanner } from './modules/no-ticket-reminder.js';
+import { initUnderloggedBanner, updateUnderloggedBanner } from './modules/underlogged-reminder.js';
+import { setCurrentWeek } from './modules/week.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
     initTheme();
     initRipple();
     initSettings();
+    initOnboarding();
+    initNoTicketBanner();
+    initUnderloggedBanner();
     initSidebar();
     initUpdater();
     initContextMenu();
@@ -41,6 +48,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const restored = await loadState();
     await loadErrorLog();
     await loadChangelog();
+
+    if (needsOnboarding()) await showOnboarding();
 
     updateSheetDetailsDisplay();
 
@@ -68,4 +77,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateSummary();
     initKeyboard();
+    updateNoTicketBanner();
+    updateUnderloggedBanner();
+
+    // Navigate to today when triggered from tray or notification click
+    if (window.tray) {
+        window.tray.onNavigateToToday(() => {
+            setCurrentWeek();
+            renderAll();
+            updateSummary();
+        });
+    }
 });

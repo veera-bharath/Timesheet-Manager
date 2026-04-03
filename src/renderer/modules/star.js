@@ -22,6 +22,22 @@ export function toggleEntryStarred(dayIdx, entryIdx, btnEl) {
     saveState();
 }
 
+export function toggleEntryLogged(dayIdx, entryIdx, btnEl) {
+    const entry = state.days[dayIdx]?.entries[entryIdx];
+    if (!entry) return;
+    entry.logged = !entry.logged;
+    btnEl.classList.toggle('logged', entry.logged);
+    btnEl.querySelector('i').className = entry.logged ? 'bi bi-journal-check' : 'bi bi-journal';
+    btnEl.title = entry.logged ? 'Logged to timesheet — click to unmark' : 'Mark as logged to timesheet';
+    const row = btnEl.closest('.entry-row');
+    if (row) row.classList.toggle('entry-logged', entry.logged);
+    const dateStr = state.days[dayIdx].date;
+    if (state.allDaysByDate[dateStr]) {
+        state.allDaysByDate[dateStr].entries[entryIdx] = entry;
+    }
+    saveState();
+}
+
 export function renderStarredList() {
     const container = document.getElementById('starred-list');
     const results = [];

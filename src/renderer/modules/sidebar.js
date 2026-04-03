@@ -4,7 +4,8 @@ import { escHtml } from './utils.js';
 import { renderStarredList } from './star.js';
 import { saveEntry, openEntryModal } from './entry-modal.js';
 import { toggleDay, renderAll } from './render.js';
-import { changeWeekBy } from './week.js';
+import { changeWeekBy, setCurrentWeek } from './week.js';
+import { updateSummary } from './summary.js';
 import { openPreview, openDayQuickView, doPrint } from './report.js';
 import { openSettings, addChangelogEntry } from './settings.js';
 import { logError } from './error-log.js';
@@ -177,15 +178,39 @@ export function initKeyboard() {
                 e.preventDefault();
                 saveEntry();
             }
+            if (e.altKey && (e.key === 'n' || e.key === 'N') && modalOpen.id === 'entryModal') {
+                e.preventDefault();
+                const toggle = document.getElementById('modal-no-ticket');
+                toggle.checked = !toggle.checked;
+                toggle.dispatchEvent(new Event('change'));
+            }
             return;
         }
 
         const expandedIdx = state.days.findIndex(d => d.expanded);
 
+        if (e.altKey && (e.key === 'n' || e.key === 'N') && expandedIdx !== -1) {
+            e.preventDefault();
+            openEntryModal(expandedIdx, -1);
+            document.getElementById('entryModal').addEventListener('shown.bs.modal', () => {
+                const toggle = document.getElementById('modal-no-ticket');
+                toggle.checked = true;
+                toggle.dispatchEvent(new Event('change'));
+            }, { once: true });
+            return;
+        }
+
         switch (e.key) {
+            case 'g':
+            case 'G':
+                setCurrentWeek();
+                renderAll();
+                updateSummary();
+                break;
+
             case 'n':
             case 'N':
-                if (expandedIdx !== -1) openEntryModal(expandedIdx, -1);
+                if (!e.altKey && expandedIdx !== -1) openEntryModal(expandedIdx, -1);
                 break;
 
             case 'ArrowUp':

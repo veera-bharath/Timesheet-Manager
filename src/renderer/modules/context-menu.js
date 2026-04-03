@@ -5,7 +5,7 @@ import { getTypeLabel } from './ticket-types.js';
 // Circular — resolved at call time
 import { rerenderDayCard } from './render.js';
 import { openEntryModal, openEntryModalPreFilled, makeRegularEntry, deleteEntry } from './entry-modal.js';
-import { toggleEntryStarred } from './star.js';
+import { toggleEntryStarred, toggleEntryLogged } from './star.js';
 
 let ctxTarget = null;
 
@@ -29,6 +29,8 @@ export function showEntryContextMenu(row, x, y) {
 
     document.getElementById('ctx-star-label').textContent = entry.starred ? 'Unstar' : 'Star';
     document.getElementById('ctx-star').querySelector('i').className = entry.starred ? 'bi bi-star-fill' : 'bi bi-star';
+    document.getElementById('ctx-logged-label').textContent = entry.logged ? 'Unmark as logged' : 'Mark as logged';
+    document.getElementById('ctx-logged').querySelector('i').className = entry.logged ? 'bi bi-journal-check' : 'bi bi-journal';
 
     menu.classList.remove('ctx-open');
     menu.style.display = 'block';
@@ -101,6 +103,13 @@ export function initContextMenu() {
         const { dayIdx, entryIdx, row } = ctxTarget;
         hideContextMenu();
         toggleEntryStarred(dayIdx, entryIdx, row.querySelector('.entry-btn-star'));
+    });
+
+    document.getElementById('ctx-logged').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx, row } = ctxTarget;
+        hideContextMenu();
+        toggleEntryLogged(dayIdx, entryIdx, row.querySelector('.entry-btn-logged'));
     });
 
     document.getElementById('ctx-delete').addEventListener('click', () => {

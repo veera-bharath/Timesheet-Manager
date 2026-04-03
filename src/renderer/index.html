@@ -56,6 +56,21 @@
 
   <!-- MAIN CONTENT -->
   <main class="container-fluid px-4 py-4">
+
+    <!-- NO-TICKET REMINDER BANNER -->
+    <div id="no-ticket-banner" class="no-ticket-banner" style="display:none">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span id="no-ticket-banner-msg"></span>
+      <button id="btn-dismiss-no-ticket" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <!-- UNDERLOGGED REMINDER BANNER -->
+    <div id="underlogged-banner" class="underlogged-banner" style="display:none">
+      <i class="bi bi-clock-history"></i>
+      <span id="underlogged-banner-msg"></span>
+      <button id="btn-dismiss-underlogged" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+    </div>
+
     <div class="row g-4">
 
       <!-- LEFT COLUMN: Details & Summary -->
@@ -170,7 +185,7 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <pre id="day-entries-content" class="txt-output" style="white-space: pre-wrap; font-family: inherit; margin: 0;"></pre>
+          <pre id="day-entries-content" class="txt-output"></pre>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
@@ -196,7 +211,17 @@
           <input type="hidden" id="modal-group-id" />
           <input type="hidden" id="modal-group-type-ref" />
           <div class="row g-3">
-            <div class="col-12 col-lg-5">
+            <div class="col-12 d-flex align-items-center gap-4">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="modal-no-ticket" />
+                <label class="form-check-label" for="modal-no-ticket" style="font-size:0.82rem;color:var(--text-secondary);cursor:pointer">No ticket yet</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="modal-logged" />
+                <label class="form-check-label" for="modal-logged" style="font-size:0.82rem;color:var(--text-secondary);cursor:pointer"><i class="bi bi-journal-check me-1"></i>Already logged to timesheet</label>
+              </div>
+            </div>
+            <div id="modal-ticket-wrap" class="col-12 col-lg-5">
               <label class="form-label label-text">Ticket / Reference ID</label>
               <input type="text" id="modal-ticket" class="form-control dark-input"
                 placeholder="e.g. JIRA-123 or #123" />
@@ -448,6 +473,7 @@
     <div class="ctx-item ctx-make-regular" id="ctx-make-regular" style="display:none"><i class="bi bi-calendar-check"></i> Make Regular</div>
     <div class="ctx-divider"></div>
     <div class="ctx-item" id="ctx-star"><i class="bi bi-star"></i> <span id="ctx-star-label">Star</span></div>
+    <div class="ctx-item" id="ctx-logged"><i class="bi bi-journal"></i> <span id="ctx-logged-label">Mark as logged</span></div>
     <div class="ctx-divider"></div>
     <div class="ctx-item ctx-danger" id="ctx-delete"><i class="bi bi-trash"></i> Delete</div>
   </div>
@@ -543,11 +569,13 @@
             <div class="cheatsheet-group-label">Navigation</div>
             <div class="cheatsheet-row"><kbd>↑</kbd><kbd>↓</kbd> <span>Switch expanded day up / down</span></div>
             <div class="cheatsheet-row"><kbd>←</kbd><kbd>→</kbd> <span>Switch to previous / next week</span></div>
+            <div class="cheatsheet-row"><kbd>G</kbd> <span>Jump to current week and expand today</span></div>
           </div>
           <div class="cheatsheet-group">
             <div class="cheatsheet-group-label">Entries</div>
             <div class="cheatsheet-row"><kbd>N</kbd> <span>Add new entry to expanded day</span></div>
             <div class="cheatsheet-row"><kbd>Enter</kbd> <span>Save entry (inside entry modal)</span></div>
+            <div class="cheatsheet-row"><kbd>Alt</kbd><kbd>N</kbd> <span>Open entry modal with no-ticket toggled on</span></div>
           </div>
           <div class="cheatsheet-group">
             <div class="cheatsheet-group-label">Views</div>
@@ -622,6 +650,52 @@
     </div>
   </div>
 
+  <!-- ONBOARDING MODAL -->
+  <div class="modal fade" id="onboardingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
+      <div class="modal-content modal-dark">
+        <div class="modal-body p-4 p-md-5">
+
+          <!-- Logo + heading -->
+          <div class="text-center mb-4">
+            <img src="favicon.png" alt="App Icon" style="width:56px;height:56px;border-radius:14px;" class="mb-3" />
+            <h4 class="fw-semibold mb-1">Welcome to Timesheet Manager</h4>
+            <p class="text-muted" style="font-size:0.9rem;">Let's set up your profile before you start.</p>
+          </div>
+
+          <!-- Name -->
+          <div class="mb-3">
+            <label class="form-label label-text" for="onb-name">Your Name <span class="text-danger">*</span></label>
+            <input type="text" id="onb-name" class="form-control dark-input" placeholder="e.g. John Smith" autocomplete="off" />
+            <div class="form-text text-muted">Used in the timesheet report header.</div>
+          </div>
+
+          <!-- Report Title -->
+          <div class="mb-3">
+            <label class="form-label label-text" for="onb-report-title">Report Title</label>
+            <input type="text" id="onb-report-title" class="form-control dark-input" placeholder="Booked hours in Jira and Service Desk" />
+          </div>
+
+          <!-- Daily Target -->
+          <div class="mb-4">
+            <label class="form-label label-text">Daily Target</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="number" id="onb-target-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="08" style="max-width:64px" />
+              <span class="label-text">hrs</span>
+              <input type="number" id="onb-target-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" style="max-width:64px" />
+              <span class="label-text">min</span>
+            </div>
+          </div>
+
+          <button class="btn btn-gradient w-100 btn-ripple" id="btn-onb-submit" disabled>
+            <i class="bi bi-check-circle me-2"></i>Get Started
+          </button>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- SETTINGS MODAL -->
   <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-fullscreen">
@@ -648,6 +722,10 @@
             <div class="settings-nav-item" data-section="appearance">
               <i class="bi bi-palette"></i>
               <span>Appearance</span>
+            </div>
+            <div class="settings-nav-item" data-section="notifications">
+              <i class="bi bi-bell"></i>
+              <span>Notifications</span>
             </div>
             <div class="settings-nav-item settings-nav-parent" data-section="management">
               <i class="bi bi-grid"></i>
