@@ -5,7 +5,7 @@ import { calcDayTotalMins, updateSummary } from './summary.js';
 // Circular imports — resolved at call time (runtime only, not load time)
 import { openEntryModal } from './entry-modal.js';
 import { showEntryContextMenu } from './context-menu.js';
-import { toggleEntryStarred } from './star.js';
+import { toggleEntryStarred, toggleEntryLogged } from './star.js';
 import { openDayQuickView } from './report.js';
 import { showEntryQuickView } from './context-menu.js';
 import { getTypeById } from './ticket-types.js';
@@ -174,10 +174,13 @@ export function buildEntriesHTML(entries, dayIdx) {
 
             const starClass = e.starred ? 'starred' : '';
             const starIcon  = e.starred ? 'bi-star-fill' : 'bi-star';
+            const loggedClass = e.logged ? 'logged' : '';
+            const loggedIcon  = e.logged ? 'bi-journal-check' : 'bi-journal';
+            const loggedTitle = e.logged ? 'Logged to timesheet — click to unmark' : 'Mark as logged to timesheet';
 
             const rowI = rowIndex++;
             return `
-    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}${e.noTicket ? ' entry-no-ticket' : ''}" style="--i:${rowI}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
+    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}${e.noTicket ? ' entry-no-ticket' : ''}${e.logged ? ' entry-logged' : ''}" style="--i:${rowI}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
       <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
@@ -187,6 +190,7 @@ export function buildEntriesHTML(entries, dayIdx) {
       ${e.isScheduled ? '<span class="entry-scheduled-badge" title="Scheduled task"><i class="bi bi-clock"></i></span>' : ''}
       ${descHtml}
       <div class="ms-auto d-flex align-items-center gap-1">
+        <button class="entry-btn-logged ${loggedClass}" title="${loggedTitle}"><i class="bi ${loggedIcon}"></i></button>
         <button class="entry-btn-star ${starClass}" title="${e.starred ? 'Unstar' : 'Star'}"><i class="bi ${starIcon}"></i></button>
       </div>
     </div>`;
@@ -298,7 +302,7 @@ export function buildDayCard(day, dayIdx) {
 
     wrap.querySelectorAll('.entry-row').forEach(row => {
         row.addEventListener('dblclick', e => {
-            if (e.target.closest('.drag-handle') || e.target.closest('.entry-btn-eye') || e.target.closest('.entry-btn-star')) return;
+            if (e.target.closest('.drag-handle') || e.target.closest('.entry-btn-eye') || e.target.closest('.entry-btn-star') || e.target.closest('.entry-btn-logged')) return;
             openEntryModal(parseInt(row.dataset.day), parseInt(row.dataset.entry));
         });
 
@@ -310,6 +314,11 @@ export function buildDayCard(day, dayIdx) {
         row.querySelector('.entry-btn-star').addEventListener('click', e => {
             e.stopPropagation();
             toggleEntryStarred(parseInt(row.dataset.day), parseInt(row.dataset.entry), e.currentTarget);
+        });
+
+        row.querySelector('.entry-btn-logged').addEventListener('click', e => {
+            e.stopPropagation();
+            toggleEntryLogged(parseInt(row.dataset.day), parseInt(row.dataset.entry), e.currentTarget);
         });
     });
 
