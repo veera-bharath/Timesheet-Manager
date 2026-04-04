@@ -11,6 +11,21 @@ import { updateSummary } from './summary.js';
 let recurringModal;
 let recurringFormModal;
 
+export function skipRecurringOccurrence(dayIdx, entryIdx) {
+    const day = state.days[dayIdx];
+    const entry = day?.entries[entryIdx];
+    if (!entry?.recurringId) return;
+
+    const rule = state.recurringTasks?.find(r => r.id === entry.recurringId);
+    if (rule) {
+        if (!rule.skippedDates) rule.skippedDates = [];
+        if (!rule.skippedDates.includes(day.date)) rule.skippedDates.push(day.date);
+    }
+
+    day.entries.splice(entryIdx, 1);
+    saveState();
+}
+
 export function populateRecurringForWeek(monDt) {
     if (!state.recurringTasks || state.recurringTasks.length === 0) return;
     for (let i = 0; i < 5; i++) {
