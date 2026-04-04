@@ -272,7 +272,7 @@ export function buildDayCard(day, dayIdx) {
         }
     });
 
-    wrap.querySelector('.day-notes-open-btn').addEventListener('click', () => openDayNotesModal(dayIdx));
+    wrap.querySelector('.day-notes-open-btn')?.addEventListener('click', () => openDayNotesModal(dayIdx));
 
     const cb = wrap.querySelector(`#holiday-${dayIdx}`);
     const lbl = wrap.querySelector(`#holiday-label-${dayIdx}`);

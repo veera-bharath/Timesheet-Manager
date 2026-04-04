@@ -24,6 +24,7 @@ import { updateSummary } from './modules/summary.js';
 import { initOnboarding, needsOnboarding, showOnboarding } from './modules/onboarding.js';
 import { initNoTicketBanner, updateNoTicketBanner } from './modules/no-ticket-reminder.js';
 import { initUnderloggedBanner, updateUnderloggedBanner } from './modules/underlogged-reminder.js';
+import { initStats } from './modules/stats.js';
 import { setCurrentWeek } from './modules/week.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -35,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initNoTicketBanner();
     initUnderloggedBanner();
     initSidebar();
+    initStats();
     initUpdater();
     initContextMenu();
     initSearch();

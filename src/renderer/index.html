@@ -655,6 +655,66 @@
     </div>
   </div>
 
+  <!-- STATS MODAL -->
+  <div class="modal fade" id="statsModal" tabindex="-1" aria-labelledby="statsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="statsModalLabel"><i class="bi bi-bar-chart-line me-2"></i>Stats &amp; Insights</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="stats-toolbar">
+            <ul class="stats-tabs" id="stats-tab-list">
+              <li><button class="stats-tab active" data-tab="weekly">Weekly</button></li>
+              <li><button class="stats-tab" data-tab="tickets">Tickets</button></li>
+              <li><button class="stats-tab" data-tab="types">By Type</button></li>
+              <li><button class="stats-tab" data-tab="holidays">Holidays</button></li>
+            </ul>
+            <div class="stats-filter-tabs">
+              <button class="stats-filter-btn active" data-range="4">4W</button>
+              <button class="stats-filter-btn" data-range="8">8W</button>
+              <button class="stats-filter-btn" data-range="0">All</button>
+            </div>
+          </div>
+
+          <div class="stats-tab-panel active" id="stats-panel-weekly">
+            <table class="stats-table">
+              <thead><tr><th>Week</th><th>Days Worked</th><th>Total Hours</th></tr></thead>
+              <tbody id="stats-weekly-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="stats-tab-panel" id="stats-panel-tickets">
+            <table class="stats-table">
+              <thead><tr><th>#</th><th>Ticket</th><th>Entries</th><th>Total Hours</th></tr></thead>
+              <tbody id="stats-tickets-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="stats-tab-panel" id="stats-panel-types">
+            <div id="stats-types-list"></div>
+          </div>
+
+          <div class="stats-tab-panel" id="stats-panel-holidays">
+            <table class="stats-table">
+              <thead><tr><th>Leave Type</th><th>Days</th></tr></thead>
+              <tbody id="stats-holidays-tbody"></tbody>
+            </table>
+            <div class="stats-section-title" style="margin-top:20px">Leave History</div>
+            <table class="stats-table">
+              <thead><tr><th>Date</th><th>Leave Type</th></tr></thead>
+              <tbody id="stats-holidays-history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-gradient px-4" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PRINT AREA (hidden, used for window.print) -->
   <div id="print-area" style="display:none"></div>
   
@@ -669,6 +729,10 @@
         <a href="#" class="sidebar-menu-item" id="menu-settings">
           <i class="bi bi-gear me-3"></i>
           <span>Settings</span>
+        </a>
+        <a href="#" class="sidebar-menu-item" id="menu-stats">
+          <i class="bi bi-bar-chart-line me-3"></i>
+          <span>Stats &amp; Insights</span>
         </a>
         <div class="sidebar-menu-divider"></div>
         <a href="#" class="sidebar-menu-item" id="menu-starred">
