@@ -32,7 +32,7 @@ export function initReport() {
 
 const DAY_ROMAN_WIDTH = 6; // wide enough for 'viii)' + 1 space
 
-export function generateDayTxt(day) {
+export function generateDayTxt(day, useHHMM = false) {
     const displayDate = fmtDisplayDate(day.date);
     const lines = [];
     const indent = '  '; // 2-space initial indent, no tabs
@@ -63,7 +63,9 @@ export function generateDayTxt(day) {
 
                     const h = parseInt(e.hh) || 0;
                     const m = parseInt(e.mm) || 0;
-                    const timeFmt = h === 0 ? `(${m}m)` : m === 0 ? `(${h}h)` : `(${h}h ${m}m)`;
+                    const timeFmt = useHHMM
+                        ? `(${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')})`
+                        : h === 0 ? `(${m}m)` : m === 0 ? `(${h}h)` : `(${h}h ${m}m)`;
                     const timeStr = timeFmt.padEnd(10);
 
                     const eTypeObj = getTypeById(e.type);
@@ -109,7 +111,7 @@ export function generateTxt() {
     lines.push(SEPARATOR);
 
     state.days.forEach((day) => {
-        lines.push(generateDayTxt(day));
+        lines.push(generateDayTxt(day, true));
         lines.push('');
     });
 
