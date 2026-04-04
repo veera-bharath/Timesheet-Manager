@@ -23,7 +23,8 @@ export function populateRecurringForWeek(monDt) {
         state.recurringTasks.forEach(rule => {
             if (!rule.days.includes(dayName)) return;
             const exists = day.entries.some(e => e.recurringId === rule.id);
-            if (!exists) {
+            const skipped = rule.skippedDates?.includes(dateStr);
+            if (!exists && !skipped) {
                 day.entries.push({ ticket: rule.ticket, hh: rule.hh, mm: rule.mm, type: rule.type, desc: rule.desc, recurringId: rule.id });
             }
         });
