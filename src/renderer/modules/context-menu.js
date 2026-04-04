@@ -2,10 +2,13 @@ import { state } from './state.js';
 import { saveState } from './store.js';
 import { escHtml } from './utils.js';
 import { getTypeLabel } from './ticket-types.js';
+import { showToast } from './toast.js';
 // Circular — resolved at call time
 import { rerenderDayCard } from './render.js';
+import { updateSummary } from './summary.js';
 import { openEntryModal, openEntryModalPreFilled, makeRegularEntry, deleteEntry } from './entry-modal.js';
 import { toggleEntryStarred, toggleEntryLogged } from './star.js';
+import { skipRecurringOccurrence } from './recurring.js';
 
 let ctxTarget = null;
 
@@ -26,6 +29,7 @@ export function showEntryContextMenu(row, x, y) {
     document.getElementById('ctx-sub-desc').style.display =
         (ctxTarget.groupType === 'normal' || ctxTarget.groupType === 'desc_group') ? 'flex' : 'none';
     document.getElementById('ctx-make-regular').style.display = entry.isScheduled ? 'flex' : 'none';
+    document.getElementById('ctx-skip-recurring').style.display = entry.recurringId ? 'flex' : 'none';
 
     document.getElementById('ctx-star-label').textContent = entry.starred ? 'Unstar' : 'Star';
     document.getElementById('ctx-star').querySelector('i').className = entry.starred ? 'bi bi-star-fill' : 'bi bi-star';
@@ -87,6 +91,16 @@ export function initContextMenu() {
         const { dayIdx, entryIdx } = ctxTarget;
         hideContextMenu();
         openEntryModalPreFilled(dayIdx, entryIdx, 'desc');
+    });
+
+    document.getElementById('ctx-skip-recurring').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        skipRecurringOccurrence(dayIdx, entryIdx);
+        rerenderDayCard(dayIdx);
+        updateSummary();
+        showToast('Occurrence skipped.', 'success');
     });
 
     document.getElementById('ctx-make-regular').addEventListener('click', () => {
