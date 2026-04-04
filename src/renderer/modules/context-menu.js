@@ -9,6 +9,7 @@ import { updateSummary } from './summary.js';
 import { openEntryModal, openEntryModalPreFilled, makeRegularEntry, deleteEntry } from './entry-modal.js';
 import { toggleEntryStarred, toggleEntryLogged } from './star.js';
 import { skipRecurringOccurrence } from './recurring.js';
+import { cancelScheduledEntry } from './scheduled.js';
 
 let ctxTarget = null;
 
@@ -29,6 +30,7 @@ export function showEntryContextMenu(row, x, y) {
     document.getElementById('ctx-sub-desc').style.display =
         (ctxTarget.groupType === 'normal' || ctxTarget.groupType === 'desc_group') ? 'flex' : 'none';
     document.getElementById('ctx-make-regular').style.display = entry.isScheduled ? 'flex' : 'none';
+    document.getElementById('ctx-cancel-scheduled').style.display = entry.isScheduled ? 'flex' : 'none';
     document.getElementById('ctx-skip-recurring').style.display = entry.recurringId ? 'flex' : 'none';
 
     document.getElementById('ctx-star-label').textContent = entry.starred ? 'Unstar' : 'Star';
@@ -101,6 +103,14 @@ export function initContextMenu() {
         rerenderDayCard(dayIdx);
         updateSummary();
         showToast('Occurrence skipped.', 'success');
+    });
+
+    document.getElementById('ctx-cancel-scheduled').addEventListener('click', () => {
+        if (!ctxTarget) return;
+        const { dayIdx, entryIdx } = ctxTarget;
+        hideContextMenu();
+        const dateStr = state.days[dayIdx].date;
+        cancelScheduledEntry(dateStr, entryIdx);
     });
 
     document.getElementById('ctx-make-regular').addEventListener('click', () => {
