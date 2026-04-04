@@ -99,6 +99,7 @@
   color: var(--text-primary);
 }
 
+
 [data-theme="light"] .day-card-header {
   background: rgba(0, 0, 0, 0.02);
 }

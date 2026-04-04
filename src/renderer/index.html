@@ -176,6 +176,28 @@
     </div>
   </div>
 
+  <!-- DAY NOTES MODAL -->
+  <div class="modal fade" id="dayNotesModal" tabindex="-1" aria-labelledby="dayNotesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="dayNotesModalLabel"><i class="bi bi-journal-text me-2"></i><span id="day-notes-modal-title">Notes</span><span id="day-notes-dirty" class="day-notes-dirty-mark" style="display:none"> *</span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <textarea id="day-notes-textarea" class="day-notes-textarea dark-input" placeholder="Add standup notes, blockers, meeting outcomes…" rows="10"></textarea>
+          <p id="day-notes-hint" class="day-notes-hint">Double-click to edit</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-gradient" id="btn-save-day-notes" disabled>
+            <i class="bi bi-check-lg me-1"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- DAY ENTRIES MODAL -->
   <div class="modal fade" id="dayEntriesModal" tabindex="-1" aria-labelledby="dayEntriesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -603,6 +625,7 @@
           <div class="cheatsheet-group">
             <div class="cheatsheet-group-label">Entries</div>
             <div class="cheatsheet-row"><kbd>N</kbd> <span>Add new entry to expanded day</span></div>
+            <div class="cheatsheet-row"><kbd>T</kbd> <span>Open notes for expanded day</span></div>
             <div class="cheatsheet-row"><kbd>Enter</kbd> <span>Save entry (inside entry modal)</span></div>
             <div class="cheatsheet-row"><kbd>Alt</kbd><kbd>N</kbd> <span>Open entry modal with no-ticket toggled on</span></div>
           </div>

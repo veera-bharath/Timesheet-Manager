@@ -221,13 +221,19 @@
 
 /* ── ADD ENTRY BTN ── */
 
+.add-entry-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .add-entry-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
   padding: 10px 14px;
-  margin-bottom: 8px;
   background: none;
   border: 1px dashed rgba(160, 160, 160, 0.2);
   border-radius: var(--radius-sm);

@@ -3,7 +3,7 @@ import { showToast } from './toast.js';
 import { escHtml } from './utils.js';
 import { renderStarredList } from './star.js';
 import { saveEntry, openEntryModal } from './entry-modal.js';
-import { toggleDay, renderAll } from './render.js';
+import { toggleDay, renderAll, openDayNotesModal } from './render.js';
 import { changeWeekBy, setCurrentWeek } from './week.js';
 import { updateSummary } from './summary.js';
 import { openPreview, openDayQuickView, doPrint } from './report.js';
@@ -219,6 +219,11 @@ export function initKeyboard() {
             case 'n':
             case 'N':
                 if (!e.altKey && expandedIdx !== -1) openEntryModal(expandedIdx, -1);
+                break;
+
+            case 't':
+            case 'T':
+                if (expandedIdx !== -1) openDayNotesModal(expandedIdx);
                 break;
 
             case 'ArrowUp':
