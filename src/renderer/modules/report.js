@@ -79,7 +79,7 @@ export function generateDayTxt(day, useHHMM = false) {
                     }
 
                     const showDesc = !(group.type === 'desc_group' && !isLast);
-                    const loggedMark = e.logged ? '  (✓ logged)' : '';
+                    const loggedMark = (!useHHMM && e.logged) ? '  (✓ logged)' : '';
 
                     if (!showDesc) {
                         lines.push(`${indent}${rStr}${ticket} ${timeStr}${loggedMark}`);
