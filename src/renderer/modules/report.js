@@ -35,7 +35,7 @@ const DAY_ROMAN_WIDTH = 6; // wide enough for 'viii)' + 1 space
 export function generateDayTxt(day, useHHMM = false) {
     const displayDate = fmtDisplayDate(day.date);
     const lines = [];
-    const indent = '  '; // 2-space initial indent, no tabs
+    const indent = '\t';
 
     if (day.isHoliday) {
         lines.push(`${displayDate} :   `);
