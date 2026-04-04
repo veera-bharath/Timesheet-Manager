@@ -102,15 +102,7 @@ export function generateDayTxt(day, useHHMM = false) {
         }
     }
 
-    if (!day.isHoliday && day.notes) {
-        const noteLines = day.notes.split(/\r?\n/);
-        const labelStr = 'Notes: ';
-        const contIndent = indent + ' '.repeat(labelStr.length);
-        lines.push(`${indent}${labelStr}${noteLines[0]}`);
-        for (let i = 1; i < noteLines.length; i++) {
-            lines.push(`${contIndent}${noteLines[i]}`);
-        }
-    }
+
 
     return lines.join('\r\n');
 }
