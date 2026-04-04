@@ -83,10 +83,10 @@ function buildEntryCard({ dateStr, entry, isPast = false, buttons = '' }) {
           </div>
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="fw-semibold" style="font-size:0.9rem">${escHtml(entry.ticket || '—')}</span>
-            <span class="text-muted" style="font-size:0.8rem">${hhmm}</span>
+            <span style="font-size:0.8rem;color:var(--text-secondary)">${hhmm}</span>
             ${isSd ? `<span class="entry-type-badge">${escHtml(sdLabel)}</span>` : ''}
           </div>
-          <div class="text-muted mt-1" style="font-size:0.8rem">${escHtml(entry.desc || '')}</div>
+          <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px">${escHtml(entry.desc || '')}</div>
         </div>
         <div class="d-flex gap-1 flex-shrink-0">${buttons}</div>
       </div>
@@ -113,11 +113,15 @@ function renderScheduledList() {
         activeContainer.innerHTML = active.map(({ dateStr, entry, entryIdx }) => {
             const isPast = dateStr <= todayStr;
             const buttons = `
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Reschedule" data-reschedule-date="${dateStr}" data-reschedule-idx="${entryIdx}"><i class="bi bi-calendar-event"></i></button>
               <button class="btn btn-sm btn-outline-warning py-0 px-2" title="Make Regular" data-make-date="${dateStr}" data-make-idx="${entryIdx}"><i class="bi bi-calendar-check"></i></button>
               <button class="btn btn-sm btn-outline-danger py-0 px-2" title="Cancel" data-cancel-date="${dateStr}" data-cancel-idx="${entryIdx}"><i class="bi bi-x-circle"></i></button>`;
             return buildEntryCard({ dateStr, entry, isPast, buttons });
         }).join('');
 
+        activeContainer.querySelectorAll('[data-reschedule-date]').forEach(btn => {
+            btn.addEventListener('click', () => openReschedulePicker(btn, btn.dataset.rescheduleDate, parseInt(btn.dataset.rescheduleIdx)));
+        });
         activeContainer.querySelectorAll('[data-make-date]').forEach(btn => {
             btn.addEventListener('click', () => makeScheduledRegular(btn.dataset.makeDate, parseInt(btn.dataset.makeIdx)));
         });
@@ -258,6 +262,70 @@ function makeScheduledRegular(dateStr, entryIdx) {
     updateSummary();
     renderScheduledList();
     showToast('Entry converted to a regular entry.', 'success');
+}
+
+function openReschedulePicker(btn, dateStr, entryIdx) {
+    // Remove any existing picker
+    document.querySelectorAll('.reschedule-picker').forEach(el => el.remove());
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const minDate = fmtDate(tomorrow);
+
+    const picker = document.createElement('div');
+    picker.className = 'reschedule-picker d-flex align-items-center gap-2 mt-2';
+    picker.innerHTML = `
+        <input type="date" class="form-control form-control-sm bg-transparent text-white border-secondary"
+               style="max-width:160px;font-size:0.8rem" min="${minDate}" value="${dateStr}">
+        <button class="btn btn-sm btn-outline-success py-0 px-2" title="Confirm"><i class="bi bi-check-lg"></i></button>
+        <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Cancel"><i class="bi bi-x-lg"></i></button>`;
+
+    const card = btn.closest('.recurring-rule-card');
+    card.appendChild(picker);
+
+    const [input, confirmBtn, cancelBtn] = picker.querySelectorAll('input, button');
+
+    cancelBtn.addEventListener('click', () => picker.remove());
+    confirmBtn.addEventListener('click', () => {
+        const newDate = input.value;
+        if (!newDate) return;
+        const todayStr = fmtDate(new Date());
+        if (newDate <= todayStr) { showToast('New date must be in the future.', 'danger'); return; }
+        const dow = new Date(newDate + 'T00:00:00').getDay();
+        if (dow === 0 || dow === 6) { showToast('New date must be a weekday (Mon–Fri).', 'danger'); return; }
+        picker.remove();
+        rescheduleEntry(dateStr, entryIdx, newDate);
+    });
+}
+
+function rescheduleEntry(oldDateStr, entryIdx, newDateStr) {
+    const oldDay = state.allDaysByDate[oldDateStr];
+    if (!oldDay || !oldDay.entries[entryIdx]) return;
+
+    const entry = { ...oldDay.entries[entryIdx] };
+    oldDay.entries.splice(entryIdx, 1);
+
+    if (!state.allDaysByDate[newDateStr]) {
+        state.allDaysByDate[newDateStr] = {
+            date: newDateStr, isHoliday: false,
+            leaveTypeId: '', holidayLabel: 'Offshore Holiday', expanded: false, entries: []
+        };
+    }
+    state.allDaysByDate[newDateStr].entries.push(entry);
+
+    [oldDateStr, newDateStr].forEach(d => {
+        const dayInWeek = state.days.findIndex(day => day.date === d);
+        if (dayInWeek !== -1) {
+            state.days[dayInWeek] = state.allDaysByDate[d];
+            rerenderDayCard(dayInWeek);
+        }
+    });
+
+    saveState();
+    updateSummary();
+    renderScheduledList();
+    const label = formatDateLabel(newDateStr);
+    showToast(`Rescheduled to ${label}.`, 'success');
 }
 
 export function cancelScheduledEntry(dateStr, entryIdx) {
