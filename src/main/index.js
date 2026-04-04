@@ -199,6 +199,14 @@ autoUpdater.on('error', (err) => {
   mainWindow.webContents.send('update-error', err.message);
 });
 
+// ── Single instance lock ─────────────────────────────────
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => showMainWindow());
+}
+
 // ── App lifecycle ────────────────────────────────────────
 app.on('before-quit', () => { isQuitting = true; });
 
