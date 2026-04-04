@@ -48,6 +48,14 @@ export function initSidebar() {
         });
     }
 
+    const exitBtn = document.getElementById('menu-exit');
+    if (exitBtn) {
+        exitBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.app.quit();
+        });
+    }
+
     const updateBtn = document.getElementById('menu-check-updates');
     if (updateBtn) {
         updateBtn.addEventListener('click', (e) => {
