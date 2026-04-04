@@ -49,3 +49,41 @@
 #confirmModal {
   z-index: 1060;
 }
+
+/* ── SCHEDULED TASKS TABS ── */
+.scheduled-tabs {
+  border-bottom: 1px solid var(--border);
+  gap: 4px;
+}
+
+.scheduled-tabs .nav-link,
+.scheduled-tabs .nav-link:not(.active) {
+  color: var(--text-primary) !important;
+  opacity: 0.55;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+.scheduled-tabs .nav-link:hover {
+  opacity: 0.85;
+}
+
+.scheduled-tabs .nav-link.active {
+  color: var(--text-primary) !important;
+  opacity: 1;
+  border-bottom: 2px solid var(--warning) !important;
+  background: transparent !important;
+}
+
+.scheduled-tab-badge {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border: 1px solid var(--border-accent);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 1px 6px;
+}

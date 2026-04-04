@@ -28,6 +28,7 @@ export const state = {
     days: [],
     lastOpenedDateByWeek: {},
     recurringTasks: [],
+    scheduledHistory: [],
     dailyTargetMins: 480,
     ticketTypes: [],
     leaveTypes: [],

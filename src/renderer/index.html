@@ -404,7 +404,34 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div id="scheduled-list"></div>
+          <ul class="nav nav-tabs scheduled-tabs mb-3" id="scheduledTabs">
+            <li class="nav-item">
+              <button class="nav-link active" id="tab-btn-active" data-bs-toggle="tab" data-bs-target="#tab-scheduled-active" type="button">
+                Active <span class="badge scheduled-tab-badge ms-1" id="badge-scheduled-active"></span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" id="tab-btn-completed" data-bs-toggle="tab" data-bs-target="#tab-scheduled-completed" type="button">
+                Completed <span class="badge scheduled-tab-badge ms-1" id="badge-scheduled-completed"></span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" id="tab-btn-cancelled" data-bs-toggle="tab" data-bs-target="#tab-scheduled-cancelled" type="button">
+                Cancelled <span class="badge scheduled-tab-badge ms-1" id="badge-scheduled-cancelled"></span>
+              </button>
+            </li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="tab-scheduled-active">
+              <div id="scheduled-list-active"></div>
+            </div>
+            <div class="tab-pane fade" id="tab-scheduled-completed">
+              <div id="scheduled-list-completed"></div>
+            </div>
+            <div class="tab-pane fade" id="tab-scheduled-cancelled">
+              <div id="scheduled-list-cancelled"></div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
@@ -472,6 +499,7 @@
     <div class="ctx-item ctx-sub-desc" id="ctx-sub-desc" style="display:none"><i class="bi bi-card-text"></i> Add Sub-entry (same desc)</div>
     <div class="ctx-item ctx-make-regular" id="ctx-make-regular" style="display:none"><i class="bi bi-calendar-check"></i> Make Regular</div>
     <div class="ctx-item ctx-warning" id="ctx-skip-recurring" style="display:none"><i class="bi bi-skip-forward"></i> Skip this occurrence</div>
+    <div class="ctx-item ctx-danger" id="ctx-cancel-scheduled" style="display:none"><i class="bi bi-calendar-x"></i> Cancel scheduled task</div>
     <div class="ctx-divider"></div>
     <div class="ctx-item" id="ctx-star"><i class="bi bi-star"></i> <span id="ctx-star-label">Star</span></div>
     <div class="ctx-item" id="ctx-logged"><i class="bi bi-journal"></i> <span id="ctx-logged-label">Mark as logged</span></div>
