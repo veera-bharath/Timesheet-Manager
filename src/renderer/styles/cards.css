@@ -250,3 +250,69 @@
   color: var(--text-secondary);
   cursor: pointer;
 }
+
+/* ── DAY NOTES ── */
+
+.day-notes-indicator {
+  color: var(--text-muted);
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+}
+
+.day-notes-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  flex-shrink: 0;
+  padding: 10px 2px;
+  background: none;
+  border: 1px dashed rgba(160, 160, 160, 0.1);
+  border-radius: var(--radius-sm);
+  color: #686868;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.day-notes-open-btn:hover {
+  background: rgba(200, 200, 200, 0.05);
+  border-color: rgba(160, 160, 160, 0.4);
+  color: #a0a0a0;
+}
+
+.day-notes-open-btn.has-notes {
+  color: var(--accent);
+  border-color: rgba(158, 158, 158, 0.35);
+  border-style: dashed;
+}
+
+.day-notes-textarea {
+  width: 100%;
+  resize: vertical;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  font-family: inherit;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  min-height: 120px;
+}
+
+.day-notes-textarea[readonly] {
+  cursor: default;
+}
+
+.day-notes-hint {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.day-notes-dirty-mark {
+  color: var(--warning);
+  font-weight: 700;
+}

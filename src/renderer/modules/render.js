@@ -233,14 +233,13 @@ export function buildDayCard(day, dayIdx) {
           <div class="day-date">${displayDate}</div>
         </div>
       </div>
-      <div class="d-flex align-items-center gap-3">
+      <div class="day-controls">
+        ${day.notes ? `<span class="day-notes-indicator" title="Has notes"><i class="bi bi-journal-text"></i></span>` : ''}
+        ${totalMins > 0 && !day.isHoliday ? `<button class="day-quick-view-btn" title="Quick View Entries"><i class="bi bi-eye"></i></button>` : ''}
         ${topRightBadge}
-        <div class="day-controls">
-          ${totalMins > 0 && !day.isHoliday ? `<button class="day-quick-view-btn" title="Quick View Entries"><i class="bi bi-eye"></i></button>` : ''}
-          <button class="day-toggle-btn" title="${day.expanded ? 'Collapse' : 'Expand'}">
-            <i class="bi bi-chevron-${day.expanded ? 'up' : 'down'}"></i>
-          </button>
-        </div>
+        <button class="day-toggle-btn" title="${day.expanded ? 'Collapse' : 'Expand'}">
+          <i class="bi bi-chevron-${day.expanded ? 'up' : 'down'}"></i>
+        </button>
       </div>
     </div>
     <div class="day-card-body ${day.expanded ? '' : 'collapsed'}" id="day-body-${dayIdx}">
@@ -251,12 +250,16 @@ export function buildDayCard(day, dayIdx) {
           style="max-width:200px;display:${day.isHoliday ? 'block' : 'none'}">
         </select>
       </div>
-      <div class="entries-list${day.entries && day.entries.length > 0 ? ' has-entries' : ''}" id="entries-${dayIdx}" ${day.isHoliday ? 'style="opacity:0.4;pointer-events:none"' : ''}>
-        ${day.isHoliday ? '' : `<button class="add-entry-btn" data-day="${dayIdx}">
+      ${day.isHoliday ? '' : `<div class="add-entry-row">
+        <button class="add-entry-btn" data-day="${dayIdx}">
           <i class="bi bi-plus-circle"></i> Add Entry
-        </button>`}
+        </button>
+        <button class="day-notes-open-btn${day.notes ? ' has-notes' : ''}" title="${day.notes ? 'View/Edit Notes' : 'Add Notes'}">
+          Notes
+        </button>
+      </div>`}
+      <div class="entries-list${day.entries && day.entries.length > 0 ? ' has-entries' : ''}" id="entries-${dayIdx}" ${day.isHoliday ? 'style="opacity:0.4;pointer-events:none"' : ''}>
         ${buildEntriesHTML(day.entries, dayIdx)}
-      </div>
     </div>
   `;
 
@@ -268,6 +271,8 @@ export function buildDayCard(day, dayIdx) {
             toggleDay(dayIdx);
         }
     });
+
+    wrap.querySelector('.day-notes-open-btn').addEventListener('click', () => openDayNotesModal(dayIdx));
 
     const cb = wrap.querySelector(`#holiday-${dayIdx}`);
     const lbl = wrap.querySelector(`#holiday-label-${dayIdx}`);
@@ -325,6 +330,88 @@ export function buildDayCard(day, dayIdx) {
     attachDragListeners(dayIdx, wrap);
 
     return wrap;
+}
+
+let _dayNotesModal = null;
+let _dayNotesIdx = -1;
+
+export function openDayNotesModal(dayIdx) {
+    if (!_dayNotesModal) {
+        _dayNotesModal = new bootstrap.Modal(document.getElementById('dayNotesModal'));
+    }
+
+    _dayNotesIdx = dayIdx;
+    const day = state.days[dayIdx];
+    const dayName = WEEK_DAYS[dayIdx];
+
+    document.getElementById('day-notes-modal-title').textContent = `Notes — ${dayName}`;
+    const textarea = document.getElementById('day-notes-textarea');
+    const dirty = document.getElementById('day-notes-dirty');
+    const hint = document.getElementById('day-notes-hint');
+    const saveBtn = document.getElementById('btn-save-day-notes');
+
+    const originalNotes = day.notes || '';
+    textarea.value = originalNotes;
+
+    const hasExisting = !!originalNotes;
+    textarea.readOnly = hasExisting;
+    hint.style.display = hasExisting ? 'block' : 'none';
+    dirty.style.display = 'none';
+    saveBtn.disabled = true;
+
+    const markDirty = () => {
+        const isDirty = textarea.value !== originalNotes;
+        dirty.style.display = isDirty ? 'inline' : 'none';
+        saveBtn.disabled = !isDirty;
+    };
+
+    textarea.ondblclick = () => {
+        if (textarea.readOnly) {
+            textarea.readOnly = false;
+            hint.style.display = 'none';
+            textarea.focus();
+            const len = textarea.value.length;
+            textarea.setSelectionRange(len, len);
+        }
+    };
+
+    textarea.oninput = markDirty;
+
+    saveBtn.onclick = () => {
+        state.days[_dayNotesIdx].notes = textarea.value;
+        saveState();
+        const nowHasNotes = !!textarea.value;
+        const card = document.getElementById(`day-card-${_dayNotesIdx}`);
+        if (card) {
+            // Update body button
+            const openBtn = card.querySelector('.day-notes-open-btn');
+            if (openBtn) {
+                openBtn.classList.toggle('has-notes', nowHasNotes);
+                openBtn.title = nowHasNotes ? 'View/Edit Notes' : 'Add Notes';
+                openBtn.textContent = 'Notes';
+            }
+            // Update header indicator
+            const controls = card.querySelector('.day-controls');
+            const existingIndicator = controls?.querySelector('.day-notes-indicator');
+            if (nowHasNotes && !existingIndicator && controls) {
+                const span = document.createElement('span');
+                span.className = 'day-notes-indicator';
+                span.title = 'Has notes';
+                span.innerHTML = '<i class="bi bi-journal-text"></i>';
+                controls.insertBefore(span, controls.firstChild);
+            } else if (!nowHasNotes && existingIndicator) {
+                existingIndicator.remove();
+            }
+        }
+        _dayNotesModal.hide();
+    };
+
+    _dayNotesModal.show();
+    if (!hasExisting) {
+        document.getElementById('dayNotesModal').addEventListener('shown.bs.modal', () => {
+            textarea.focus();
+        }, { once: true });
+    }
 }
 
 export function rerenderDayCard(dayIdx) {
