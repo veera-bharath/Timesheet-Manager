@@ -136,6 +136,30 @@
   }
 }
 
+.day-progress-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.day-status-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-block;
+  animation: statusBadgeFadeIn 0.25s ease both;
+}
+
+@keyframes statusBadgeFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-status-badge { animation: none; }
+}
+
 .day-name {
   font-weight: 600;
   font-size: 0.92rem;

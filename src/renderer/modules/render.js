@@ -224,6 +224,30 @@ export function buildDayCard(day, dayIdx) {
         topRightBadge = `<span class="day-hours-total zero">No entries</span>`;
     }
 
+    const targetMins = state.dailyTargetMins || 480;
+    let statusBadge = '';
+    if (day.expanded && !day.isHoliday) {
+        const remaining = targetMins - totalMins;
+        let label, color;
+        if (totalMins === 0) {
+            const th = Math.floor(targetMins / 60), tm = targetMins % 60;
+            label = tm > 0 ? `${th}h ${tm}m left` : `${th}h left`;
+            color = 'var(--text-secondary)';
+        } else if (remaining > 0) {
+            const rh = Math.floor(remaining / 60), rm = remaining % 60;
+            label = rm > 0 ? `${rh}h ${rm}m left` : `${rh}h left`;
+            color = totalMins / targetMins < 0.8 ? 'var(--warning)' : 'var(--success)';
+        } else if (remaining === 0) {
+            label = 'Finished';
+            color = '#4ade80';
+        } else {
+            const oh = Math.floor(-remaining / 60), om = (-remaining) % 60;
+            label = om > 0 ? `+${oh}h ${om}m OT` : `+${oh}h OT`;
+            color = '#4ade80';
+        }
+        statusBadge = `<span class="day-status-badge" style="color:${color}">${label}</span>`;
+    }
+
     wrap.innerHTML = `
     <div class="day-card-header" data-day="${dayIdx}">
       <div class="day-badge">
@@ -231,6 +255,7 @@ export function buildDayCard(day, dayIdx) {
         <div>
           <div class="day-name">${dayName}</div>
           <div class="day-date">${displayDate}</div>
+          ${statusBadge}
         </div>
       </div>
       <div class="day-controls">
