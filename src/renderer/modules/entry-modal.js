@@ -276,6 +276,14 @@ export function deleteEntry() {
 }
 
 export function finishDeleteEntry(dayIdx, entryIdx, deletedEntry) {
+    if (deletedEntry.recurringId) {
+        const dateStr = state.days[dayIdx].date;
+        const rule = state.recurringTasks?.find(r => r.id === deletedEntry.recurringId);
+        if (rule) {
+            if (!rule.skippedDates) rule.skippedDates = [];
+            if (!rule.skippedDates.includes(dateStr)) rule.skippedDates.push(dateStr);
+        }
+    }
     state.days[dayIdx].entries.splice(entryIdx, 1);
     rerenderDayCard(dayIdx);
     updateSummary();
@@ -309,6 +317,13 @@ export function undoDelete() {
     clearTimeout(lastDeleted.timerId);
     const { dayIdx, entryIdx, entry } = lastDeleted;
     lastDeleted = null;
+    if (entry.recurringId) {
+        const dateStr = state.days[dayIdx].date;
+        const rule = state.recurringTasks?.find(r => r.id === entry.recurringId);
+        if (rule && rule.skippedDates) {
+            rule.skippedDates = rule.skippedDates.filter(d => d !== dateStr);
+        }
+    }
     state.days[dayIdx].entries.splice(entryIdx, 0, entry);
     rerenderDayCard(dayIdx);
     updateSummary();

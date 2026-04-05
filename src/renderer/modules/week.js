@@ -51,7 +51,8 @@ export function buildWeekDays(monDt) {
                 leaveTypeId: '',
                 holidayLabel: 'Offshore Holiday',
                 expanded: false,
-                entries: []
+                entries: [],
+                notes: ''
             };
             state.allDaysByDate[dStr] = newDay;
             days.push(newDay);

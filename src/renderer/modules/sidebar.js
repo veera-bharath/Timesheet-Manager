@@ -3,7 +3,8 @@ import { showToast } from './toast.js';
 import { escHtml } from './utils.js';
 import { renderStarredList } from './star.js';
 import { saveEntry, openEntryModal } from './entry-modal.js';
-import { toggleDay, renderAll } from './render.js';
+import { toggleDay, renderAll, openDayNotesModal } from './render.js';
+import { openStatsModal } from './stats.js';
 import { changeWeekBy, setCurrentWeek } from './week.js';
 import { updateSummary } from './summary.js';
 import { openPreview, openDayQuickView, doPrint } from './report.js';
@@ -28,6 +29,15 @@ export function initSidebar() {
         });
     }
 
+    const statsBtn = document.getElementById('menu-stats');
+    if (statsBtn) {
+        statsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeSidebar();
+            openStatsModal();
+        });
+    }
+
 
     const starredBtn = document.getElementById('menu-starred');
     if (starredBtn) {
@@ -45,6 +55,14 @@ export function initSidebar() {
             e.preventDefault();
             closeSidebar();
             new bootstrap.Modal(document.getElementById('cheatsheetModal')).show();
+        });
+    }
+
+    const exitBtn = document.getElementById('menu-exit');
+    if (exitBtn) {
+        exitBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.app.quit();
         });
     }
 
@@ -211,6 +229,11 @@ export function initKeyboard() {
             case 'n':
             case 'N':
                 if (!e.altKey && expandedIdx !== -1) openEntryModal(expandedIdx, -1);
+                break;
+
+            case 't':
+            case 'T':
+                if (expandedIdx !== -1) openDayNotesModal(expandedIdx);
                 break;
 
             case 'ArrowUp':

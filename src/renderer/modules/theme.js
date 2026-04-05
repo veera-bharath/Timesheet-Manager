@@ -25,6 +25,6 @@ export function applyTheme(theme) {
 
     // Update theme buttons in Settings → Appearance if visible
     document.querySelectorAll('.settings-theme-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.theme === theme);
+        btn.classList.toggle('active', btn.dataset.selectTheme === theme);
     });
 }

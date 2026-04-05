@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.1.0';
+export const APP_VERSION = '2.2.0';
 
 export const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 export const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
@@ -28,6 +28,7 @@ export const state = {
     days: [],
     lastOpenedDateByWeek: {},
     recurringTasks: [],
+    scheduledHistory: [],
     dailyTargetMins: 480,
     ticketTypes: [],
     leaveTypes: [],

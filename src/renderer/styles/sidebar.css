@@ -44,6 +44,11 @@
   pointer-events: none;
 }
 
+.sidebar-menu-item--danger:hover {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+
 .sidebar-menu-divider {
   height: 1px;
   background: var(--border);

@@ -178,6 +178,9 @@ ipcMain.handle('check-for-updates', () => autoUpdater.checkForUpdates());
 ipcMain.handle('download-update', () => autoUpdater.downloadUpdate());
 ipcMain.handle('install-update', () => autoUpdater.quitAndInstall());
 
+// ── IPC: app control ─────────────────────────────────────
+ipcMain.handle('app-quit', () => { isQuitting = true; app.quit(); });
+
 // Forward updater events to renderer
 autoUpdater.on('update-available', (info) => {
   mainWindow.webContents.send('update-available', info);
@@ -198,6 +201,14 @@ autoUpdater.on('update-downloaded', (info) => {
 autoUpdater.on('error', (err) => {
   mainWindow.webContents.send('update-error', err.message);
 });
+
+// ── Single instance lock ─────────────────────────────────
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => showMainWindow());
+}
 
 // ── App lifecycle ────────────────────────────────────────
 app.on('before-quit', () => { isQuitting = true; });

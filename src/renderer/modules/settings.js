@@ -292,11 +292,11 @@ function renderAppearance(el) {
             <div class="settings-form-group">
                 <label class="label-text">Theme</label>
                 <div class="settings-theme-options">
-                    <button class="settings-theme-btn ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">
+                    <button class="settings-theme-btn ${currentTheme === 'dark' ? 'active' : ''}" data-select-theme="dark">
                         <i class="bi bi-moon-fill"></i>
                         <span>Dark</span>
                     </button>
-                    <button class="settings-theme-btn ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">
+                    <button class="settings-theme-btn ${currentTheme === 'light' ? 'active' : ''}" data-select-theme="light">
                         <i class="bi bi-sun-fill"></i>
                         <span>Light</span>
                     </button>
@@ -307,8 +307,8 @@ function renderAppearance(el) {
 
     el.querySelectorAll('.settings-theme-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            applyTheme(btn.dataset.theme);
-            localStorage.setItem('theme', btn.dataset.theme);
+            applyTheme(btn.dataset.selectTheme);
+            localStorage.setItem('theme', btn.dataset.selectTheme);
         });
     });
 }

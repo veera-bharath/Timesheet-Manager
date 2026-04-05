@@ -176,6 +176,28 @@
     </div>
   </div>
 
+  <!-- DAY NOTES MODAL -->
+  <div class="modal fade" id="dayNotesModal" tabindex="-1" aria-labelledby="dayNotesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="dayNotesModalLabel"><i class="bi bi-journal-text me-2"></i><span id="day-notes-modal-title">Notes</span><span id="day-notes-dirty" class="day-notes-dirty-mark" style="display:none"> *</span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <textarea id="day-notes-textarea" class="day-notes-textarea dark-input" placeholder="Add standup notes, blockers, meeting outcomes…" rows="10"></textarea>
+          <p id="day-notes-hint" class="day-notes-hint">Double-click to edit</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-gradient" id="btn-save-day-notes" disabled>
+            <i class="bi bi-check-lg me-1"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- DAY ENTRIES MODAL -->
   <div class="modal fade" id="dayEntriesModal" tabindex="-1" aria-labelledby="dayEntriesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -404,7 +426,34 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div id="scheduled-list"></div>
+          <ul class="nav nav-tabs scheduled-tabs mb-3" id="scheduledTabs">
+            <li class="nav-item">
+              <button class="nav-link active" id="tab-btn-active" data-bs-toggle="tab" data-bs-target="#tab-scheduled-active" type="button">
+                Active <span class="badge scheduled-tab-badge ms-1" id="badge-scheduled-active"></span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" id="tab-btn-completed" data-bs-toggle="tab" data-bs-target="#tab-scheduled-completed" type="button">
+                Completed <span class="badge scheduled-tab-badge ms-1" id="badge-scheduled-completed"></span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" id="tab-btn-cancelled" data-bs-toggle="tab" data-bs-target="#tab-scheduled-cancelled" type="button">
+                Cancelled <span class="badge scheduled-tab-badge ms-1" id="badge-scheduled-cancelled"></span>
+              </button>
+            </li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="tab-scheduled-active">
+              <div id="scheduled-list-active"></div>
+            </div>
+            <div class="tab-pane fade" id="tab-scheduled-completed">
+              <div id="scheduled-list-completed"></div>
+            </div>
+            <div class="tab-pane fade" id="tab-scheduled-cancelled">
+              <div id="scheduled-list-cancelled"></div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
@@ -471,6 +520,8 @@
     <div class="ctx-item ctx-sub-ticket" id="ctx-sub-ticket" style="display:none"><i class="bi bi-ticket-detailed"></i> Add Sub-entry (same ticket)</div>
     <div class="ctx-item ctx-sub-desc" id="ctx-sub-desc" style="display:none"><i class="bi bi-card-text"></i> Add Sub-entry (same desc)</div>
     <div class="ctx-item ctx-make-regular" id="ctx-make-regular" style="display:none"><i class="bi bi-calendar-check"></i> Make Regular</div>
+    <div class="ctx-item ctx-warning" id="ctx-skip-recurring" style="display:none"><i class="bi bi-skip-forward"></i> Skip this occurrence</div>
+    <div class="ctx-item ctx-danger" id="ctx-cancel-scheduled" style="display:none"><i class="bi bi-calendar-x"></i> Cancel scheduled task</div>
     <div class="ctx-divider"></div>
     <div class="ctx-item" id="ctx-star"><i class="bi bi-star"></i> <span id="ctx-star-label">Star</span></div>
     <div class="ctx-item" id="ctx-logged"><i class="bi bi-journal"></i> <span id="ctx-logged-label">Mark as logged</span></div>
@@ -574,6 +625,7 @@
           <div class="cheatsheet-group">
             <div class="cheatsheet-group-label">Entries</div>
             <div class="cheatsheet-row"><kbd>N</kbd> <span>Add new entry to expanded day</span></div>
+            <div class="cheatsheet-row"><kbd>T</kbd> <span>Open notes for expanded day</span></div>
             <div class="cheatsheet-row"><kbd>Enter</kbd> <span>Save entry (inside entry modal)</span></div>
             <div class="cheatsheet-row"><kbd>Alt</kbd><kbd>N</kbd> <span>Open entry modal with no-ticket toggled on</span></div>
           </div>
@@ -603,6 +655,66 @@
     </div>
   </div>
 
+  <!-- STATS MODAL -->
+  <div class="modal fade" id="statsModal" tabindex="-1" aria-labelledby="statsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content modal-dark">
+        <div class="modal-header">
+          <h5 class="modal-title" id="statsModalLabel"><i class="bi bi-bar-chart-line me-2"></i>Stats &amp; Insights</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="stats-toolbar">
+            <ul class="stats-tabs" id="stats-tab-list">
+              <li><button class="stats-tab active" data-tab="weekly">Weekly</button></li>
+              <li><button class="stats-tab" data-tab="tickets">Tickets</button></li>
+              <li><button class="stats-tab" data-tab="types">By Type</button></li>
+              <li><button class="stats-tab" data-tab="holidays">Holidays</button></li>
+            </ul>
+            <div class="stats-filter-tabs">
+              <button class="stats-filter-btn active" data-range="4">4W</button>
+              <button class="stats-filter-btn" data-range="8">8W</button>
+              <button class="stats-filter-btn" data-range="0">All</button>
+            </div>
+          </div>
+
+          <div class="stats-tab-panel active" id="stats-panel-weekly">
+            <table class="stats-table">
+              <thead><tr><th>Week</th><th>Days Worked</th><th>Total Hours</th></tr></thead>
+              <tbody id="stats-weekly-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="stats-tab-panel" id="stats-panel-tickets">
+            <table class="stats-table">
+              <thead><tr><th>#</th><th>Ticket</th><th>Entries</th><th>Total Hours</th></tr></thead>
+              <tbody id="stats-tickets-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="stats-tab-panel" id="stats-panel-types">
+            <div id="stats-types-list"></div>
+          </div>
+
+          <div class="stats-tab-panel" id="stats-panel-holidays">
+            <table class="stats-table">
+              <thead><tr><th>Leave Type</th><th>Days</th></tr></thead>
+              <tbody id="stats-holidays-tbody"></tbody>
+            </table>
+            <div class="stats-section-title" style="margin-top:20px">Leave History</div>
+            <table class="stats-table">
+              <thead><tr><th>Date</th><th>Leave Type</th></tr></thead>
+              <tbody id="stats-holidays-history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-gradient px-4" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PRINT AREA (hidden, used for window.print) -->
   <div id="print-area" style="display:none"></div>
   
@@ -617,6 +729,10 @@
         <a href="#" class="sidebar-menu-item" id="menu-settings">
           <i class="bi bi-gear me-3"></i>
           <span>Settings</span>
+        </a>
+        <a href="#" class="sidebar-menu-item" id="menu-stats">
+          <i class="bi bi-bar-chart-line me-3"></i>
+          <span>Stats &amp; Insights</span>
         </a>
         <div class="sidebar-menu-divider"></div>
         <a href="#" class="sidebar-menu-item" id="menu-starred">
@@ -638,6 +754,11 @@
         <a href="#" class="sidebar-menu-item" id="menu-scheduled">
           <i class="bi bi-clock me-3"></i>
           <span>Scheduled Tasks</span>
+        </a>
+        <div class="sidebar-menu-divider"></div>
+        <a href="#" class="sidebar-menu-item sidebar-menu-item--danger" id="menu-exit">
+          <i class="bi bi-box-arrow-right me-3"></i>
+          <span>Exit</span>
         </a>
       </div>
       
