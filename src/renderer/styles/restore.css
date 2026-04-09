@@ -1,0 +1,349 @@
+/* ── RESTORE CONFLICT MODAL ── */
+
+.rc-modal-content {
+  background: var(--bg-base);
+  border: 1px solid var(--border-accent);
+}
+
+.rc-modal-header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.rc-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 2px;
+}
+
+.rc-modal-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.rc-modal-body {
+  padding: 20px 24px;
+  background: var(--bg-base);
+}
+
+.rc-modal-footer {
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  padding: 12px 24px;
+  gap: 8px;
+}
+
+/* ── DAY BLOCKS ── */
+
+.rc-day-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: 16px;
+  background: var(--bg-card);
+}
+
+.rc-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-card-hover);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rc-day-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rc-day-shortcuts {
+  display: flex;
+  gap: 6px;
+}
+
+.rc-day-shortcuts .btn {
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  opacity: 0.8;
+}
+
+.rc-day-shortcuts .btn:hover {
+  opacity: 1;
+}
+
+/* ── ENTRY ROWS ── */
+
+.rc-entries {
+  display: flex;
+  flex-direction: column;
+}
+
+.rc-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  font-size: 0.83rem;
+}
+
+.rc-entry:last-child {
+  border-bottom: none;
+}
+
+.rc-entry-same {
+  opacity: 0.6;
+}
+
+.rc-entry-kept {
+  background: rgba(34, 211, 160, 0.04);
+}
+
+.rc-entry-discarded {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.rc-entry-icon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.rc-entry-ticket {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  min-width: 80px;
+}
+
+.rc-entry-time {
+  color: var(--accent-light);
+  font-size: 0.8rem;
+  min-width: 60px;
+}
+
+.rc-entry-type {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  min-width: 70px;
+}
+
+.rc-entry-desc {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rc-entry-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.rc-badge-same {
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--text-muted);
+}
+
+.rc-badge-mine {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+}
+
+.rc-badge-theirs {
+  background: rgba(34, 211, 160, 0.12);
+  color: var(--success);
+}
+
+/* ── CONFLICT ENTRY ── */
+
+.rc-entry-conflict {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(251, 191, 36, 0.04);
+}
+
+.rc-entry-conflict:last-child {
+  border-bottom: none;
+}
+
+.rc-conflict-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--warning, #fbbf24);
+  margin-bottom: 8px;
+}
+
+.rc-conflict-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rc-conflict-side {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.rc-side-selected {
+  border-color: var(--success);
+  background: rgba(34, 211, 160, 0.06);
+}
+
+.rc-side-dim {
+  opacity: 0.45;
+}
+
+.rc-side-header {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.rc-side-entry {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+
+.rc-conflict-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rc-choice-btn {
+  font-size: 0.75rem;
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 20px;
+  transition: all 0.15s;
+}
+
+.rc-choice-btn:hover {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.rc-choice-btn.active {
+  border-color: var(--success);
+  background: rgba(34, 211, 160, 0.12);
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* ── MINE/THEIRS TOGGLE BUTTONS ── */
+
+.rc-toggle-mine,
+.rc-toggle-theirs {
+  font-size: 0.72rem;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 20px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.rc-toggle-mine.active,
+.rc-toggle-theirs.active {
+  border-color: var(--success);
+  color: var(--success);
+  background: rgba(34, 211, 160, 0.08);
+}
+
+/* ── CLEAN NOTE ── */
+
+.rc-clean-note {
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  margin-top: 4px;
+}
+
+/* ── PREVIEW ── */
+
+.rc-preview-summary {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  padding: 12px 16px;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  margin-bottom: 20px;
+}
+
+.rc-preview-section-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.rc-preview-day {
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.rc-preview-day-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 8px 14px;
+  background: var(--bg-card-hover);
+  border-bottom: 1px solid var(--border);
+}
+
+.rc-preview-entry {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.rc-preview-entry:last-child {
+  border-bottom: none;
+}
+
+.rc-preview-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}

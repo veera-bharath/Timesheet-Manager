@@ -919,6 +919,28 @@
     </div>
   </div>
 
+  <!-- RESTORE CONFLICT MODAL -->
+  <div class="modal fade" id="restoreConflictModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content rc-modal-content">
+        <div class="modal-header rc-modal-header">
+          <div>
+            <h5 class="modal-title rc-modal-title" id="rc-modal-title">Restore — Review Conflicts</h5>
+            <p class="rc-modal-subtitle" id="rc-modal-subtitle"></p>
+          </div>
+          <button type="button" class="btn-close btn-close-white" id="btn-rc-close" aria-label="Close"></button>
+        </div>
+        <div class="modal-body rc-modal-body" id="rc-modal-body"></div>
+        <div class="modal-footer rc-modal-footer">
+          <button class="btn btn-outline-light btn-sm px-3" id="btn-rc-cancel">Cancel</button>
+          <button class="btn btn-outline-light btn-sm px-3" id="btn-rc-back" style="display:none">Back</button>
+          <button class="btn btn-gradient px-4" id="btn-rc-preview">Preview Merge</button>
+          <button class="btn btn-gradient px-4" id="btn-rc-confirm" style="display:none">Confirm Restore</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script type="module" src="main.js"></script>
 </body>

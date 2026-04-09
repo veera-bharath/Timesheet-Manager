@@ -12,6 +12,7 @@ import { applyTheme } from './theme.js';
 import { renderTicketTypesSection } from './ticket-types.js';
 import { renderLeaveTypesSection } from './leave-types.js';
 import { renderErrorLogSection } from './error-log.js';
+import { openRestoreFromJson } from './restore.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
@@ -653,7 +654,7 @@ function renderRestore(el) {
                         Import a <code>.json</code> backup file exported by this app.
                         If the backup contains weeks you already have data for, you'll be shown a side-by-side merge review before anything is applied.
                     </p>
-                    <button class="btn btn-gradient px-4 mt-1" id="btn-restore-json" disabled>
+                    <button class="btn btn-gradient px-4 mt-1" id="btn-restore-json">
                         <i class="bi bi-file-earmark-code me-1"></i> Choose Backup File (.json)
                     </button>
                 </div>
@@ -670,6 +671,8 @@ function renderRestore(el) {
                 </div>
             </div>
         </div>`;
+
+    el.querySelector('#btn-restore-json').addEventListener('click', () => openRestoreFromJson());
 }
 
 function _renderMarkdown(md) {
