@@ -270,6 +270,16 @@ ipcMain.handle('install-update', () => autoUpdater.quitAndInstall());
 // ── IPC: backup ──────────────────────────────────────────
 ipcMain.handle('backup:export', () => writeBackupFile());
 ipcMain.handle('backup:get-folder', () => getBackupFolder());
+ipcMain.handle('backup:open-json', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    filters: [{ name: 'Backup Files', extensions: ['json'] }],
+    properties: ['openFile'],
+    title: 'Open Backup File',
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  const raw = fs.readFileSync(result.filePaths[0], 'utf8');
+  return JSON.parse(raw);
+});
 ipcMain.handle('backup:choose-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory', 'createDirectory'],
