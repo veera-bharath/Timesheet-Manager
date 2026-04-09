@@ -503,10 +503,10 @@ async function renderBackup(el) {
             <div class="settings-form">
                 <div class="settings-form-group">
                     <label class="label-text">Manual Backup</label>
-                    <button class="btn btn-gradient px-4" id="btn-backup-now" disabled>
+                    <button class="btn btn-gradient px-4" id="btn-backup-now">
                         <i class="bi bi-cloud-arrow-up me-1"></i> Backup Now
                     </button>
-                    <p class="form-text mt-1" style="color:var(--text-secondary)">
+                    <p class="form-text mt-1" id="backup-last-info" style="color:var(--text-secondary)">
                         ${lastBackupAt
                             ? `Last backup: ${new Date(lastBackupAt).toLocaleString()}`
                             : 'No backups created yet.'}
@@ -563,7 +563,7 @@ async function renderBackup(el) {
                                 <span id="backup-folder-display" style="color:var(--text-secondary);font-size:0.82rem;word-break:break-all">
                                     ${folder || 'Default: Documents/TimesheetBackups'}
                                 </span>
-                                <button class="btn btn-sm btn-outline-light" id="btn-backup-folder" disabled>
+                                <button class="btn btn-sm btn-outline-light" id="btn-backup-folder">
                                     <i class="bi bi-folder me-1"></i> Change
                                 </button>
                             </div>
@@ -596,6 +596,29 @@ async function renderBackup(el) {
 
     el.querySelector('#backup-time').addEventListener('change', () => markDirty('backup'));
     el.querySelector('#backup-retention').addEventListener('input', () => markDirty('backup'));
+
+    el.querySelector('#btn-backup-now').addEventListener('click', async () => {
+        const btn = el.querySelector('#btn-backup-now');
+        btn.disabled = true;
+        try {
+            const result = await window.backup.export();
+            el.querySelector('#backup-last-info').textContent =
+                `Last backup: ${new Date(result.exportedAt).toLocaleString()}`;
+            showToast(`Backup saved to ${result.filePath}`, 'success');
+        } catch (e) {
+            showToast('Backup failed. Check error logs.', 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    el.querySelector('#btn-backup-folder').addEventListener('click', async () => {
+        const chosen = await window.backup.chooseFolder();
+        if (!chosen) return;
+        const current = await window.electronStore.get(BACKUP_SETTINGS_KEY) || {};
+        await window.electronStore.set(BACKUP_SETTINGS_KEY, { ...current, folder: chosen });
+        el.querySelector('#backup-folder-display').textContent = chosen;
+    });
 
     el.querySelector('#btn-save-backup').addEventListener('click', async () => {
         const [hh, mm]   = (el.querySelector('#backup-time').value || '09:00').split(':').map(Number);
