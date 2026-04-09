@@ -15,6 +15,12 @@ contextBridge.exposeInMainWorld('app', {
     quit: () => ipcRenderer.invoke('app-quit'),
 });
 
+contextBridge.exposeInMainWorld('backup', {
+    export:       () => ipcRenderer.invoke('backup:export'),
+    getFolder:    () => ipcRenderer.invoke('backup:get-folder'),
+    chooseFolder: () => ipcRenderer.invoke('backup:choose-folder'),
+});
+
 contextBridge.exposeInMainWorld('updater', {
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),

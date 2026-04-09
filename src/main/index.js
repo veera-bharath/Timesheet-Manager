@@ -1,12 +1,101 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, screen, Tray, nativeImage, Notification } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, screen, Tray, nativeImage, Notification, dialog } = require('electron');
 const path = require('path');
+const fs   = require('fs');
 const Store = require('electron-store');
 const { autoUpdater } = require('electron-updater');
 
 const store = new Store();
-const WINDOW_BOUNDS_KEY = 'windowBounds';
-const LS_KEY = 'timesheetState_v1';
-const NOTIFICATION_KEY = 'notificationSettings';
+const WINDOW_BOUNDS_KEY   = 'windowBounds';
+const LS_KEY              = 'timesheetState_v1';
+const NOTIFICATION_KEY    = 'notificationSettings';
+const BACKUP_SETTINGS_KEY = 'backupSettings';
+
+// ── BACKUP HELPERS ───────────────────────────────────────
+function getDefaultBackupFolder() {
+  return path.join(app.getPath('documents'), 'TimesheetBackups');
+}
+
+function getBackupFolder() {
+  const settings = store.get(BACKUP_SETTINGS_KEY) || {};
+  return settings.folder || getDefaultBackupFolder();
+}
+
+function writeBackupFile() {
+  const folder = getBackupFolder();
+  if (!fs.existsSync(folder)) fs.mkdirSync(folder, { recursive: true });
+
+  const now      = new Date();
+  const pad      = n => String(n).padStart(2, '0');
+  const stamp    = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const filePath = path.join(folder, `timesheet-backup-${stamp}.json`);
+
+  const backup = {
+    version:    app.getVersion(),
+    exportedAt: now.toISOString(),
+    data:       store.get(LS_KEY) || {},
+  };
+  fs.writeFileSync(filePath, JSON.stringify(backup, null, 2), 'utf8');
+
+  const settings = store.get(BACKUP_SETTINGS_KEY) || {};
+  store.set(BACKUP_SETTINGS_KEY, { ...settings, lastBackupAt: now.toISOString() });
+
+  return { filePath, exportedAt: now.toISOString() };
+}
+
+function pruneOldBackups() {
+  const folder = getBackupFolder();
+  if (!fs.existsSync(folder)) return;
+
+  const settings      = store.get(BACKUP_SETTINGS_KEY) || {};
+  const retentionDays = settings.retentionDays ?? 30;
+  const cutoff        = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+
+  fs.readdirSync(folder)
+    .filter(f => f.startsWith('timesheet-backup-') && f.endsWith('.json'))
+    .forEach(file => {
+      const filePath = path.join(folder, file);
+      try {
+        if (fs.statSync(filePath).mtimeMs < cutoff) fs.unlinkSync(filePath);
+      } catch (_) { /* skip */ }
+    });
+}
+
+function isBackupDue() {
+  const settings  = store.get(BACKUP_SETTINGS_KEY) || {};
+  if (settings.enabled === false) return false;
+
+  const frequency  = settings.frequency  || 'weekly';
+  const dayOfWeek  = settings.dayOfWeek  ?? 1;   // 1=Mon … 5=Fri (matches JS getDay())
+  const hour       = settings.hour       ?? 9;
+  const lastBackup = settings.lastBackupAt ? new Date(settings.lastBackupAt) : null;
+  const now        = new Date();
+
+  if (now.getHours() < hour) return false;
+  if (!lastBackup) return true;
+
+  if (frequency === 'daily') {
+    return lastBackup.toDateString() !== now.toDateString();
+  }
+  if (frequency === 'weekly') {
+    if (now.getDay() !== dayOfWeek) return false;
+    return lastBackup < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  if (frequency === 'monthly') {
+    return lastBackup.getMonth() !== now.getMonth() ||
+           lastBackup.getFullYear() !== now.getFullYear();
+  }
+  return false;
+}
+
+function checkAutoBackup() {
+  try {
+    if (!isBackupDue()) return;
+    writeBackupFile();
+    pruneOldBackups();
+  } catch (e) {
+    console.warn('[backup] Auto-backup failed:', e.message);
+  }
+}
 
 // Disable auto-download — we control when to download
 autoUpdater.autoDownload = false;
@@ -178,6 +267,18 @@ ipcMain.handle('check-for-updates', () => autoUpdater.checkForUpdates());
 ipcMain.handle('download-update', () => autoUpdater.downloadUpdate());
 ipcMain.handle('install-update', () => autoUpdater.quitAndInstall());
 
+// ── IPC: backup ──────────────────────────────────────────
+ipcMain.handle('backup:export', () => writeBackupFile());
+ipcMain.handle('backup:get-folder', () => getBackupFolder());
+ipcMain.handle('backup:choose-folder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory', 'createDirectory'],
+    title: 'Choose Backup Folder',
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
 // ── IPC: app control ─────────────────────────────────────
 ipcMain.handle('app-quit', () => { isQuitting = true; app.quit(); });
 
@@ -218,9 +319,10 @@ app.whenReady().then(() => {
   createTray();
   scheduleNotifications();
 
-  // Check for updates silently after window is ready
+  // Check for updates and run auto-backup silently after window is ready
   mainWindow.webContents.once('did-finish-load', () => {
     autoUpdater.checkForUpdates();
+    checkAutoBackup();
   });
 
   app.on('activate', function () {
