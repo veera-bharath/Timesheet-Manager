@@ -493,6 +493,14 @@
   padding: 6px 8px;
 }
 
+/* ── BACKUP & RESTORE ── */
+
+.settings-divider {
+  border-color: var(--border);
+  opacity: 1;
+  margin: 4px 0;
+}
+
 /* ── ABOUT ── */
 
 .about-app-card {
