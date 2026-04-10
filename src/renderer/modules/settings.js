@@ -12,7 +12,7 @@ import { applyTheme } from './theme.js';
 import { renderTicketTypesSection } from './ticket-types.js';
 import { renderLeaveTypesSection } from './leave-types.js';
 import { renderErrorLogSection } from './error-log.js';
-import { openRestoreFromJson } from './restore.js';
+import { openRestoreFromJson, openRestoreFromTxt } from './restore.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
@@ -665,7 +665,7 @@ function renderRestore(el) {
                         Import a <code>.txt</code> timesheet report downloaded from this app.
                         Conflicting weeks will go through the same merge review as a JSON restore.
                     </p>
-                    <button class="btn btn-gradient px-4 mt-1" id="btn-restore-txt" disabled>
+                    <button class="btn btn-gradient px-4 mt-1" id="btn-restore-txt">
                         <i class="bi bi-file-earmark-text me-1"></i> Choose Report File (.txt)
                     </button>
                 </div>
@@ -673,6 +673,7 @@ function renderRestore(el) {
         </div>`;
 
     el.querySelector('#btn-restore-json').addEventListener('click', () => openRestoreFromJson());
+    el.querySelector('#btn-restore-txt').addEventListener('click', () => openRestoreFromTxt());
 }
 
 function _renderMarkdown(md) {

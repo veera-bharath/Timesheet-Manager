@@ -288,6 +288,143 @@ ipcMain.handle('backup:choose-folder', async () => {
   if (result.canceled || !result.filePaths.length) return null;
   return result.filePaths[0];
 });
+ipcMain.handle('backup:open-txt', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    filters: [{ name: 'Timesheet Report', extensions: ['txt'] }],
+    properties: ['openFile'],
+    title: 'Open TXT Report',
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  const raw = fs.readFileSync(result.filePaths[0], 'utf8');
+  try {
+    return parseTxtReport(raw);
+  } catch (e) {
+    return { error: e.message || 'Failed to parse TXT report.' };
+  }
+});
+
+// ── TXT REPORT PARSER ────────────────────────────────────
+function parseTxtReport(text) {
+  const MONTH_MAP = {
+    Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+    Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
+  };
+
+  function parseDisplayDate(str) {
+    // DD-Mon-YYYY → YYYY-MM-DD
+    const m = str.match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
+    if (!m) return null;
+    const month = MONTH_MAP[m[2]];
+    if (!month) return null;
+    return `${m[3]}-${month}-${m[1]}`;
+  }
+
+  const lines = text.split(/\r?\n/);
+  const allDaysByDate = {};
+  let currentDate = null;
+  let isHoliday = false;
+  let holidayLabelSet = false;
+
+  // Regex to identify a day header line: DD-Mon-YYYY :
+  const DAY_HEADER = /^(\d{2}-[A-Za-z]{3}-\d{4}) :(.*)/;
+  // Regex to strip leading roman numeral: i), ii), iii), etc.
+  const ROMAN_PREFIX = /^[ivxlcdm]+\)\s*/i;
+  // Regex to extract (HH:MM) time token
+  const TIME_TOKEN = /\((\d{1,2}):(\d{2})\)/;
+
+  let lineIdx = 0;
+
+  // Skip title line (first non-empty line) and separator
+  while (lineIdx < lines.length && lines[lineIdx].trim() === '') lineIdx++;
+  lineIdx++; // skip title
+  while (lineIdx < lines.length && lines[lineIdx].trim() === '') lineIdx++;
+  if (lineIdx < lines.length && lines[lineIdx].trim().startsWith('---')) lineIdx++; // skip separator
+
+  for (; lineIdx < lines.length; lineIdx++) {
+    const raw = lines[lineIdx];
+
+    // Day header
+    const headerMatch = raw.match(DAY_HEADER);
+    if (headerMatch) {
+      const isoDate = parseDisplayDate(headerMatch[1]);
+      if (!isoDate) continue;
+      currentDate = isoDate;
+      const rest = headerMatch[2].trim();
+      isHoliday = rest === '' || !/\d{2}:\d{2}/.test(rest);
+      holidayLabelSet = false;
+      if (!allDaysByDate[currentDate]) {
+        allDaysByDate[currentDate] = {
+          date: currentDate,
+          isHoliday,
+          entries: [],
+        };
+      }
+      continue;
+    }
+
+    // Tab-indented line (entry or holiday label)
+    if (currentDate && raw.startsWith('\t')) {
+      const stripped = raw.replace(/^\t/, '').replace(ROMAN_PREFIX, '');
+
+      if (isHoliday) {
+        // First indented line on a holiday day = the leave label
+        if (!holidayLabelSet) {
+          allDaysByDate[currentDate].holidayLabel = stripped.trim();
+          holidayLabelSet = true;
+        }
+        continue;
+      }
+
+      // Normal entry: ticket (11 chars padded), then (HH:MM), then optional " - desc"
+      const timeMatch = stripped.match(TIME_TOKEN);
+      if (!timeMatch) {
+        // Continuation line for previous entry's multi-line desc
+        const day = allDaysByDate[currentDate];
+        if (day.entries.length > 0) {
+          const last = day.entries[day.entries.length - 1];
+          last.desc = (last.desc ? last.desc + '\n' : '') + stripped.trim();
+        }
+        continue;
+      }
+
+      const timeIdx = stripped.indexOf(timeMatch[0]);
+      const ticket = stripped.substring(0, timeIdx).trim();
+      const hh = String(parseInt(timeMatch[1], 10));
+      const mm = String(timeMatch[2]).padStart(2, '0');
+
+      // Everything after the time token
+      const afterTime = stripped.substring(timeIdx + timeMatch[0].length).trim();
+      // Desc starts after "- " if present
+      const desc = afterTime.startsWith('- ')
+        ? afterTime.substring(2).trim()
+        : afterTime;
+
+      allDaysByDate[currentDate].entries.push({
+        ticket,
+        hh,
+        mm,
+        type: 'jira',
+        desc,
+      });
+      continue;
+    }
+
+    // Continuation line for multi-line desc (deeply indented, no tab prefix captured above)
+    if (currentDate && !isHoliday && raw.startsWith('  ') && raw.trim() !== '') {
+      const day = allDaysByDate[currentDate];
+      if (day.entries.length > 0) {
+        const last = day.entries[day.entries.length - 1];
+        last.desc = (last.desc ? last.desc + '\n' : '') + raw.trim();
+      }
+    }
+  }
+
+  if (Object.keys(allDaysByDate).length === 0) {
+    throw new Error('No timesheet days found in this file.');
+  }
+
+  return allDaysByDate;
+}
 
 // ── IPC: app control ─────────────────────────────────────
 ipcMain.handle('app-quit', () => { isQuitting = true; app.quit(); });

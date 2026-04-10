@@ -8,12 +8,51 @@ import { showToast, showConfirm } from './toast.js';
 import { escHtml } from './utils.js';
 import { renderAll } from './render.js';
 import { updateSummary } from './summary.js';
+import { buildWeekDays, getDateFromWeek } from './week.js';
 
 let _modalInst  = null;
 let _cleanDays  = {};
 let _resolutions = [];  // [{ date, currentDay, incomingDay, same[], conflicts[], mineOnly[], theirsOnly[] }]
 
-/* ── PUBLIC ENTRY POINT ─────────────────────────────────────── */
+/* ── PUBLIC ENTRY POINTS ────────────────────────────────────── */
+export async function openRestoreFromTxt() {
+    let parsed;
+    try {
+        parsed = await window.backup.openTxtFile();
+    } catch (e) {
+        showToast('Could not read file. Is this a Timesheet Manager report?', 'danger');
+        return;
+    }
+    if (!parsed) return; // user cancelled
+
+    if (parsed.error) {
+        showToast(`${parsed.error} Is this a Timesheet Manager report?`, 'danger');
+        return;
+    }
+
+    const incoming = parsed;
+    if (typeof incoming !== 'object' || Object.keys(incoming).length === 0) {
+        showToast('No timesheet data found in this file. Is this a Timesheet Manager report?', 'danger');
+        return;
+    }
+
+    const { cleanDays, conflictDays } = _diffBackup(incoming);
+    const totalDays = Object.keys(cleanDays).length + conflictDays.length;
+
+    if (conflictDays.length === 0) {
+        showConfirm(
+            `Restore ${totalDays} day(s) from TXT report with no conflicts. Existing entries for these days will be overwritten. Proceed?`,
+            () => _applyRestore(cleanDays)
+        );
+        return;
+    }
+
+    _cleanDays   = cleanDays;
+    _resolutions = conflictDays.map(({ date, current, incoming: inc }) =>
+        _buildResolution(date, current, inc));
+    _showModal();
+}
+
 export async function openRestoreFromJson() {
     let parsed;
     try {
@@ -401,6 +440,12 @@ async function _confirmRestore() {
 async function _applyRestore(mergedDays) {
     try {
         state.allDaysByDate = { ...state.allDaysByDate, ...mergedDays };
+        // Rebuild state.days so renderAll picks up the restored day objects
+        // for the currently displayed week (spread creates new objects, old
+        // references in state.days would otherwise still point to stale data).
+        if (state.weekValue) {
+            state.days = buildWeekDays(getDateFromWeek(state.weekValue));
+        }
         await saveState();
         renderAll();
         updateSummary();
