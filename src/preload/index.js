@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('backup', {
     export:       () => ipcRenderer.invoke('backup:export'),
     getFolder:    () => ipcRenderer.invoke('backup:get-folder'),
     openJsonFile: () => ipcRenderer.invoke('backup:open-json'),
+    openTxtFile:  () => ipcRenderer.invoke('backup:open-txt'),
     chooseFolder: () => ipcRenderer.invoke('backup:choose-folder'),
 });
 
