@@ -422,6 +422,18 @@
   cursor: pointer;
 }
 
+.tt-pattern-error {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--danger, #f87171);
+}
+
+.tt-pattern-result {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+}
+
 /* ── ERROR LOGS ── */
 
 .el-toolbar {

@@ -136,6 +136,23 @@ function _buildForm(editingType, formTypeId) {
                 <input type="text" id="tt-form-prefixtext" class="form-control dark-input"
                     placeholder="e.g. (Service desk) " value="${escHtml(t?.prefixText || '')}" maxlength="100" />
             </div>
+            <div class="settings-form-group">
+                <div class="d-flex align-items-center gap-2">
+                    <input type="checkbox" id="tt-form-haspattern" class="form-check-input" ${t?.ticketPattern ? 'checked' : ''} />
+                    <label class="label-text mb-0" for="tt-form-haspattern">Match clipboard ticket pattern</label>
+                </div>
+            </div>
+            <div class="settings-form-group" id="tt-form-pattern-row" style="${t?.ticketPattern ? '' : 'display:none'}">
+                <label class="label-text" for="tt-form-pattern">Pattern <span style="color:var(--text-secondary);font-weight:normal">(regex, e.g. <code>#\\d+</code> or <code>[A-Z]+-\\d+</code>)</span></label>
+                <input type="text" id="tt-form-pattern" class="form-control dark-input font-monospace"
+                    placeholder="e.g. #\\d+" value="${escHtml(t?.ticketPattern || '')}" maxlength="100" />
+                <div id="tt-form-pattern-error" class="tt-pattern-error" style="display:none"></div>
+                <div class="tt-pattern-preview" id="tt-form-pattern-preview" style="${t?.ticketPattern ? '' : 'display:none'}">
+                    <input type="text" id="tt-form-pattern-sample" class="form-control dark-input"
+                        placeholder="Test value, e.g. #1234" style="margin-top:6px" />
+                    <span id="tt-form-pattern-result" class="tt-pattern-result"></span>
+                </div>
+            </div>
             <div class="settings-form-actions d-flex gap-2">
                 <button class="btn btn-gradient px-4" id="tt-form-save">
                     <i class="bi bi-check-lg me-1"></i>${isNew ? 'Add' : 'Save'}
@@ -145,16 +162,84 @@ function _buildForm(editingType, formTypeId) {
         </div>`;
 }
 
+function _validatePattern(pattern) {
+    if (!pattern) return null; // empty = no pattern, valid
+    if (pattern.length > 100) return 'Pattern must be 100 characters or fewer.';
+
+    // 1. Syntax check
+    try { new RegExp(pattern); } catch (e) {
+        return `Invalid regex syntax: ${e.message}`;
+    }
+
+    // 2. ReDoS heuristic — nested quantifiers like (a+)+, (.+)+, (?:x+)+
+    if (/\([^)]*[+*?]\)[+*?]/.test(pattern)) {
+        return 'Pattern contains nested quantifiers that may freeze the app. Simplify it (e.g. use \\d+ instead of (\\d+)+).';
+    }
+
+    // 3. Execution timeout — run against adversarial string
+    const adversarial = 'a'.repeat(200) + 'b';
+    const start = Date.now();
+    try { new RegExp(pattern).test(adversarial); } catch (_) { /* already caught above */ }
+    if (Date.now() - start > 50) {
+        return 'Pattern is too slow — try simplifying it.';
+    }
+
+    return null; // valid
+}
+
 function _bindForm(formEl, editingType, el, navigate) {
-    const colorInput  = formEl.querySelector('#tt-form-color');
-    const colorVal    = formEl.querySelector('#tt-form-color-val');
-    const hasPrefixCb = formEl.querySelector('#tt-form-hasprefix');
-    const prefixRow   = formEl.querySelector('#tt-form-prefix-row');
+    const colorInput    = formEl.querySelector('#tt-form-color');
+    const colorVal      = formEl.querySelector('#tt-form-color-val');
+    const hasPrefixCb   = formEl.querySelector('#tt-form-hasprefix');
+    const prefixRow     = formEl.querySelector('#tt-form-prefix-row');
+    const hasPatternCb  = formEl.querySelector('#tt-form-haspattern');
+    const patternRow    = formEl.querySelector('#tt-form-pattern-row');
+    const patternInput  = formEl.querySelector('#tt-form-pattern');
+    const patternError  = formEl.querySelector('#tt-form-pattern-error');
+    const patternPreview = formEl.querySelector('#tt-form-pattern-preview');
+    const sampleInput   = formEl.querySelector('#tt-form-pattern-sample');
+    const patternResult = formEl.querySelector('#tt-form-pattern-result');
 
     colorInput.addEventListener('input', () => { colorVal.textContent = colorInput.value; });
+
     hasPrefixCb.addEventListener('change', () => {
         prefixRow.style.display = hasPrefixCb.checked ? '' : 'none';
     });
+
+    hasPatternCb.addEventListener('change', () => {
+        patternRow.style.display    = hasPatternCb.checked ? '' : 'none';
+        patternPreview.style.display = hasPatternCb.checked ? '' : 'none';
+        if (!hasPatternCb.checked) {
+            patternInput.value = '';
+            patternError.style.display = 'none';
+            patternResult.textContent = '';
+        }
+    });
+
+    const updatePreview = () => {
+        const pattern = patternInput.value.trim();
+        const sample  = sampleInput?.value || '';
+        if (!pattern || !sample) { patternResult.textContent = ''; return; }
+        try {
+            const match = new RegExp(pattern).exec(sample);
+            if (match) {
+                patternResult.textContent = `✓ Matched: "${match[0]}"`;
+                patternResult.style.color = 'var(--success)';
+            } else {
+                patternResult.textContent = '✗ No match';
+                patternResult.style.color = 'var(--danger, #f87171)';
+            }
+        } catch (_) {
+            patternResult.textContent = '';
+        }
+    };
+
+    patternInput?.addEventListener('input', () => {
+        patternError.style.display = 'none';
+        patternPreview.style.display = patternInput.value.trim() ? '' : 'none';
+        updatePreview();
+    });
+    sampleInput?.addEventListener('input', updatePreview);
 
     formEl.querySelector('#tt-form-save').addEventListener('click', () => {
         const labelInput = formEl.querySelector('#tt-form-label');
@@ -162,16 +247,29 @@ function _bindForm(formEl, editingType, el, navigate) {
         if (!label) { labelInput.classList.add('is-invalid'); return; }
         labelInput.classList.remove('is-invalid');
 
-        const color      = colorInput.value;
-        const hasPrefix  = hasPrefixCb.checked;
-        const prefixText = hasPrefix ? (formEl.querySelector('#tt-form-prefixtext').value) : '';
+        const color         = colorInput.value;
+        const hasPrefix     = hasPrefixCb.checked;
+        const prefixText    = hasPrefix ? (formEl.querySelector('#tt-form-prefixtext').value) : '';
+        const ticketPattern = hasPatternCb.checked ? patternInput.value.trim() : '';
+
+        // Validate pattern before saving
+        if (ticketPattern) {
+            const err = _validatePattern(ticketPattern);
+            if (err) {
+                patternError.textContent = err;
+                patternError.style.display = '';
+                patternInput.focus();
+                return;
+            }
+        }
+        patternError.style.display = 'none';
 
         if (editingType) {
             const type = state.ticketTypes.find(t => t.id === editingType.id);
-            if (type) { type.label = label; type.color = color; type.hasPrefix = hasPrefix; type.prefixText = prefixText; }
+            if (type) { type.label = label; type.color = color; type.hasPrefix = hasPrefix; type.prefixText = prefixText; type.ticketPattern = ticketPattern; }
         } else {
             const id = 'type_' + Date.now();
-            state.ticketTypes.push({ id, label, color, hasPrefix, prefixText });
+            state.ticketTypes.push({ id, label, color, hasPrefix, prefixText, ticketPattern });
         }
 
         saveState();

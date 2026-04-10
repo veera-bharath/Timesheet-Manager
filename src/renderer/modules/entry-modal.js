@@ -20,6 +20,33 @@ export function initEntryModal() {
     });
 }
 
+/* ── CLIPBOARD TICKET DETECTION ─────────────────────────── */
+export async function readClipboardTicket() {
+    try {
+        const text = await window.nativeClipboard.readText();
+        if (!text) return null;
+
+        const types = state.ticketTypes || [];
+
+        // Try each type's configured ticketPattern first
+        for (const type of types) {
+            if (!type.ticketPattern) continue;
+            try {
+                const m = new RegExp(type.ticketPattern).exec(text);
+                if (m) return { ticket: m[0], typeId: type.id };
+            } catch (_) { /* skip invalid stored pattern */ }
+        }
+
+        // Generic fallback: Jira-style KEY-123
+        const generic = /\b([A-Z][A-Z0-9]+-\d+)\b/.exec(text);
+        if (generic) return { ticket: generic[1], typeId: null };
+
+        return null;
+    } catch (_) {
+        return null;
+    }
+}
+
 export function openEntryModal(dayIdx, entryIdx) {
     document.getElementById('modal-day-index').value = dayIdx;
     document.getElementById('modal-entry-index').value = entryIdx;
@@ -35,6 +62,19 @@ export function openEntryModal(dayIdx, entryIdx) {
         copyToBtn.style.display = 'none';
         makeRegularBtn.style.display = 'none';
         title.innerHTML = `<i class="bi bi-plus-circle me-2"></i>Add Entry — ${WEEK_DAYS[dayIdx]}`;
+
+        // Auto-fill ticket from clipboard
+        readClipboardTicket().then(result => {
+            if (!result) return;
+            const ticketEl = document.getElementById('modal-ticket');
+            const typeEl   = document.getElementById('modal-type');
+            if (ticketEl && !ticketEl.value) {
+                ticketEl.value = result.ticket;
+            }
+            if (result.typeId && typeEl) {
+                typeEl.value = result.typeId;
+            }
+        });
     } else {
         const e = state.days[dayIdx].entries[entryIdx];
         const noTicketToggle = document.getElementById('modal-no-ticket');

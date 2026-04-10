@@ -2,7 +2,7 @@ import { state } from './state.js';
 import { showToast } from './toast.js';
 import { escHtml } from './utils.js';
 import { renderStarredList } from './star.js';
-import { saveEntry, openEntryModal } from './entry-modal.js';
+import { saveEntry, openEntryModal, readClipboardTicket } from './entry-modal.js';
 import { toggleDay, renderAll, openDayNotesModal } from './render.js';
 import { openStatsModal } from './stats.js';
 import { changeWeekBy, setCurrentWeek } from './week.js';
@@ -277,6 +277,23 @@ export function initKeyboard() {
         if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) {
             e.preventDefault();
             doPrint();
+        }
+
+        if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
+            const expandedIdx = state.days.findIndex(d => d.expanded);
+            if (expandedIdx === -1) return;
+            readClipboardTicket().then(result => {
+                if (!result) return;
+                e.preventDefault();
+                openEntryModal(expandedIdx, -1);
+                // Wait for modal to render before setting values
+                document.getElementById('entryModal').addEventListener('shown.bs.modal', () => {
+                    const ticketEl = document.getElementById('modal-ticket');
+                    const typeEl   = document.getElementById('modal-type');
+                    if (ticketEl) ticketEl.value = result.ticket;
+                    if (result.typeId && typeEl) typeEl.value = result.typeId;
+                }, { once: true });
+            });
         }
     });
 }
