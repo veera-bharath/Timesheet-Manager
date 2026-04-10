@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, screen, Tray, nativeImage, Notification, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, screen, Tray, nativeImage, Notification, dialog, clipboard } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 const Store = require('electron-store');
@@ -425,6 +425,9 @@ function parseTxtReport(text) {
 
   return allDaysByDate;
 }
+
+// ── IPC: clipboard ───────────────────────────────────────
+ipcMain.handle('clipboard:read', () => clipboard.readText());
 
 // ── IPC: app control ─────────────────────────────────────
 ipcMain.handle('app-quit', () => { isQuitting = true; app.quit(); });

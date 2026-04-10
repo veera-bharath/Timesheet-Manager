@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('app', {
     quit: () => ipcRenderer.invoke('app-quit'),
 });
 
+contextBridge.exposeInMainWorld('nativeClipboard', {
+    readText: () => ipcRenderer.invoke('clipboard:read'),
+});
+
 contextBridge.exposeInMainWorld('backup', {
     export:       () => ipcRenderer.invoke('backup:export'),
     getFolder:    () => ipcRenderer.invoke('backup:get-folder'),
