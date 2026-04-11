@@ -37,6 +37,102 @@ export function fmtSearchDate(dateStr) {
     return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
 }
 
+// Parse a freeform time string → { hh, mm } or null
+// Supported: "2:30", "2h 30m", "2h30m", "90m", "1.5h", "2h", "30m", "30", "2"
+// Maximum: 24:00 (1440 minutes total)
+export function parseTimeInput(str) {
+    if (!str) return null;
+    const s = str.trim();
+    if (!s) return null;
+
+    let m;
+    const cap = (hh, mm) => (hh * 60 + mm <= 1440) ? { hh, mm } : null;
+
+    // H:MM or HH:MM
+    m = s.match(/^(\d{1,3}):(\d{2})$/);
+    if (m) {
+        const hh = parseInt(m[1], 10);
+        const mm = parseInt(m[2], 10);
+        if (mm > 59) return null;
+        return cap(hh, mm);
+    }
+
+    // XhYm or Xh Ym (e.g. 2h30m, 2h 30m)
+    m = s.match(/^(\d+)\s*h\s*(\d+)\s*m$/i);
+    if (m) {
+        const hh = parseInt(m[1], 10);
+        const mm = parseInt(m[2], 10);
+        if (mm > 59) return null;
+        return cap(hh, mm);
+    }
+
+    // X.Yh decimal hours — must come before plain Xh (e.g. 1.5h)
+    m = s.match(/^(\d+\.\d+)\s*h$/i);
+    if (m) {
+        const totalMins = Math.round(parseFloat(m[1]) * 60);
+        return cap(Math.floor(totalMins / 60), totalMins % 60);
+    }
+
+    // Xh (e.g. 2h)
+    m = s.match(/^(\d+)\s*h$/i);
+    if (m) return cap(parseInt(m[1], 10), 0);
+
+    // Xm — total minutes (e.g. 90m → 1h 30m)
+    m = s.match(/^(\d+)\s*m$/i);
+    if (m) {
+        const totalMins = parseInt(m[1], 10);
+        return cap(Math.floor(totalMins / 60), totalMins % 60);
+    }
+
+    // Bare integer: < 24 → treat as hours, >= 24 → treat as total minutes
+    m = s.match(/^(\d+)$/);
+    if (m) {
+        const n = parseInt(m[1], 10);
+        if (n < 24) return cap(n, 0);
+        return cap(Math.floor(n / 60), n % 60);
+    }
+
+    return null;
+}
+
+// Returns a human-readable error string for an invalid time input, or null if valid.
+// maxMins: optional upper bound (default 1440 = 24h). Pass 840 for daily-target fields.
+export function timeInputError(str, maxMins = 1440) {
+    if (!str || !str.trim()) return null; // empty is handled separately
+    const s = str.trim();
+    const parsed = parseTimeInput(s);
+
+    if (parsed) {
+        // Parsed OK against the 24h cap — now check the caller's cap
+        const total = parsed.hh * 60 + parsed.mm;
+        if (total > maxMins) {
+            const h = Math.floor(maxMins / 60);
+            const m = maxMins % 60;
+            return `Maximum is ${m ? `${h}h ${m}m` : `${h}h`} (e.g. 8h, 2:30, 90m)`;
+        }
+        return null;
+    }
+
+    // parseTimeInput returned null — either unrecognised format or > 24h
+    const looksLikeTime = /^(\d+):(\d{2})$/.test(s)
+        || /^(\d+)\s*h\s*(\d+)\s*m$/i.test(s)
+        || /^(\d+\.\d+)\s*h$/i.test(s)
+        || /^(\d+)\s*h$/i.test(s)
+        || /^(\d+)\s*m$/i.test(s)
+        || /^\d+$/.test(s);
+    if (looksLikeTime) {
+        const h = Math.floor(maxMins / 60);
+        const m = maxMins % 60;
+        return `Maximum is ${m ? `${h}h ${m}m` : `${h}h`} (e.g. 8h, 2:30, 90m)`;
+    }
+    return 'Use a format like 2:30, 2h 30m, 90m, or 1.5h';
+}
+
+// Format hh + mm → "H:MM" for display in the freeform time field
+export function fmtTimeInput(hh, mm) {
+    return `${parseInt(hh) || 0}:${String(parseInt(mm) || 0).padStart(2, '0')}`;
+}
+
 export function padTicket(ticket) {
     const target = 11;
     if (ticket.length < target) return ticket + ' '.repeat(target - ticket.length);

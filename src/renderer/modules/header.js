@@ -68,17 +68,5 @@ export function bindHeaderEvents() {
     document.getElementById('btn-delete-entry').addEventListener('click', deleteEntry);
     document.getElementById('btn-make-regular').addEventListener('click', makeRegularEntry);
 
-    [
-        ['modal-hh',          'modal-mm'],
-        ['recurring-hh',      'recurring-mm'],
-        ['scheduled-form-hh', 'scheduled-form-mm'],
-    ].forEach(([hhId, mmId]) => {
-        document.getElementById(hhId).addEventListener('input', function () {
-            if (this.value.length >= 2) document.getElementById(mmId).focus();
-        });
-    });
-
-    ['modal-hh', 'modal-mm'].forEach(id => {
-        document.getElementById(id).addEventListener('input', updateEntryDayTotal);
-    });
+    document.getElementById('modal-time').addEventListener('input', updateEntryDayTotal);
 }

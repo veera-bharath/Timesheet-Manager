@@ -1,7 +1,7 @@
 import { state, RECURRING_DAY_NAMES, DAY_IDX_TO_NAME } from './state.js';
 import { saveState } from './store.js';
 import { showToast } from './toast.js';
-import { escHtml, fmtDate } from './utils.js';
+import { escHtml, fmtDate, parseTimeInput, fmtTimeInput, timeInputError } from './utils.js';
 import { getTypeById, populateTypeSelect } from './ticket-types.js';
 import { getDateFromWeek, getWeekStrFromDate } from './week.js';
 // Circular — resolved at call time
@@ -110,6 +110,12 @@ export function initRecurring() {
 
     document.getElementById('btn-save-recurring').addEventListener('click', saveRecurringRule);
 
+    document.getElementById('recurring-time').addEventListener('blur', function () {
+        const err = this.value.trim() ? timeInputError(this.value) : null;
+        this.classList.toggle('is-invalid', !!err);
+        document.getElementById('recurring-time-error').textContent = err || '';
+    });
+
     document.querySelectorAll('.recurring-day-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             btn.classList.toggle('selected');
@@ -180,8 +186,9 @@ function renderRecurringList() {
 function openRecurringForm(rule) {
     document.getElementById('recurring-form-id').value = rule ? rule.id : '';
     document.getElementById('recurring-ticket').value = rule ? rule.ticket : '';
-    document.getElementById('recurring-hh').value = rule ? rule.hh : '';
-    document.getElementById('recurring-mm').value = rule ? String(rule.mm || 0).padStart(2, '0') : '00';
+    const timeEl = document.getElementById('recurring-time');
+    timeEl.value = rule ? (rule.timeRaw || fmtTimeInput(rule.hh, rule.mm)) : '';
+    timeEl.classList.remove('is-invalid');
     populateTypeSelect(document.getElementById('recurring-type'), rule ? rule.type : (state.ticketTypes[0]?.id || 'jira'));
     document.getElementById('recurring-desc').value = rule ? rule.desc : '';
     document.getElementById('recurringFormTitle').innerHTML =
@@ -193,7 +200,7 @@ function openRecurringForm(rule) {
     syncAllDaysCheckbox();
 
     [document.getElementById('recurring-ticket'), document.getElementById('recurring-desc'),
-     document.getElementById('recurring-hh'), document.getElementById('recurring-mm')]
+     document.getElementById('recurring-time')]
         .forEach(el => el.classList.remove('is-invalid'));
 
     recurringFormModal.show();
@@ -201,22 +208,23 @@ function openRecurringForm(rule) {
 
 function saveRecurringRule() {
     const ticket = document.getElementById('recurring-ticket').value.trim();
-    const hh = parseInt(document.getElementById('recurring-hh').value) || 0;
-    const mm = parseInt(document.getElementById('recurring-mm').value) || 0;
+    const timeRaw = document.getElementById('recurring-time').value.trim();
+    const timeParsed = parseTimeInput(timeRaw);
+    const hh = timeParsed ? timeParsed.hh : 0;
+    const mm = timeParsed ? timeParsed.mm : 0;
     const type = document.getElementById('recurring-type').value;
     const desc = document.getElementById('recurring-desc').value.trim();
     const selectedDays = [...document.querySelectorAll('.recurring-day-btn.selected')].map(b => b.dataset.day);
 
     let hasError = false;
     [document.getElementById('recurring-ticket'), document.getElementById('recurring-desc'),
-     document.getElementById('recurring-hh'), document.getElementById('recurring-mm')]
+     document.getElementById('recurring-time')]
         .forEach(el => el.classList.remove('is-invalid'));
 
     if (!ticket) { document.getElementById('recurring-ticket').classList.add('is-invalid'); hasError = true; }
     if (!desc) { document.getElementById('recurring-desc').classList.add('is-invalid'); hasError = true; }
-    if (hh === 0 && mm === 0) {
-        document.getElementById('recurring-hh').classList.add('is-invalid');
-        document.getElementById('recurring-mm').classList.add('is-invalid');
+    if (!timeParsed || (hh === 0 && mm === 0)) {
+        document.getElementById('recurring-time').classList.add('is-invalid');
         hasError = true;
     }
     if (selectedDays.length === 0) { showToast('Select at least one day.', 'danger'); hasError = true; }
@@ -226,11 +234,11 @@ function saveRecurringRule() {
     if (existingId) {
         const rule = state.recurringTasks.find(r => r.id === existingId);
         if (rule) {
-            Object.assign(rule, { ticket, hh, mm, type, desc, days: selectedDays });
+            Object.assign(rule, { ticket, hh, mm, timeRaw, type, desc, days: selectedDays });
             updateRecurringEntriesFromToday(rule);
         }
     } else {
-        const rule = { id: 'rec_' + Date.now(), ticket, hh, mm, type, desc, days: selectedDays };
+        const rule = { id: 'rec_' + Date.now(), ticket, hh, mm, timeRaw, type, desc, days: selectedDays };
         state.recurringTasks.push(rule);
         populateRecurringForWeek(getDateFromWeek(state.weekValue || getWeekStrFromDate(new Date())));
     }
