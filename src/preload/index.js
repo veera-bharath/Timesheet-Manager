@@ -16,7 +16,8 @@ contextBridge.exposeInMainWorld('app', {
 });
 
 contextBridge.exposeInMainWorld('nativeClipboard', {
-    readText: () => ipcRenderer.invoke('clipboard:read'),
+    readText:  () => ipcRenderer.invoke('clipboard:read'),
+    writeText: (text) => ipcRenderer.invoke('clipboard:write', text),
 });
 
 contextBridge.exposeInMainWorld('backup', {

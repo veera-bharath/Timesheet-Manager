@@ -276,6 +276,8 @@ export function commitEntry(dayIdx, entryIdx) {
         const existing = state.days[dayIdx].entries[entryIdx];
         if (existing && existing.recurringId) entry.recurringId = existing.recurringId;
         if (existing && existing.isScheduled) entry.isScheduled = existing.isScheduled;
+        // If it was logged before but not re-marked logged now, flag it as updated
+        if (existing && existing.logged && !isLogged) entry.loggedUpdated = true;
         // logged is NOT carried over from existing — modal already pre-unchecked it (auto-unmark on edit)
         state.days[dayIdx].entries[entryIdx] = entry;
     }

@@ -26,6 +26,7 @@ export function toggleEntryLogged(dayIdx, entryIdx, btnEl) {
     const entry = state.days[dayIdx]?.entries[entryIdx];
     if (!entry) return;
     entry.logged = !entry.logged;
+    if (entry.logged) delete entry.loggedUpdated; // re-marking clears the updated flag
     btnEl.classList.toggle('logged', entry.logged);
     btnEl.querySelector('i').className = entry.logged ? 'bi bi-journal-check' : 'bi bi-journal';
     btnEl.title = entry.logged ? 'Logged to timesheet — click to unmark' : 'Mark as logged to timesheet';

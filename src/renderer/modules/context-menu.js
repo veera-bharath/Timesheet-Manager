@@ -170,13 +170,30 @@ export function showEntryQuickView(dayIdx, entryIdx, btnEl) {
 
     const typeLabel = getTypeLabel(entry.type);
     const hhmm = `${String(entry.hh || 0).padStart(2,'0')}:${String(entry.mm || 0).padStart(2,'0')}`;
+    const statusRow = entry.loggedUpdated
+        ? `<div class="qv-row qv-status-row"><span class="qv-label">Status</span><span class="qv-updated-badge"><i class="bi bi-pencil-fill"></i> (updated)</span></div>`
+        : entry.logged
+            ? `<div class="qv-row qv-status-row"><span class="qv-label">Status</span><span class="qv-logged-badge"><i class="bi bi-journal-check"></i> Logged</span></div>`
+            : '';
 
     qv.innerHTML = `
+        <div class="qv-header">
+          <span class="qv-title">Entry</span>
+          <button class="qv-copy-btn" title="Copy to clipboard"><i class="bi bi-clipboard"></i></button>
+        </div>
         <div class="qv-row"><span class="qv-label">Ticket</span><span class="qv-value">${escHtml(entry.ticket || '—')}</span></div>
         <div class="qv-row"><span class="qv-label">Type</span><span class="qv-value">${escHtml(typeLabel)}</span></div>
         <div class="qv-row"><span class="qv-label">Time</span><span class="qv-value">${hhmm}</span></div>
-        <div class="qv-row"><span class="qv-label">Desc</span><span class="qv-desc">${escHtml(entry.desc || '—')}</span></div>`;
+        <div class="qv-row"><span class="qv-label">Desc</span><span class="qv-desc">${escHtml(entry.desc || '—')}</span></div>
+        ${statusRow}`;
     qv.dataset.for = `${dayIdx}-${entryIdx}`;
+
+    qv.querySelector('.qv-copy-btn').addEventListener('click', () => {
+        const text = `${entry.ticket || '—'} | ${hhmm} | ${typeLabel}\n${entry.desc || ''}`;
+        window.nativeClipboard?.writeText
+            ? window.nativeClipboard.writeText(text).then(() => showToast('Copied to clipboard.', 'success'))
+            : navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard.', 'success'));
+    });
 
     const rect = btnEl.getBoundingClientRect();
     qv.style.display = 'block';

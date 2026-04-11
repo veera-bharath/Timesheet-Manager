@@ -79,6 +79,66 @@
         <!-- Week Range & Employee Info -->
         <div class="card glass-card mb-4 position-sticky" style="top: 85px;">
           <div class="card-body">
+
+            <!-- 1. WEEKLY SUMMARY -->
+            <h5 class="section-label mb-3"><i class="bi bi-bar-chart-line me-2"></i>Weekly Summary</h5>
+            <div class="d-flex flex-column gap-3 mb-4">
+              <div class="total-chip w-100 mt-0 text-center" id="total-hours-chip">
+                <div class="week-progress-fill" id="week-progress-fill"></div>
+                <span class="total-chip-label">Total Hours</span>
+                <span class="total-chip-value" id="total-hours">00:00</span>
+              </div>
+              <div class="d-flex gap-3">
+                <div class="total-chip flex-fill text-center px-2">
+                  <span class="total-chip-label" style="font-size:0.65rem">Work Days</span>
+                  <span class="total-chip-value fs-4" id="total-days">0</span>
+                </div>
+                <div class="total-chip flex-fill text-center px-2">
+                  <span class="total-chip-label" style="font-size:0.65rem">Entries</span>
+                  <span class="total-chip-value fs-4" id="total-entries">0</span>
+                </div>
+              </div>
+              <!-- Logged / Unlogged breakdown -->
+              <div class="logged-breakdown" id="logged-breakdown">
+                <div class="lb-row">
+                  <span class="lb-dot lb-dot-logged"></span>
+                  <span class="lb-label">Logged</span>
+                  <span class="lb-hours" id="lb-logged-hours">0:00</span>
+                  <span class="lb-entries" id="lb-logged-entries">0 entries</span>
+                </div>
+                <div class="lb-row">
+                  <span class="lb-dot lb-dot-unlogged"></span>
+                  <span class="lb-label">Unlogged</span>
+                  <span class="lb-hours" id="lb-unlogged-hours">0:00</span>
+                  <span class="lb-entries" id="lb-unlogged-entries">0 entries</span>
+                </div>
+              </div>
+            </div>
+
+            <hr class="border-secondary my-3 opacity-25">
+
+            <!-- 2. WEEK SWITCHER -->
+            <div class="mb-3">
+              <label class="form-label label-text">Timesheet Week</label>
+              <div class="d-flex align-items-stretch gap-2 mb-2">
+                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-prev-week" title="Previous Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+                <input type="week" id="week-picker" class="form-control dark-input m-0 flex-grow-1" />
+                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-next-week" title="Next Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </div>
+              <div class="form-text text-muted mt-1" id="week-display-label">Select a week</div>
+            </div>
+
+            <button class="btn btn-outline-accent w-100 mb-4" id="btn-autofill-week">
+              <i class="bi bi-calendar-week me-1"></i> Use Current Week
+            </button>
+
+            <hr class="border-secondary my-3 opacity-25">
+
+            <!-- 3. SHEET DETAILS -->
             <div class="d-flex align-items-center justify-content-between mb-3">
               <h5 class="section-label mb-0"><i class="bi bi-person-badge me-2"></i>Sheet Details</h5>
               <button class="btn btn-sm btn-outline-accent px-2 py-1" id="btn-edit-sheet-details" title="Edit in Settings">
@@ -96,50 +156,11 @@
               <div class="sheet-detail-value" id="display-emp-name">—</div>
             </div>
 
-            <div class="mb-3">
-              <label class="form-label label-text">Timesheet Week</label>
-              <div class="d-flex align-items-stretch gap-2 mb-2">
-                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-prev-week" title="Previous Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
-                  <i class="bi bi-chevron-left"></i>
-                </button>
-                <input type="week" id="week-picker" class="form-control dark-input m-0 flex-grow-1" />
-                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-next-week" title="Next Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
-                  <i class="bi bi-chevron-right"></i>
-                </button>
-              </div>
-              <div class="form-text text-muted mt-1" id="week-display-label">Select a week</div>
-            </div>
-
-            <button class="btn btn-outline-accent w-100" id="btn-autofill-week">
-              <i class="bi bi-calendar-week me-1"></i> Use Current Week
-            </button>
-
-            <div class="mb-3 mt-3">
+            <div class="mb-1">
               <div class="label-text">Daily Target</div>
               <div class="sheet-detail-value" id="display-daily-target">—</div>
             </div>
 
-            <hr class="border-secondary my-4 opacity-25">
-
-            <!-- Totals Area inside the sidebar -->
-            <h5 class="section-label mb-3"><i class="bi bi-bar-chart-line me-2"></i>Weekly Summary</h5>
-            <div class="d-flex flex-column gap-3">
-              <div class="total-chip w-100 mt-0 text-center" id="total-hours-chip">
-                <div class="week-progress-fill" id="week-progress-fill"></div>
-                <span class="total-chip-label">Total Hours</span>
-                <span class="total-chip-value" id="total-hours">00:00</span>
-              </div>
-              <div class="d-flex gap-3">
-                <div class="total-chip flex-fill text-center px-2">
-                  <span class="total-chip-label" style="font-size:0.65rem">Work Days</span>
-                  <span class="total-chip-value fs-4" id="total-days">0</span>
-                </div>
-                <div class="total-chip flex-fill text-center px-2">
-                  <span class="total-chip-label" style="font-size:0.65rem">Entries</span>
-                  <span class="total-chip-value fs-4" id="total-entries">0</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div> <!-- /LEFT COLUMN -->
