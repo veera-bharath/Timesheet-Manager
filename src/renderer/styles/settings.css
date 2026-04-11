@@ -422,6 +422,18 @@
   cursor: pointer;
 }
 
+.tt-pattern-error {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--danger, #f87171);
+}
+
+.tt-pattern-result {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+}
+
 /* ── ERROR LOGS ── */
 
 .el-toolbar {
@@ -491,6 +503,14 @@
   background: var(--bg-input);
   border-radius: var(--radius-sm);
   padding: 6px 8px;
+}
+
+/* ── BACKUP & RESTORE ── */
+
+.settings-divider {
+  border-color: var(--border);
+  opacity: 1;
+  margin: 4px 0;
 }
 
 /* ── ABOUT ── */

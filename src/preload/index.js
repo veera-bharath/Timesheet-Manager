@@ -15,6 +15,19 @@ contextBridge.exposeInMainWorld('app', {
     quit: () => ipcRenderer.invoke('app-quit'),
 });
 
+contextBridge.exposeInMainWorld('nativeClipboard', {
+    readText:  () => ipcRenderer.invoke('clipboard:read'),
+    writeText: (text) => ipcRenderer.invoke('clipboard:write', text),
+});
+
+contextBridge.exposeInMainWorld('backup', {
+    export:       () => ipcRenderer.invoke('backup:export'),
+    getFolder:    () => ipcRenderer.invoke('backup:get-folder'),
+    openJsonFile: () => ipcRenderer.invoke('backup:open-json'),
+    openTxtFile:  () => ipcRenderer.invoke('backup:open-txt'),
+    chooseFolder: () => ipcRenderer.invoke('backup:choose-folder'),
+});
+
 contextBridge.exposeInMainWorld('updater', {
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),

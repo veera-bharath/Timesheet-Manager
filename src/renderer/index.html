@@ -79,6 +79,66 @@
         <!-- Week Range & Employee Info -->
         <div class="card glass-card mb-4 position-sticky" style="top: 85px;">
           <div class="card-body">
+
+            <!-- 1. WEEKLY SUMMARY -->
+            <h5 class="section-label mb-3"><i class="bi bi-bar-chart-line me-2"></i>Weekly Summary</h5>
+            <div class="d-flex flex-column gap-3 mb-4">
+              <div class="total-chip w-100 mt-0 text-center" id="total-hours-chip">
+                <div class="week-progress-fill" id="week-progress-fill"></div>
+                <span class="total-chip-label">Total Hours</span>
+                <span class="total-chip-value" id="total-hours">00:00</span>
+              </div>
+              <div class="d-flex gap-3">
+                <div class="total-chip flex-fill text-center px-2">
+                  <span class="total-chip-label" style="font-size:0.65rem">Work Days</span>
+                  <span class="total-chip-value fs-4" id="total-days">0</span>
+                </div>
+                <div class="total-chip flex-fill text-center px-2">
+                  <span class="total-chip-label" style="font-size:0.65rem">Entries</span>
+                  <span class="total-chip-value fs-4" id="total-entries">0</span>
+                </div>
+              </div>
+              <!-- Logged / Unlogged breakdown -->
+              <div class="logged-breakdown" id="logged-breakdown">
+                <div class="lb-row">
+                  <span class="lb-dot lb-dot-logged"></span>
+                  <span class="lb-label">Logged</span>
+                  <span class="lb-hours" id="lb-logged-hours">0:00</span>
+                  <span class="lb-entries" id="lb-logged-entries">0 entries</span>
+                </div>
+                <div class="lb-row">
+                  <span class="lb-dot lb-dot-unlogged"></span>
+                  <span class="lb-label">Unlogged</span>
+                  <span class="lb-hours" id="lb-unlogged-hours">0:00</span>
+                  <span class="lb-entries" id="lb-unlogged-entries">0 entries</span>
+                </div>
+              </div>
+            </div>
+
+            <hr class="border-secondary my-3 opacity-25">
+
+            <!-- 2. WEEK SWITCHER -->
+            <div class="mb-3">
+              <label class="form-label label-text">Timesheet Week</label>
+              <div class="d-flex align-items-stretch gap-2 mb-2">
+                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-prev-week" title="Previous Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+                <input type="week" id="week-picker" class="form-control dark-input m-0 flex-grow-1" />
+                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-next-week" title="Next Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </div>
+              <div class="form-text text-muted mt-1" id="week-display-label">Select a week</div>
+            </div>
+
+            <button class="btn btn-outline-accent w-100 mb-4" id="btn-autofill-week">
+              <i class="bi bi-calendar-week me-1"></i> Use Current Week
+            </button>
+
+            <hr class="border-secondary my-3 opacity-25">
+
+            <!-- 3. SHEET DETAILS -->
             <div class="d-flex align-items-center justify-content-between mb-3">
               <h5 class="section-label mb-0"><i class="bi bi-person-badge me-2"></i>Sheet Details</h5>
               <button class="btn btn-sm btn-outline-accent px-2 py-1" id="btn-edit-sheet-details" title="Edit in Settings">
@@ -96,50 +156,11 @@
               <div class="sheet-detail-value" id="display-emp-name">—</div>
             </div>
 
-            <div class="mb-3">
-              <label class="form-label label-text">Timesheet Week</label>
-              <div class="d-flex align-items-stretch gap-2 mb-2">
-                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-prev-week" title="Previous Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
-                  <i class="bi bi-chevron-left"></i>
-                </button>
-                <input type="week" id="week-picker" class="form-control dark-input m-0 flex-grow-1" />
-                <button class="btn btn-outline-accent btn-ripple d-flex align-items-center justify-content-center p-0" id="btn-next-week" title="Next Week" style="width: 42px; border-radius: var(--radius-sm) !important;">
-                  <i class="bi bi-chevron-right"></i>
-                </button>
-              </div>
-              <div class="form-text text-muted mt-1" id="week-display-label">Select a week</div>
-            </div>
-
-            <button class="btn btn-outline-accent w-100" id="btn-autofill-week">
-              <i class="bi bi-calendar-week me-1"></i> Use Current Week
-            </button>
-
-            <div class="mb-3 mt-3">
+            <div class="mb-1">
               <div class="label-text">Daily Target</div>
               <div class="sheet-detail-value" id="display-daily-target">—</div>
             </div>
 
-            <hr class="border-secondary my-4 opacity-25">
-
-            <!-- Totals Area inside the sidebar -->
-            <h5 class="section-label mb-3"><i class="bi bi-bar-chart-line me-2"></i>Weekly Summary</h5>
-            <div class="d-flex flex-column gap-3">
-              <div class="total-chip w-100 mt-0 text-center" id="total-hours-chip">
-                <div class="week-progress-fill" id="week-progress-fill"></div>
-                <span class="total-chip-label">Total Hours</span>
-                <span class="total-chip-value" id="total-hours">00:00</span>
-              </div>
-              <div class="d-flex gap-3">
-                <div class="total-chip flex-fill text-center px-2">
-                  <span class="total-chip-label" style="font-size:0.65rem">Work Days</span>
-                  <span class="total-chip-value fs-4" id="total-days">0</span>
-                </div>
-                <div class="total-chip flex-fill text-center px-2">
-                  <span class="total-chip-label" style="font-size:0.65rem">Entries</span>
-                  <span class="total-chip-value fs-4" id="total-entries">0</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div> <!-- /LEFT COLUMN -->
@@ -249,15 +270,11 @@
                 placeholder="e.g. JIRA-123 or #123" />
               <div class="form-text text-muted">Use # prefix for Service Desk tickets</div>
             </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Hours (HH)</label>
-              <input type="number" id="modal-hh" class="form-control dark-input text-center" min="0" max="23"
-                placeholder="00" />
-            </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Minutes (MM)</label>
-              <input type="number" id="modal-mm" class="form-control dark-input text-center" min="0" max="59" step="1"
-                placeholder="00">
+            <div class="col-12 col-md-6 col-lg-4">
+              <label class="form-label label-text">Time</label>
+              <input type="text" id="modal-time" class="form-control dark-input"
+                placeholder="e.g. 2:30, 90m, 1.5h" autocomplete="off" />
+              <div class="invalid-feedback" id="modal-time-error"></div>
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
@@ -357,13 +374,11 @@
               <label class="form-label label-text">Ticket / Reference ID</label>
               <input type="text" id="recurring-ticket" class="form-control dark-input" placeholder="e.g. JIRA-123 or #123" />
             </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Hours (HH)</label>
-              <input type="number" id="recurring-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="00" />
-            </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Minutes (MM)</label>
-              <input type="number" id="recurring-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" />
+            <div class="col-12 col-md-6 col-lg-4">
+              <label class="form-label label-text">Time</label>
+              <input type="text" id="recurring-time" class="form-control dark-input"
+                placeholder="e.g. 2:30, 90m, 1.5h" autocomplete="off" />
+              <div class="invalid-feedback" id="recurring-time-error"></div>
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
@@ -484,13 +499,11 @@
               <label class="form-label label-text">Ticket / Reference ID</label>
               <input type="text" id="scheduled-form-ticket" class="form-control dark-input" placeholder="e.g. JIRA-123 or #123" />
             </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Hours (HH)</label>
-              <input type="number" id="scheduled-form-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="00" />
-            </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Minutes (MM)</label>
-              <input type="number" id="scheduled-form-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" />
+            <div class="col-12 col-md-6 col-lg-4">
+              <label class="form-label label-text">Time</label>
+              <input type="text" id="scheduled-form-time" class="form-control dark-input"
+                placeholder="e.g. 2:30, 90m, 1.5h" autocomplete="off" />
+              <div class="invalid-feedback" id="scheduled-form-time-error"></div>
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
@@ -625,6 +638,7 @@
           <div class="cheatsheet-group">
             <div class="cheatsheet-group-label">Entries</div>
             <div class="cheatsheet-row"><kbd>N</kbd> <span>Add new entry to expanded day</span></div>
+            <div class="cheatsheet-row"><kbd>Ctrl</kbd><kbd>V</kbd> <span>Open entry modal pre-filled with clipboard ticket</span></div>
             <div class="cheatsheet-row"><kbd>T</kbd> <span>Open notes for expanded day</span></div>
             <div class="cheatsheet-row"><kbd>Enter</kbd> <span>Save entry (inside entry modal)</span></div>
             <div class="cheatsheet-row"><kbd>Alt</kbd><kbd>N</kbd> <span>Open entry modal with no-ticket toggled on</span></div>
@@ -800,12 +814,9 @@
           <!-- Daily Target -->
           <div class="mb-4">
             <label class="form-label label-text">Daily Target</label>
-            <div class="d-flex align-items-center gap-2">
-              <input type="number" id="onb-target-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="08" style="max-width:64px" />
-              <span class="label-text">hrs</span>
-              <input type="number" id="onb-target-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" style="max-width:64px" />
-              <span class="label-text">min</span>
-            </div>
+            <input type="text" id="onb-target-time" class="form-control dark-input"
+              placeholder="e.g. 8h, 7:30, 450m" autocomplete="off" />
+            <div class="invalid-feedback" id="onb-target-time-error"></div>
           </div>
 
           <button class="btn btn-gradient w-100 btn-ripple" id="btn-onb-submit" disabled>
@@ -874,6 +885,21 @@
                 <span>Error Logs</span>
               </div>
             </div>
+            <div class="settings-nav-item settings-nav-parent" data-section="backup-restore">
+              <i class="bi bi-shield-check"></i>
+              <span>Backup &amp; Restore</span>
+              <i class="bi bi-chevron-right settings-nav-chevron"></i>
+            </div>
+            <div class="settings-nav-sub" id="sub-backup-restore">
+              <div class="settings-nav-subitem" data-section="backup">
+                <i class="bi bi-cloud-arrow-up"></i>
+                <span>Backup</span>
+              </div>
+              <div class="settings-nav-subitem" data-section="restore">
+                <i class="bi bi-cloud-arrow-down"></i>
+                <span>Restore</span>
+              </div>
+            </div>
             <div class="settings-nav-item" data-section="about">
               <i class="bi bi-info-circle"></i>
               <span>About</span>
@@ -900,6 +926,28 @@
           </div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- RESTORE CONFLICT MODAL -->
+  <div class="modal fade" id="restoreConflictModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content rc-modal-content">
+        <div class="modal-header rc-modal-header">
+          <div>
+            <h5 class="modal-title rc-modal-title" id="rc-modal-title">Restore — Review Conflicts</h5>
+            <p class="rc-modal-subtitle" id="rc-modal-subtitle"></p>
+          </div>
+          <button type="button" class="btn-close btn-close-white" id="btn-rc-close" aria-label="Close"></button>
+        </div>
+        <div class="modal-body rc-modal-body" id="rc-modal-body"></div>
+        <div class="modal-footer rc-modal-footer">
+          <button class="btn btn-outline-light btn-sm px-3" id="btn-rc-cancel">Cancel</button>
+          <button class="btn btn-outline-light btn-sm px-3" id="btn-rc-back" style="display:none">Back</button>
+          <button class="btn btn-gradient px-4" id="btn-rc-preview">Preview Merge</button>
+          <button class="btn btn-gradient px-4" id="btn-rc-confirm" style="display:none">Confirm Restore</button>
+        </div>
       </div>
     </div>
   </div>

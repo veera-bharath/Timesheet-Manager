@@ -2,7 +2,7 @@
    SETTINGS — full-screen modal shell, nav routing, dirty state
    ============================================================= */
 
-import { state, APP_VERSION } from './state.js';
+import { state, APP_VERSION, MAX_TARGET_MINS } from './state.js';
 import { saveState } from './store.js';
 import { showToast } from './toast.js';
 import { updateSummary } from './summary.js';
@@ -12,21 +12,27 @@ import { applyTheme } from './theme.js';
 import { renderTicketTypesSection } from './ticket-types.js';
 import { renderLeaveTypesSection } from './leave-types.js';
 import { renderErrorLogSection } from './error-log.js';
+import { openRestoreFromJson, openRestoreFromTxt } from './restore.js';
+import { parseTimeInput, fmtTimeInput, timeInputError } from './utils.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
-    'general':       { parent: null,         label: 'General',       isParent: false },
-    'appearance':    { parent: null,         label: 'Appearance',    isParent: false },
-    'notifications': { parent: null,         label: 'Notifications', isParent: false },
-    'management':    { parent: null,         label: 'Management',    isParent: true  },
-    'ticket-types':  { parent: 'management', label: 'Ticket Types',  isParent: false },
-    'leave-types':   { parent: 'management', label: 'Leave Types',   isParent: false },
-    'developer':     { parent: null,         label: 'Developer',     isParent: true  },
-    'error-logs':    { parent: 'developer',  label: 'Error Logs',    isParent: false },
-    'about':         { parent: null,         label: 'About',         isParent: false },
+    'general':        { parent: null,             label: 'General',           isParent: false },
+    'appearance':     { parent: null,             label: 'Appearance',        isParent: false },
+    'notifications':  { parent: null,             label: 'Notifications',     isParent: false },
+    'management':     { parent: null,             label: 'Management',        isParent: true  },
+    'ticket-types':   { parent: 'management',     label: 'Ticket Types',      isParent: false },
+    'leave-types':    { parent: 'management',     label: 'Leave Types',       isParent: false },
+    'developer':      { parent: null,             label: 'Developer',         isParent: true  },
+    'error-logs':     { parent: 'developer',      label: 'Error Logs',        isParent: false },
+    'backup-restore': { parent: null,             label: 'Backup & Restore',  isParent: true  },
+    'backup':         { parent: 'backup-restore', label: 'Backup',            isParent: false },
+    'restore':        { parent: 'backup-restore', label: 'Restore',           isParent: false },
+    'about':          { parent: null,             label: 'About',             isParent: false },
 };
 
-const NOTIFICATION_KEY = 'notificationSettings';
+const NOTIFICATION_KEY   = 'notificationSettings';
+const BACKUP_SETTINGS_KEY = 'backupSettings';
 
 /* ── STATE ──────────────────────────────────────────────── */
 let currentSection = 'general';
@@ -183,16 +189,17 @@ function renderSection(section) {
         case 'management':     return renderManagement(el);
         case 'ticket-types': return renderTicketTypes(el);
         case 'leave-types':  return renderLeaveTypes(el);
-        case 'developer':    return renderDeveloper(el);
-        case 'error-logs':   return renderErrorLogs(el);
-        case 'about':        return renderAbout(el);
+        case 'developer':      return renderDeveloper(el);
+        case 'error-logs':     return renderErrorLogs(el);
+        case 'backup-restore': return renderBackupRestore(el);
+        case 'backup':         return renderBackup(el);
+        case 'restore':        return renderRestore(el);
+        case 'about':          return renderAbout(el);
     }
 }
 
 function renderGeneral(el) {
     const tgt = state.dailyTargetMins || 480;
-    const hhVal = Math.floor(tgt / 60);
-    const mmVal = tgt % 60;
 
     el.innerHTML = `
         <div class="settings-section-header">
@@ -214,15 +221,11 @@ function renderGeneral(el) {
                         value="${escHtml(state.employeeName || '')}" />
                 </div>
                 <div class="settings-form-group">
-                    <label class="label-text">Daily Target</label>
-                    <div class="d-flex align-items-center gap-2">
-                        <input type="number" id="settings-target-hh" class="form-control dark-input text-center"
-                            min="0" max="23" placeholder="08" value="${hhVal}" style="max-width:64px" />
-                        <span class="label-text">hrs</span>
-                        <input type="number" id="settings-target-mm" class="form-control dark-input text-center"
-                            min="0" max="59" placeholder="00" value="${mmVal}" style="max-width:64px" />
-                        <span class="label-text">min</span>
-                    </div>
+                    <label class="label-text" for="settings-target-time">Daily Target</label>
+                    <input type="text" id="settings-target-time" class="form-control dark-input"
+                        placeholder="e.g. 8h, 7:30, 450m"
+                        value="${escHtml(fmtTimeInput(Math.floor(tgt / 60), tgt % 60))}" style="max-width:160px" />
+                    <div class="invalid-feedback" id="settings-target-time-error"></div>
                 </div>
                 <div class="settings-form-actions">
                     <button class="btn btn-gradient px-4" id="btn-save-general">
@@ -236,21 +239,30 @@ function renderGeneral(el) {
     const markGeneralDirty = () => markDirty('general');
     el.querySelector('#settings-report-title').addEventListener('input', markGeneralDirty);
     el.querySelector('#settings-emp-name').addEventListener('input', markGeneralDirty);
-    el.querySelector('#settings-target-hh').addEventListener('input', markGeneralDirty);
-    el.querySelector('#settings-target-mm').addEventListener('input', markGeneralDirty);
+    el.querySelector('#settings-target-time').addEventListener('input', markGeneralDirty);
 
-    // HH auto-advance to MM
-    el.querySelector('#settings-target-hh').addEventListener('input', function () {
-        if (this.value.length >= 2) el.querySelector('#settings-target-mm').focus();
+    // Validate on blur — no rewrite
+    el.querySelector('#settings-target-time').addEventListener('blur', function () {
+        const err = this.value.trim() ? timeInputError(this.value, MAX_TARGET_MINS) : null;
+        this.classList.toggle('is-invalid', !!err);
+        el.querySelector('#settings-target-time-error').textContent = err || '';
     });
 
     // Save
     el.querySelector('#btn-save-general').addEventListener('click', () => {
         const title = el.querySelector('#settings-report-title').value.trim();
         const name  = el.querySelector('#settings-emp-name').value.trim();
-        const hh    = parseInt(el.querySelector('#settings-target-hh').value) || 0;
-        const mm    = parseInt(el.querySelector('#settings-target-mm').value) || 0;
-        const mins  = hh * 60 + mm;
+        const timeEl = el.querySelector('#settings-target-time');
+        const timeParsed = parseTimeInput(timeEl.value);
+        const mins  = timeParsed ? timeParsed.hh * 60 + timeParsed.mm : 0;
+        const timeErr = timeEl.value.trim() ? timeInputError(timeEl.value, MAX_TARGET_MINS) : null;
+
+        if (timeErr) {
+            timeEl.classList.add('is-invalid');
+            el.querySelector('#settings-target-time-error').textContent = timeErr;
+            showToast(timeErr, 'danger');
+            return;
+        }
 
         state.reportTitle    = title;
         state.employeeName   = name;
@@ -436,6 +448,236 @@ function renderDeveloper(el) {
 
 function renderErrorLogs(el) {
     renderErrorLogSection(el, navigateTo);
+}
+
+/* ── BACKUP & RESTORE ────────────────────────────────────── */
+
+function renderBackupRestore(el) {
+    el.innerHTML = `
+        <div class="settings-section-header">
+            <h2 class="settings-section-title">Backup &amp; Restore</h2>
+            <p class="settings-section-desc">Protect your data and recover from a backup when needed.</p>
+        </div>
+        <div class="settings-section-body">
+            <div class="settings-mgmt-cards">
+                <div class="settings-mgmt-card" data-nav="backup">
+                    <div class="settings-mgmt-card-icon">
+                        <i class="bi bi-cloud-arrow-up-fill"></i>
+                    </div>
+                    <div class="settings-mgmt-card-body">
+                        <div class="settings-mgmt-card-title">Backup</div>
+                        <div class="settings-mgmt-card-desc">Manually back up your data or configure automatic scheduled backups</div>
+                    </div>
+                    <i class="bi bi-chevron-right settings-mgmt-card-arrow"></i>
+                </div>
+                <div class="settings-mgmt-card" data-nav="restore">
+                    <div class="settings-mgmt-card-icon">
+                        <i class="bi bi-cloud-arrow-down-fill"></i>
+                    </div>
+                    <div class="settings-mgmt-card-body">
+                        <div class="settings-mgmt-card-title">Restore</div>
+                        <div class="settings-mgmt-card-desc">Restore timesheet data from a JSON backup or a downloaded TXT report</div>
+                    </div>
+                    <i class="bi bi-chevron-right settings-mgmt-card-arrow"></i>
+                </div>
+            </div>
+        </div>`;
+    el.querySelectorAll('.settings-mgmt-card[data-nav]').forEach(card => {
+        card.addEventListener('click', () => navigateTo(card.dataset.nav));
+    });
+}
+
+async function renderBackup(el) {
+    const saved          = await window.electronStore.get(BACKUP_SETTINGS_KEY) || {};
+    const enabled        = saved.enabled !== false;
+    const frequency      = saved.frequency || 'weekly';
+    const dayOfWeek      = saved.dayOfWeek ?? 1;
+    const hour           = saved.hour ?? 9;
+    const minute         = saved.minute ?? 0;
+    const retentionDays  = saved.retentionDays ?? 30;
+    const lastBackupAt   = saved.lastBackupAt || null;
+    const folder         = saved.folder || '';
+    const timeVal        = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+    el.innerHTML = `
+        <div class="settings-section-header">
+            <h2 class="settings-section-title">Backup</h2>
+            <p class="settings-section-desc">Save a copy of all your timesheet data to a local file.</p>
+        </div>
+        <div class="settings-section-body">
+            <div class="settings-form">
+                <div class="settings-form-group">
+                    <label class="label-text">Manual Backup</label>
+                    <button class="btn btn-gradient px-4" id="btn-backup-now">
+                        <i class="bi bi-cloud-arrow-up me-1"></i> Backup Now
+                    </button>
+                    <p class="form-text mt-1" id="backup-last-info" style="color:var(--text-secondary)">
+                        ${lastBackupAt
+                            ? `Last backup: ${new Date(lastBackupAt).toLocaleString()}`
+                            : 'No backups created yet.'}
+                    </p>
+                </div>
+                <hr class="settings-divider">
+                <div class="settings-form-group">
+                    <label class="label-text">Auto-backup</label>
+                    <div class="form-check form-switch mt-1">
+                        <input class="form-check-input" type="checkbox" id="backup-enabled" ${enabled ? 'checked' : ''} />
+                        <label class="form-check-label label-text" for="backup-enabled">
+                            Automatically back up on app launch
+                        </label>
+                    </div>
+                </div>
+                <div id="backup-auto-config" style="${enabled ? '' : 'opacity:0.4;pointer-events:none'}">
+                    <div class="settings-form d-flex flex-column gap-4">
+                        <div class="settings-form-group">
+                            <label class="label-text" for="backup-frequency">Frequency</label>
+                            <select id="backup-frequency" class="form-control dark-input" style="max-width:180px">
+                                <option value="daily"   ${frequency === 'daily'   ? 'selected' : ''}>Daily</option>
+                                <option value="weekly"  ${frequency === 'weekly'  ? 'selected' : ''}>Weekly</option>
+                                <option value="monthly" ${frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+                            </select>
+                        </div>
+                        <div class="settings-form-group" id="backup-dow-group" style="${frequency === 'weekly' ? '' : 'display:none'}">
+                            <label class="label-text" for="backup-dow">Day of Week</label>
+                            <select id="backup-dow" class="form-control dark-input" style="max-width:180px">
+                                <option value="1" ${dayOfWeek === 1 ? 'selected' : ''}>Monday</option>
+                                <option value="2" ${dayOfWeek === 2 ? 'selected' : ''}>Tuesday</option>
+                                <option value="3" ${dayOfWeek === 3 ? 'selected' : ''}>Wednesday</option>
+                                <option value="4" ${dayOfWeek === 4 ? 'selected' : ''}>Thursday</option>
+                                <option value="5" ${dayOfWeek === 5 ? 'selected' : ''}>Friday</option>
+                            </select>
+                        </div>
+                        <div class="settings-form-group">
+                            <label class="label-text" for="backup-time">Check Time (on app launch)</label>
+                            <input type="time" id="backup-time" class="form-control dark-input" value="${timeVal}" style="max-width:140px" />
+                            <p class="form-text" style="color:var(--text-secondary)">
+                                Auto-backup runs when the app is launched at or after this time on the scheduled day.
+                            </p>
+                        </div>
+                        <div class="settings-form-group">
+                            <label class="label-text" for="backup-retention">Retain backups for</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="number" id="backup-retention" class="form-control dark-input text-center"
+                                    min="1" max="30" value="${retentionDays}" style="max-width:72px" />
+                                <span class="label-text">days &nbsp;<span style="color:var(--text-muted);font-size:0.8rem">(max 30)</span></span>
+                            </div>
+                        </div>
+                        <div class="settings-form-group">
+                            <label class="label-text">Backup Folder</label>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span id="backup-folder-display" style="color:var(--text-secondary);font-size:0.82rem;word-break:break-all">
+                                    ${folder || 'Default: Documents/TimesheetBackups'}
+                                </span>
+                                <button class="btn btn-sm btn-outline-light" id="btn-backup-folder">
+                                    <i class="bi bi-folder me-1"></i> Change
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-form-actions">
+                    <button class="btn btn-gradient px-4" id="btn-save-backup">
+                        <i class="bi bi-check-lg me-1"></i> Save
+                    </button>
+                </div>
+            </div>
+        </div>`;
+
+    const enabledToggle = el.querySelector('#backup-enabled');
+    const autoConfig    = el.querySelector('#backup-auto-config');
+    const freqSelect    = el.querySelector('#backup-frequency');
+    const dowGroup      = el.querySelector('#backup-dow-group');
+
+    enabledToggle.addEventListener('change', () => {
+        autoConfig.style.opacity       = enabledToggle.checked ? '1' : '0.4';
+        autoConfig.style.pointerEvents = enabledToggle.checked ? '' : 'none';
+        markDirty('backup');
+    });
+
+    freqSelect.addEventListener('change', () => {
+        dowGroup.style.display = freqSelect.value === 'weekly' ? '' : 'none';
+        markDirty('backup');
+    });
+
+    el.querySelector('#backup-time').addEventListener('change', () => markDirty('backup'));
+    el.querySelector('#backup-retention').addEventListener('input', () => markDirty('backup'));
+
+    el.querySelector('#btn-backup-now').addEventListener('click', async () => {
+        const btn = el.querySelector('#btn-backup-now');
+        btn.disabled = true;
+        try {
+            const result = await window.backup.export();
+            el.querySelector('#backup-last-info').textContent =
+                `Last backup: ${new Date(result.exportedAt).toLocaleString()}`;
+            showToast(`Backup saved to ${result.filePath}`, 'success');
+        } catch (e) {
+            showToast('Backup failed. Check error logs.', 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    el.querySelector('#btn-backup-folder').addEventListener('click', async () => {
+        const chosen = await window.backup.chooseFolder();
+        if (!chosen) return;
+        const current = await window.electronStore.get(BACKUP_SETTINGS_KEY) || {};
+        await window.electronStore.set(BACKUP_SETTINGS_KEY, { ...current, folder: chosen });
+        el.querySelector('#backup-folder-display').textContent = chosen;
+    });
+
+    el.querySelector('#btn-save-backup').addEventListener('click', async () => {
+        const [hh, mm]   = (el.querySelector('#backup-time').value || '09:00').split(':').map(Number);
+        const retention  = Math.min(30, Math.max(1, parseInt(el.querySelector('#backup-retention').value) || 30));
+        const dowEl      = el.querySelector('#backup-dow');
+        const current    = await window.electronStore.get(BACKUP_SETTINGS_KEY) || {};
+        await window.electronStore.set(BACKUP_SETTINGS_KEY, {
+            ...current,
+            enabled:        el.querySelector('#backup-enabled').checked,
+            frequency:      freqSelect.value,
+            dayOfWeek:      dowEl ? parseInt(dowEl.value) : 1,
+            hour:           hh || 9,
+            minute:         mm || 0,
+            retentionDays:  retention,
+        });
+        clearDirty();
+        showToast('Backup settings saved.', 'success');
+    });
+}
+
+function renderRestore(el) {
+    el.innerHTML = `
+        <div class="settings-section-header">
+            <h2 class="settings-section-title">Restore</h2>
+            <p class="settings-section-desc">Restore your timesheet data from a previously exported file.</p>
+        </div>
+        <div class="settings-section-body">
+            <div class="settings-form">
+                <div class="settings-form-group">
+                    <label class="label-text">Restore from Backup File</label>
+                    <p class="form-text" style="color:var(--text-secondary)">
+                        Import a <code>.json</code> backup file exported by this app.
+                        If the backup contains weeks you already have data for, you'll be shown a side-by-side merge review before anything is applied.
+                    </p>
+                    <button class="btn btn-gradient px-4 mt-1" id="btn-restore-json">
+                        <i class="bi bi-file-earmark-code me-1"></i> Choose Backup File (.json)
+                    </button>
+                </div>
+                <hr class="settings-divider">
+                <div class="settings-form-group">
+                    <label class="label-text">Restore from TXT Report</label>
+                    <p class="form-text" style="color:var(--text-secondary)">
+                        Import a <code>.txt</code> timesheet report downloaded from this app.
+                        Conflicting weeks will go through the same merge review as a JSON restore.
+                    </p>
+                    <button class="btn btn-gradient px-4 mt-1" id="btn-restore-txt">
+                        <i class="bi bi-file-earmark-text me-1"></i> Choose Report File (.txt)
+                    </button>
+                </div>
+            </div>
+        </div>`;
+
+    el.querySelector('#btn-restore-json').addEventListener('click', () => openRestoreFromJson());
+    el.querySelector('#btn-restore-txt').addEventListener('click', () => openRestoreFromTxt());
 }
 
 function _renderMarkdown(md) {

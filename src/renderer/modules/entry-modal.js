@@ -1,8 +1,9 @@
-import { state, WEEK_DAYS } from './state.js';
+import { state, WEEK_DAYS, MAX_DAY_MINS } from './state.js';
 import { saveState } from './store.js';
 import { showToast, showConfirm } from './toast.js';
 import { updateSummary } from './summary.js';
 import { populateTypeSelect } from './ticket-types.js';
+import { parseTimeInput, fmtTimeInput, timeInputError } from './utils.js';
 // Circular — resolved at call time
 import { rerenderDayCard, renderAll } from './render.js';
 import { updateNoTicketBanner } from './no-ticket-reminder.js';
@@ -18,6 +19,41 @@ export function initEntryModal() {
         document.getElementById('modal-ticket-wrap').style.display = this.checked ? 'none' : '';
         if (!this.checked) document.getElementById('modal-ticket').value = '';
     });
+
+    // Validate time field on blur — no rewrite, preserve what user typed
+    document.getElementById('modal-time').addEventListener('blur', function () {
+        const err = this.value.trim() ? timeInputError(this.value) : null;
+        this.classList.toggle('is-invalid', !!err);
+        document.getElementById('modal-time-error').textContent = err || '';
+        updateEntryDayTotal();
+    });
+}
+
+/* ── CLIPBOARD TICKET DETECTION ─────────────────────────── */
+export async function readClipboardTicket() {
+    try {
+        const text = await window.nativeClipboard.readText();
+        if (!text) return null;
+
+        const types = state.ticketTypes || [];
+
+        // Try each type's configured ticketPattern first
+        for (const type of types) {
+            if (!type.ticketPattern) continue;
+            try {
+                const m = new RegExp(type.ticketPattern).exec(text);
+                if (m) return { ticket: m[0], typeId: type.id };
+            } catch (_) { /* skip invalid stored pattern */ }
+        }
+
+        // Generic fallback: Jira-style KEY-123
+        const generic = /\b([A-Z][A-Z0-9]+-\d+)\b/.exec(text);
+        if (generic) return { ticket: generic[1], typeId: null };
+
+        return null;
+    } catch (_) {
+        return null;
+    }
 }
 
 export function openEntryModal(dayIdx, entryIdx) {
@@ -35,14 +71,26 @@ export function openEntryModal(dayIdx, entryIdx) {
         copyToBtn.style.display = 'none';
         makeRegularBtn.style.display = 'none';
         title.innerHTML = `<i class="bi bi-plus-circle me-2"></i>Add Entry — ${WEEK_DAYS[dayIdx]}`;
+
+        // Auto-fill ticket from clipboard
+        readClipboardTicket().then(result => {
+            if (!result) return;
+            const ticketEl = document.getElementById('modal-ticket');
+            const typeEl   = document.getElementById('modal-type');
+            if (ticketEl && !ticketEl.value) {
+                ticketEl.value = result.ticket;
+            }
+            if (result.typeId && typeEl) {
+                typeEl.value = result.typeId;
+            }
+        });
     } else {
         const e = state.days[dayIdx].entries[entryIdx];
         const noTicketToggle = document.getElementById('modal-no-ticket');
         noTicketToggle.checked = !!e.noTicket;
         document.getElementById('modal-ticket-wrap').style.display = e.noTicket ? 'none' : '';
         document.getElementById('modal-ticket').value = e.noTicket ? '' : (e.ticket || '');
-        document.getElementById('modal-hh').value = e.hh ?? 0;
-        document.getElementById('modal-mm').value = String(e.mm ?? 0).padStart(2, '0');
+        document.getElementById('modal-time').value = e.timeRaw || fmtTimeInput(e.hh ?? 0, e.mm ?? 0);
         populateTypeSelect(document.getElementById('modal-type'), e.type || state.ticketTypes[0]?.id || 'jira');
         document.getElementById('modal-desc').value = e.desc || '';
         document.getElementById('modal-group-id').value = e.groupId || '';
@@ -77,9 +125,8 @@ export function updateEntryDayTotal() {
         return sum + (parseInt(e.hh) || 0) * 60 + (parseInt(e.mm) || 0);
     }, 0);
 
-    const addHH = parseInt(document.getElementById('modal-hh').value) || 0;
-    const addMM = parseInt(document.getElementById('modal-mm').value) || 0;
-    const addMins = addHH * 60 + addMM;
+    const timeParsed = parseTimeInput(document.getElementById('modal-time').value);
+    const addMins = timeParsed ? timeParsed.hh * 60 + timeParsed.mm : 0;
     const newTotalMins = baseMins + addMins;
 
     const fmt = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
@@ -131,8 +178,8 @@ export function clearEntryModal() {
     document.getElementById('modal-logged').checked = false;
     document.getElementById('modal-ticket-wrap').style.display = '';
     document.getElementById('modal-ticket').value = '';
-    document.getElementById('modal-hh').value = '';
-    document.getElementById('modal-mm').value = '00';
+    document.getElementById('modal-time').value = '';
+    document.getElementById('modal-time').classList.remove('is-invalid');
     populateTypeSelect(document.getElementById('modal-type'), state.ticketTypes[0]?.id || 'jira');
     document.getElementById('modal-desc').value = '';
     document.getElementById('modal-group-id').value = '';
@@ -142,45 +189,32 @@ export function clearEntryModal() {
 export function saveEntryInternal() {
     const dayIdx = parseInt(document.getElementById('modal-day-index').value);
     const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
-    const hhInput = document.getElementById('modal-hh');
-    const mmInput = document.getElementById('modal-mm');
+    const timeInput = document.getElementById('modal-time');
     const ticketInput = document.getElementById('modal-ticket');
     const descInput = document.getElementById('modal-desc');
 
-    const hh = parseInt(hhInput.value) || 0;
-    const mm = parseInt(mmInput.value) || 0;
+    const timeParsed = parseTimeInput(timeInput.value);
+    const hh = timeParsed ? timeParsed.hh : 0;
+    const mm = timeParsed ? timeParsed.mm : 0;
     const tkt = ticketInput.value.trim();
     const desc = descInput.value.trim();
 
     const isNoTicket = document.getElementById('modal-no-ticket').checked;
     let hasError = false;
 
-    [ticketInput, descInput, hhInput, mmInput].forEach(el => el.classList.remove('is-invalid'));
+    [ticketInput, descInput, timeInput].forEach(el => el.classList.remove('is-invalid'));
 
     if (!isNoTicket && !tkt) { ticketInput.classList.add('is-invalid'); hasError = true; }
     if (!desc) { descInput.classList.add('is-invalid'); hasError = true; }
-    if (hh === 0 && mm === 0) {
-        hhInput.classList.add('is-invalid');
-        mmInput.classList.add('is-invalid');
+    if (!timeParsed || (hh === 0 && mm === 0)) {
+        timeInput.classList.add('is-invalid');
         hasError = true;
     }
 
     if (hasError) {
         showToast('Please fill in all required fields (Ticket, Description, Time).', 'danger');
+        return false;
     }
-
-    if (hh > 24) {
-        hhInput.classList.add('is-invalid');
-        showToast('Hours cannot exceed 24.', 'danger');
-        hasError = true;
-    }
-    if (mm > 59) {
-        mmInput.classList.add('is-invalid');
-        showToast('Minutes cannot exceed 59.', 'danger');
-        hasError = true;
-    }
-
-    if (hasError) return false;
 
     let totalMinsForDay = (hh * 60) + mm;
     const day = state.days[dayIdx];
@@ -191,6 +225,14 @@ export function saveEntryInternal() {
                 totalMinsForDay += (parseInt(existingEntry.hh) || 0) * 60 + (parseInt(existingEntry.mm) || 0);
             }
         });
+    }
+
+    if (totalMinsForDay > MAX_DAY_MINS) {
+        const maxH = Math.floor(MAX_DAY_MINS / 60);
+        const totalH = Math.floor(totalMinsForDay / 60);
+        const totalM = totalMinsForDay % 60;
+        showToast(`Cannot log more than ${maxH}h in a single day. Total would be ${totalH}h ${totalM}m.`, 'danger');
+        return false;
     }
 
     if (totalMinsForDay > state.dailyTargetMins) {
@@ -215,13 +257,15 @@ export function commitEntry(dayIdx, entryIdx) {
     const groupType = document.getElementById('modal-group-type-ref').value;
     const isNoTicket = document.getElementById('modal-no-ticket').checked;
     const tkt = isNoTicket ? 'NO-TICKET' : document.getElementById('modal-ticket').value.trim();
-    const hh = parseInt(document.getElementById('modal-hh').value) || 0;
-    const mm = parseInt(document.getElementById('modal-mm').value) || 0;
+    const timeRaw = document.getElementById('modal-time').value.trim();
+    const timeParsed = parseTimeInput(timeRaw);
+    const hh = timeParsed ? timeParsed.hh : 0;
+    const mm = timeParsed ? timeParsed.mm : 0;
     const type = document.getElementById('modal-type').value;
     const desc = document.getElementById('modal-desc').value.trim();
 
     const isLogged = document.getElementById('modal-logged').checked;
-    const entry = { ticket: tkt, hh, mm, type, desc };
+    const entry = { ticket: tkt, hh, mm, timeRaw, type, desc };
     if (isNoTicket) entry.noTicket = true;
     if (isLogged) entry.logged = true;
     if (groupId) { entry.groupId = groupId; entry.groupType = groupType; }
@@ -232,6 +276,8 @@ export function commitEntry(dayIdx, entryIdx) {
         const existing = state.days[dayIdx].entries[entryIdx];
         if (existing && existing.recurringId) entry.recurringId = existing.recurringId;
         if (existing && existing.isScheduled) entry.isScheduled = existing.isScheduled;
+        // If it was logged before but not re-marked logged now, flag it as updated
+        if (existing && existing.logged && !isLogged) entry.loggedUpdated = true;
         // logged is NOT carried over from existing — modal already pre-unchecked it (auto-unmark on edit)
         state.days[dayIdx].entries[entryIdx] = entry;
     }
