@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { saveState } from './store.js';
 import { showToast } from './toast.js';
-import { escHtml, fmtDate } from './utils.js';
+import { escHtml, fmtDate, parseTimeInput, timeInputError } from './utils.js';
 import { getTypeById, populateTypeSelect } from './ticket-types.js';
 // Circular — resolved at call time
 import { rerenderDayCard } from './render.js';
@@ -52,6 +52,12 @@ export function initScheduledTasks() {
     });
 
     document.getElementById('btn-save-scheduled').addEventListener('click', saveScheduledTask);
+
+    document.getElementById('scheduled-form-time').addEventListener('blur', function () {
+        const err = this.value.trim() ? timeInputError(this.value) : null;
+        this.classList.toggle('is-invalid', !!err);
+        document.getElementById('scheduled-form-time-error').textContent = err || '';
+    });
 
     const closeForm = () => {
         scheduledFormModal.hide();
@@ -176,8 +182,9 @@ function openScheduledForm() {
     dateInput.classList.remove('is-invalid');
     document.getElementById('scheduled-form-ticket').value = '';
     document.getElementById('scheduled-form-ticket').classList.remove('is-invalid');
-    document.getElementById('scheduled-form-hh').value = '';
-    document.getElementById('scheduled-form-mm').value = '00';
+    const timeEl = document.getElementById('scheduled-form-time');
+    timeEl.value = '';
+    timeEl.classList.remove('is-invalid');
     populateTypeSelect(document.getElementById('scheduled-form-type'), state.ticketTypes[0]?.id || 'jira');
     document.getElementById('scheduled-form-desc').value = '';
     document.getElementById('scheduled-form-desc').classList.remove('is-invalid');
@@ -191,17 +198,22 @@ function saveScheduledTask() {
     const scheduledDate = dateInput.value;
     const tkt = ticketInput.value.trim();
     const desc = descInput.value.trim();
-    const hh = parseInt(document.getElementById('scheduled-form-hh').value) || 0;
-    const mm = parseInt(document.getElementById('scheduled-form-mm').value) || 0;
+    const timeParsed = parseTimeInput(document.getElementById('scheduled-form-time').value);
+    const hh = timeParsed ? timeParsed.hh : 0;
+    const mm = timeParsed ? timeParsed.mm : 0;
     const type = document.getElementById('scheduled-form-type').value;
 
     let hasError = false;
-    [dateInput, ticketInput, descInput].forEach(el => el.classList.remove('is-invalid'));
+    [dateInput, ticketInput, descInput, document.getElementById('scheduled-form-time')]
+        .forEach(el => el.classList.remove('is-invalid'));
 
     if (!scheduledDate) { dateInput.classList.add('is-invalid'); hasError = true; }
     if (!tkt) { ticketInput.classList.add('is-invalid'); hasError = true; }
     if (!desc) { descInput.classList.add('is-invalid'); hasError = true; }
-    if (hh === 0 && mm === 0) { hasError = true; }
+    if (!timeParsed || (hh === 0 && mm === 0)) {
+        document.getElementById('scheduled-form-time').classList.add('is-invalid');
+        hasError = true;
+    }
 
     if (hasError) { showToast('Please fill in all required fields.', 'danger'); return; }
 

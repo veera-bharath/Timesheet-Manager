@@ -8,6 +8,8 @@ export const LS_KEY = 'timesheetState_v1';
 export const RECURRING_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 export const DAY_IDX_TO_NAME = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri' };
 export const SEARCH_PAGE_SIZE = 10;
+export const MAX_DAY_MINS = 840;        // 14h hard cap per day
+export const MAX_TARGET_MINS = 840;     // 14h max for daily target setting
 
 export const DEFAULT_LEAVE_TYPES = [
     { id: 'offshore-holiday', label: 'Offshore Holiday', paid: false },

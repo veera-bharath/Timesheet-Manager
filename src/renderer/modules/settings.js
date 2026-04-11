@@ -2,7 +2,7 @@
    SETTINGS — full-screen modal shell, nav routing, dirty state
    ============================================================= */
 
-import { state, APP_VERSION } from './state.js';
+import { state, APP_VERSION, MAX_TARGET_MINS } from './state.js';
 import { saveState } from './store.js';
 import { showToast } from './toast.js';
 import { updateSummary } from './summary.js';
@@ -13,6 +13,7 @@ import { renderTicketTypesSection } from './ticket-types.js';
 import { renderLeaveTypesSection } from './leave-types.js';
 import { renderErrorLogSection } from './error-log.js';
 import { openRestoreFromJson, openRestoreFromTxt } from './restore.js';
+import { parseTimeInput, fmtTimeInput, timeInputError } from './utils.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
@@ -199,8 +200,6 @@ function renderSection(section) {
 
 function renderGeneral(el) {
     const tgt = state.dailyTargetMins || 480;
-    const hhVal = Math.floor(tgt / 60);
-    const mmVal = tgt % 60;
 
     el.innerHTML = `
         <div class="settings-section-header">
@@ -222,15 +221,11 @@ function renderGeneral(el) {
                         value="${escHtml(state.employeeName || '')}" />
                 </div>
                 <div class="settings-form-group">
-                    <label class="label-text">Daily Target</label>
-                    <div class="d-flex align-items-center gap-2">
-                        <input type="number" id="settings-target-hh" class="form-control dark-input text-center"
-                            min="0" max="23" placeholder="08" value="${hhVal}" style="max-width:64px" />
-                        <span class="label-text">hrs</span>
-                        <input type="number" id="settings-target-mm" class="form-control dark-input text-center"
-                            min="0" max="59" placeholder="00" value="${mmVal}" style="max-width:64px" />
-                        <span class="label-text">min</span>
-                    </div>
+                    <label class="label-text" for="settings-target-time">Daily Target</label>
+                    <input type="text" id="settings-target-time" class="form-control dark-input"
+                        placeholder="e.g. 8h, 7:30, 450m"
+                        value="${escHtml(fmtTimeInput(Math.floor(tgt / 60), tgt % 60))}" style="max-width:160px" />
+                    <div class="invalid-feedback" id="settings-target-time-error"></div>
                 </div>
                 <div class="settings-form-actions">
                     <button class="btn btn-gradient px-4" id="btn-save-general">
@@ -244,21 +239,30 @@ function renderGeneral(el) {
     const markGeneralDirty = () => markDirty('general');
     el.querySelector('#settings-report-title').addEventListener('input', markGeneralDirty);
     el.querySelector('#settings-emp-name').addEventListener('input', markGeneralDirty);
-    el.querySelector('#settings-target-hh').addEventListener('input', markGeneralDirty);
-    el.querySelector('#settings-target-mm').addEventListener('input', markGeneralDirty);
+    el.querySelector('#settings-target-time').addEventListener('input', markGeneralDirty);
 
-    // HH auto-advance to MM
-    el.querySelector('#settings-target-hh').addEventListener('input', function () {
-        if (this.value.length >= 2) el.querySelector('#settings-target-mm').focus();
+    // Validate on blur — no rewrite
+    el.querySelector('#settings-target-time').addEventListener('blur', function () {
+        const err = this.value.trim() ? timeInputError(this.value, MAX_TARGET_MINS) : null;
+        this.classList.toggle('is-invalid', !!err);
+        el.querySelector('#settings-target-time-error').textContent = err || '';
     });
 
     // Save
     el.querySelector('#btn-save-general').addEventListener('click', () => {
         const title = el.querySelector('#settings-report-title').value.trim();
         const name  = el.querySelector('#settings-emp-name').value.trim();
-        const hh    = parseInt(el.querySelector('#settings-target-hh').value) || 0;
-        const mm    = parseInt(el.querySelector('#settings-target-mm').value) || 0;
-        const mins  = hh * 60 + mm;
+        const timeEl = el.querySelector('#settings-target-time');
+        const timeParsed = parseTimeInput(timeEl.value);
+        const mins  = timeParsed ? timeParsed.hh * 60 + timeParsed.mm : 0;
+        const timeErr = timeEl.value.trim() ? timeInputError(timeEl.value, MAX_TARGET_MINS) : null;
+
+        if (timeErr) {
+            timeEl.classList.add('is-invalid');
+            el.querySelector('#settings-target-time-error').textContent = timeErr;
+            showToast(timeErr, 'danger');
+            return;
+        }
 
         state.reportTitle    = title;
         state.employeeName   = name;

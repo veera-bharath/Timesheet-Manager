@@ -2,9 +2,10 @@
    ONBOARDING — first-run setup modal
    ============================================================= */
 
-import { state } from './state.js';
+import { state, MAX_TARGET_MINS } from './state.js';
 import { saveState } from './store.js';
 import { updateSheetDetailsDisplay } from './settings.js';
+import { parseTimeInput, fmtTimeInput, timeInputError } from './utils.js';
 
 let _modalInst = null;
 
@@ -15,15 +16,16 @@ export function needsOnboarding() {
 export function initOnboarding() {
     const nameInput  = document.getElementById('onb-name');
     const submitBtn  = document.getElementById('btn-onb-submit');
-    const hhInput    = document.getElementById('onb-target-hh');
-    const mmInput    = document.getElementById('onb-target-mm');
+    const timeInput  = document.getElementById('onb-target-time');
 
     nameInput.addEventListener('input', () => {
         submitBtn.disabled = nameInput.value.trim() === '';
     });
 
-    hhInput.addEventListener('input', function () {
-        if (this.value.length >= 2) mmInput.focus();
+    timeInput.addEventListener('blur', function () {
+        const err = this.value.trim() ? timeInputError(this.value, MAX_TARGET_MINS) : null;
+        this.classList.toggle('is-invalid', !!err);
+        document.getElementById('onb-target-time-error').textContent = err || '';
     });
 
     submitBtn.addEventListener('click', async () => {
@@ -31,8 +33,9 @@ export function initOnboarding() {
         if (!name) return;
 
         const title = document.getElementById('onb-report-title').value.trim();
-        const hh    = parseInt(hhInput.value) || 8;
-        const mm    = parseInt(mmInput.value) || 0;
+        const timeParsed = parseTimeInput(timeInput.value);
+        const hh    = timeParsed ? timeParsed.hh : 8;
+        const mm    = timeParsed ? timeParsed.mm : 0;
         const mins  = hh * 60 + mm;
 
         state.employeeName    = name;
@@ -53,8 +56,7 @@ export function showOnboarding() {
         // Pre-fill defaults
         document.getElementById('onb-report-title').value = state.reportTitle || 'Booked hours in Jira and Service Desk';
         const tgt = state.dailyTargetMins || 480;
-        document.getElementById('onb-target-hh').value = Math.floor(tgt / 60);
-        document.getElementById('onb-target-mm').value = tgt % 60;
+        document.getElementById('onb-target-time').value = fmtTimeInput(Math.floor(tgt / 60), tgt % 60);
         document.getElementById('onb-name').value = '';
         document.getElementById('btn-onb-submit').disabled = true;
 

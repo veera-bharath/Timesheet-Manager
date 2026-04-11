@@ -249,15 +249,11 @@
                 placeholder="e.g. JIRA-123 or #123" />
               <div class="form-text text-muted">Use # prefix for Service Desk tickets</div>
             </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Hours (HH)</label>
-              <input type="number" id="modal-hh" class="form-control dark-input text-center" min="0" max="23"
-                placeholder="00" />
-            </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Minutes (MM)</label>
-              <input type="number" id="modal-mm" class="form-control dark-input text-center" min="0" max="59" step="1"
-                placeholder="00">
+            <div class="col-12 col-md-6 col-lg-4">
+              <label class="form-label label-text">Time</label>
+              <input type="text" id="modal-time" class="form-control dark-input"
+                placeholder="e.g. 2:30, 90m, 1.5h" autocomplete="off" />
+              <div class="invalid-feedback" id="modal-time-error"></div>
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
@@ -357,13 +353,11 @@
               <label class="form-label label-text">Ticket / Reference ID</label>
               <input type="text" id="recurring-ticket" class="form-control dark-input" placeholder="e.g. JIRA-123 or #123" />
             </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Hours (HH)</label>
-              <input type="number" id="recurring-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="00" />
-            </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Minutes (MM)</label>
-              <input type="number" id="recurring-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" />
+            <div class="col-12 col-md-6 col-lg-4">
+              <label class="form-label label-text">Time</label>
+              <input type="text" id="recurring-time" class="form-control dark-input"
+                placeholder="e.g. 2:30, 90m, 1.5h" autocomplete="off" />
+              <div class="invalid-feedback" id="recurring-time-error"></div>
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
@@ -484,13 +478,11 @@
               <label class="form-label label-text">Ticket / Reference ID</label>
               <input type="text" id="scheduled-form-ticket" class="form-control dark-input" placeholder="e.g. JIRA-123 or #123" />
             </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Hours (HH)</label>
-              <input type="number" id="scheduled-form-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="00" />
-            </div>
-            <div class="col-6 col-md-3 col-lg-2">
-              <label class="form-label label-text">Minutes (MM)</label>
-              <input type="number" id="scheduled-form-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" />
+            <div class="col-12 col-md-6 col-lg-4">
+              <label class="form-label label-text">Time</label>
+              <input type="text" id="scheduled-form-time" class="form-control dark-input"
+                placeholder="e.g. 2:30, 90m, 1.5h" autocomplete="off" />
+              <div class="invalid-feedback" id="scheduled-form-time-error"></div>
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
@@ -801,12 +793,9 @@
           <!-- Daily Target -->
           <div class="mb-4">
             <label class="form-label label-text">Daily Target</label>
-            <div class="d-flex align-items-center gap-2">
-              <input type="number" id="onb-target-hh" class="form-control dark-input text-center" min="0" max="23" placeholder="08" style="max-width:64px" />
-              <span class="label-text">hrs</span>
-              <input type="number" id="onb-target-mm" class="form-control dark-input text-center" min="0" max="59" placeholder="00" style="max-width:64px" />
-              <span class="label-text">min</span>
-            </div>
+            <input type="text" id="onb-target-time" class="form-control dark-input"
+              placeholder="e.g. 8h, 7:30, 450m" autocomplete="off" />
+            <div class="invalid-feedback" id="onb-target-time-error"></div>
           </div>
 
           <button class="btn btn-gradient w-100 btn-ripple" id="btn-onb-submit" disabled>
