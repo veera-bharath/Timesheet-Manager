@@ -11,6 +11,10 @@ export function updateSummary() {
     let workingDays = 0;
     let totalEntries = 0;
     let holidayCount = 0;
+    let loggedMins = 0;
+    let loggedCount = 0;
+    let unloggedMins = 0;
+    let unloggedCount = 0;
 
     state.days.forEach(day => {
         if (day.isHoliday) {
@@ -20,6 +24,11 @@ export function updateSummary() {
             if (m > 0) workingDays++;
             totalMins += m;
             totalEntries += (day.entries || []).length;
+            (day.entries || []).forEach(e => {
+                const mins = (parseInt(e.hh) || 0) * 60 + (parseInt(e.mm) || 0);
+                if (e.logged) { loggedMins += mins; loggedCount++; }
+                else          { unloggedMins += mins; unloggedCount++; }
+            });
         }
     });
 
@@ -43,5 +52,16 @@ export function updateSummary() {
             fill.style.width = pct.toFixed(1) + '%';
             fill.classList.toggle('over', isOver);
         }
+    }
+
+    // Logged / unlogged breakdown
+    const fmt = (m) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+    const breakdown = document.getElementById('logged-breakdown');
+    if (breakdown) {
+        breakdown.style.display = totalEntries > 0 ? '' : 'none';
+        document.getElementById('lb-logged-hours').textContent   = fmt(loggedMins);
+        document.getElementById('lb-logged-entries').textContent = `${loggedCount} ${loggedCount === 1 ? 'entry' : 'entries'}`;
+        document.getElementById('lb-unlogged-hours').textContent   = fmt(unloggedMins);
+        document.getElementById('lb-unlogged-entries').textContent = `${unloggedCount} ${unloggedCount === 1 ? 'entry' : 'entries'}`;
     }
 }

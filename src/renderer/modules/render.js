@@ -180,7 +180,7 @@ export function buildEntriesHTML(entries, dayIdx) {
 
             const rowI = rowIndex++;
             return `
-    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}${e.noTicket ? ' entry-no-ticket' : ''}${e.logged ? ' entry-logged' : ''}" style="--i:${rowI}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
+    <div class="entry-row${e.isScheduled ? ' entry-scheduled' : ''}${e.noTicket ? ' entry-no-ticket' : ''}${e.logged ? ' entry-logged' : ''}${e.loggedUpdated ? ' entry-logged-updated' : ''}" style="--i:${rowI}" data-day="${dayIdx}" data-entry="${actualOriginalIndex}" data-group-idx="${gi}" data-item-idx="${itemIdx}" data-group-type="${group.type}">
       <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
       <span class="entry-num entry-num-roman">${rStr}</span>
       ${ticketHtml}
@@ -193,6 +193,7 @@ export function buildEntriesHTML(entries, dayIdx) {
         <button class="entry-btn-logged ${loggedClass}" title="${loggedTitle}"><i class="bi ${loggedIcon}"></i></button>
         <button class="entry-btn-star ${starClass}" title="${e.starred ? 'Unstar' : 'Star'}"><i class="bi ${starIcon}"></i></button>
       </div>
+      ${e.loggedUpdated ? '<span class="entry-updated-label">edited</span>' : ''}
     </div>`;
         }).join('');
 

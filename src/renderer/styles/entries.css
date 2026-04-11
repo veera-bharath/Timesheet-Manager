@@ -414,3 +414,14 @@
   color: var(--warning);
   opacity: 0.85;
 }
+
+.entry-updated-label {
+  position: absolute;
+  bottom: 3px;
+  right: 8px;
+  font-size: 0.62rem;
+  color: #9ca3af;
+  opacity: 0.85;
+  pointer-events: none;
+  line-height: 1;
+}

@@ -427,7 +427,8 @@ function parseTxtReport(text) {
 }
 
 // ── IPC: clipboard ───────────────────────────────────────
-ipcMain.handle('clipboard:read', () => clipboard.readText());
+ipcMain.handle('clipboard:read',  () => clipboard.readText());
+ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(text));
 
 // ── IPC: app control ─────────────────────────────────────
 ipcMain.handle('app-quit', () => { isQuitting = true; app.quit(); });
