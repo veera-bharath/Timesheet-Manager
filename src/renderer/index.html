@@ -71,17 +71,29 @@
       <button id="btn-dismiss-underlogged" title="Dismiss"><i class="bi bi-x-lg"></i></button>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4" id="main-row">
 
       <!-- LEFT COLUMN: Details & Summary -->
-      <div class="col-lg-3 col-xl-3">
+      <div class="col-lg-3 col-xl-3" id="summary-col">
+
+        <!-- Collapsed toggle strip (visible only when panel is hidden) -->
+        <div class="summary-panel-toggle" id="summary-panel-toggle">
+          <button class="summary-toggle-btn" id="btn-expand-summary" title="Show Summary panel">
+            <i class="bi bi-bar-chart-line"></i>
+          </button>
+        </div>
 
         <!-- Week Range & Employee Info -->
-        <div class="card glass-card mb-4 position-sticky" style="top: 85px;">
+        <div class="card glass-card mb-4 position-sticky summary-panel-card" style="top: 85px;">
           <div class="card-body">
 
             <!-- 1. WEEKLY SUMMARY -->
-            <h5 class="section-label mb-3"><i class="bi bi-bar-chart-line me-2"></i>Weekly Summary</h5>
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h5 class="section-label mb-0"><i class="bi bi-bar-chart-line me-2"></i>Weekly Summary</h5>
+              <button class="btn-collapse-panel" id="btn-collapse-summary" title="Hide Summary panel">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
             <div class="d-flex flex-column gap-3 mb-4">
               <div class="total-chip w-100 mt-0 text-center" id="total-hours-chip">
                 <div class="week-progress-fill" id="week-progress-fill"></div>
@@ -166,7 +178,7 @@
       </div> <!-- /LEFT COLUMN -->
 
       <!-- RIGHT COLUMN: Days Grid -->
-      <div class="col-lg-9 col-xl-9">
+      <div class="col-lg-9 col-xl-9" id="main-col">
         <div id="days-container"></div>
       </div> <!-- /RIGHT COLUMN -->
 
