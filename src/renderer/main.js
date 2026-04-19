@@ -14,7 +14,7 @@ import { initRecurring } from './modules/recurring.js';
 import { initEntryModal } from './modules/entry-modal.js';
 import { initCopyTo } from './modules/copy-to.js';
 import { initReport } from './modules/report.js';
-import { bindHeaderEvents } from './modules/header.js';
+import { bindHeaderEvents, openWeekSwitcherModal } from './modules/header.js';
 import { initSettings, updateSheetDetailsDisplay, loadChangelog } from './modules/settings.js';
 import { loadErrorLog } from './modules/error-log.js';
 import { renderAll } from './modules/render.js';
@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     updateSummary();
+    document.getElementById('panel-week-label')?.addEventListener('click', openWeekSwitcherModal);
     initKeyboard();
     updateNoTicketBanner();
     updateUnderloggedBanner();
