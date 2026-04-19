@@ -4,12 +4,15 @@
 
 import { state, WEEK_DAYS } from './state.js';
 import { fmtDate } from './utils.js';
+import { pushNotification } from './notifications.js';
 
 let _dismissed = false;
 
 export function initUnderloggedBanner() {
     document.getElementById('btn-dismiss-underlogged')
         .addEventListener('click', () => {
+            const msg = document.getElementById('underlogged-banner-msg').textContent;
+            pushNotification('underlogged', msg);
             document.getElementById('underlogged-banner').style.display = 'none';
             _dismissed = true;
         });
