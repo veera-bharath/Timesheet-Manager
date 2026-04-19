@@ -11,6 +11,28 @@ import { openPreview, openDayQuickView, doPrint } from './report.js';
 import { openSettings, addChangelogEntry } from './settings.js';
 import { logError } from './error-log.js';
 
+/* ── SUMMARY PANEL COLLAPSE ─────────────────────────────── */
+export function initSummaryPanel() {
+    const mainRow = document.getElementById('main-row');
+    const btnCollapse = document.getElementById('btn-collapse-summary');
+    const btnExpand = document.getElementById('btn-expand-summary');
+    const STORAGE_KEY = 'summaryPanelCollapsed';
+
+    if (localStorage.getItem(STORAGE_KEY) === '1') {
+        mainRow.classList.add('summary-collapsed');
+    }
+
+    btnCollapse?.addEventListener('click', () => {
+        mainRow.classList.add('summary-collapsed');
+        localStorage.setItem(STORAGE_KEY, '1');
+    });
+
+    btnExpand?.addEventListener('click', () => {
+        mainRow.classList.remove('summary-collapsed');
+        localStorage.setItem(STORAGE_KEY, '0');
+    });
+}
+
 /* ── SIDEBAR & ABOUT ────────────────────────────────────── */
 export function initSidebar() {
     const sidebarEl = document.getElementById('appSidebar');

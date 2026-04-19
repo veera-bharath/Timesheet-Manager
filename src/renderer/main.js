@@ -6,7 +6,7 @@ import { APP_VERSION } from './modules/state.js';
 import { loadState } from './modules/store.js';
 import { initTheme } from './modules/theme.js';
 import { initRipple } from './modules/ripple.js';
-import { initSidebar, initUpdater, initKeyboard } from './modules/sidebar.js';
+import { initSidebar, initUpdater, initKeyboard, initSummaryPanel } from './modules/sidebar.js';
 import { initContextMenu } from './modules/context-menu.js';
 import { initSearch } from './modules/search.js';
 import { initScheduledTasks } from './modules/scheduled.js';
@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initNoTicketBanner();
     initUnderloggedBanner();
     initSidebar();
+    initSummaryPanel();
     initStats();
     initUpdater();
     initContextMenu();
