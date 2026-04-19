@@ -40,3 +40,45 @@
   color: var(--text-muted);
   margin: 0;
 }
+
+.header-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.header-side--right {
+  justify-content: flex-end;
+}
+
+.header-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+}
+
+.header-user-chip i {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+#header-emp-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-user-chip:empty,
+.header-user-chip:has(#header-emp-name:empty) {
+  display: none;
+}

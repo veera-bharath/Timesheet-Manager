@@ -9,6 +9,7 @@ import { changeWeekBy, setCurrentWeek } from './week.js';
 import { updateSummary } from './summary.js';
 import { openPreview, openDayQuickView, doPrint } from './report.js';
 import { openSettings, addChangelogEntry } from './settings.js';
+import { openWeekSwitcherModal } from './header.js';
 import { logError } from './error-log.js';
 
 /* ── SUMMARY PANEL COLLAPSE ─────────────────────────────── */
@@ -30,6 +31,16 @@ export function initSummaryPanel() {
     btnExpand?.addEventListener('click', () => {
         mainRow.classList.remove('summary-collapsed');
         localStorage.setItem(STORAGE_KEY, '0');
+    });
+
+    document.getElementById('btn-collapsed-preview')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openPreview();
+    });
+
+    document.getElementById('btn-collapsed-print')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        doPrint();
     });
 }
 
@@ -212,6 +223,12 @@ export function initKeyboard() {
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
         const modalOpen = document.querySelector('.modal.show');
+
+        if (e.ctrlKey && (e.key === 'g' || e.key === 'G')) {
+            e.preventDefault();
+            openWeekSwitcherModal();
+            return;
+        }
 
         if (modalOpen) {
             if (e.key === 'Enter' && modalOpen.id === 'entryModal') {

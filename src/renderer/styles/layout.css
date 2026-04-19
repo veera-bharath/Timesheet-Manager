@@ -107,9 +107,33 @@
 
 [data-theme="light"] .lb-hours { color: #1a1a2e; }
 
+/* ── PANEL WEEK LABEL ── */
+
+.panel-week-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  margin-bottom: 14px;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  transition: color 0.2s ease;
+}
+
+.panel-week-label:hover {
+  color: var(--text-secondary);
+}
+
 /* ── SUMMARY PANEL COLLAPSE ── */
 
 #summary-col {
+  align-self: flex-start;
   overflow: hidden;
   transition: flex-basis 0.32s cubic-bezier(0.4, 0, 0.2, 1),
               max-width  0.32s cubic-bezier(0.4, 0, 0.2, 1),
@@ -122,7 +146,9 @@
 
 .summary-panel-toggle {
   display: none;
-  justify-content: flex-start;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   opacity: 0;
   transition: opacity 0.2s ease 0.18s;
 }
