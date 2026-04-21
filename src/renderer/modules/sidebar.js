@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { showToast } from './toast.js';
 import { escHtml } from './utils.js';
-import { renderStarredList } from './star.js';
+import { renderStarredList, markDayAllLogged } from './star.js';
 import { saveEntry, openEntryModal, readClipboardTicket } from './entry-modal.js';
 import { toggleDay, renderAll, openDayNotesModal } from './render.js';
 import { openStatsModal } from './stats.js';
@@ -41,6 +41,15 @@ export function initSummaryPanel() {
     document.getElementById('btn-collapsed-print')?.addEventListener('click', (e) => {
         e.stopPropagation();
         doPrint();
+    });
+
+    document.getElementById('btn-panel-week-switch')?.addEventListener('click', () => {
+        openWeekSwitcherModal();
+    });
+
+    document.getElementById('btn-collapsed-week-switch')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openWeekSwitcherModal();
     });
 }
 
@@ -224,6 +233,14 @@ export function initKeyboard() {
 
         const modalOpen = document.querySelector('.modal.show');
 
+        if (e.ctrlKey && (e.key === 'n' || e.key === 'N')) {
+            e.preventDefault();
+            if (modalOpen) return;
+            const expandedIdx = state.days.findIndex(d => d.expanded);
+            if (expandedIdx !== -1) openEntryModal(expandedIdx, -1);
+            return;
+        }
+
         if (e.ctrlKey && (e.key === 'g' || e.key === 'G')) {
             e.preventDefault();
             openWeekSwitcherModal();
@@ -265,10 +282,6 @@ export function initKeyboard() {
                 updateSummary();
                 break;
 
-            case 'n':
-            case 'N':
-                if (!e.altKey && expandedIdx !== -1) openEntryModal(expandedIdx, -1);
-                break;
 
             case 't':
             case 'T':
@@ -333,6 +346,14 @@ export function initKeyboard() {
                     if (result.typeId && typeEl) typeEl.value = result.typeId;
                 }, { once: true });
             });
+        }
+
+        if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
+            e.preventDefault();
+            if (modalOpen) return;
+            const expandedIdx = state.days.findIndex(d => d.expanded);
+            if (expandedIdx === -1) return;
+            markDayAllLogged(expandedIdx);
         }
     });
 }

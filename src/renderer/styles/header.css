@@ -82,3 +82,12 @@
 .header-user-chip:has(#header-emp-name:empty) {
   display: none;
 }
+
+#btn-menu-toggle {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
