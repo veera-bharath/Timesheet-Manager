@@ -72,18 +72,6 @@ export function openEntryModal(dayIdx, entryIdx) {
         makeRegularBtn.style.display = 'none';
         title.innerHTML = `<i class="bi bi-plus-circle me-2"></i>Add Entry — ${WEEK_DAYS[dayIdx]}`;
 
-        // Auto-fill ticket from clipboard
-        readClipboardTicket().then(result => {
-            if (!result) return;
-            const ticketEl = document.getElementById('modal-ticket');
-            const typeEl   = document.getElementById('modal-type');
-            if (ticketEl && !ticketEl.value) {
-                ticketEl.value = result.ticket;
-            }
-            if (result.typeId && typeEl) {
-                typeEl.value = result.typeId;
-            }
-        });
     } else {
         const e = state.days[dayIdx].entries[entryIdx];
         const noTicketToggle = document.getElementById('modal-no-ticket');

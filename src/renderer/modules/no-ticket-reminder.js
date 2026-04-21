@@ -3,12 +3,15 @@
    ============================================================= */
 
 import { state } from './state.js';
+import { pushNotification } from './notifications.js';
 
 let _dismissed = false;
 
 export function initNoTicketBanner() {
     document.getElementById('btn-dismiss-no-ticket')
         .addEventListener('click', () => {
+            const msg = document.getElementById('no-ticket-banner-msg').textContent;
+            pushNotification('no-ticket', msg);
             document.getElementById('no-ticket-banner').style.display = 'none';
             _dismissed = true;
         });

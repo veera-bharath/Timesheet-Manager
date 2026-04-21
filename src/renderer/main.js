@@ -6,7 +6,7 @@ import { APP_VERSION } from './modules/state.js';
 import { loadState } from './modules/store.js';
 import { initTheme } from './modules/theme.js';
 import { initRipple } from './modules/ripple.js';
-import { initSidebar, initUpdater, initKeyboard } from './modules/sidebar.js';
+import { initSidebar, initUpdater, initKeyboard, initSummaryPanel } from './modules/sidebar.js';
 import { initContextMenu } from './modules/context-menu.js';
 import { initSearch } from './modules/search.js';
 import { initScheduledTasks } from './modules/scheduled.js';
@@ -14,7 +14,7 @@ import { initRecurring } from './modules/recurring.js';
 import { initEntryModal } from './modules/entry-modal.js';
 import { initCopyTo } from './modules/copy-to.js';
 import { initReport } from './modules/report.js';
-import { bindHeaderEvents } from './modules/header.js';
+import { bindHeaderEvents, openWeekSwitcherModal } from './modules/header.js';
 import { initSettings, updateSheetDetailsDisplay, loadChangelog } from './modules/settings.js';
 import { loadErrorLog } from './modules/error-log.js';
 import { renderAll } from './modules/render.js';
@@ -24,6 +24,7 @@ import { updateSummary } from './modules/summary.js';
 import { initOnboarding, needsOnboarding, showOnboarding } from './modules/onboarding.js';
 import { initNoTicketBanner, updateNoTicketBanner } from './modules/no-ticket-reminder.js';
 import { initUnderloggedBanner, updateUnderloggedBanner } from './modules/underlogged-reminder.js';
+import { initNotifications } from './modules/notifications.js';
 import { initStats } from './modules/stats.js';
 import { setCurrentWeek } from './modules/week.js';
 
@@ -33,9 +34,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     initRipple();
     initSettings();
     initOnboarding();
+    initNotifications();
     initNoTicketBanner();
     initUnderloggedBanner();
     initSidebar();
+    initSummaryPanel();
     initStats();
     initUpdater();
     initContextMenu();
@@ -78,6 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     updateSummary();
+    document.getElementById('panel-week-label')?.addEventListener('click', openWeekSwitcherModal);
     initKeyboard();
     updateNoTicketBanner();
     updateUnderloggedBanner();

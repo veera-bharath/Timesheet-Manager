@@ -72,6 +72,10 @@ export function updateWeekDisplay() {
 
     const display = `${fmtDisplayDate(fmtDate(mon))} to ${fmtDisplayDate(fmtDate(fri))}`;
     document.getElementById('week-display-label').textContent = display;
+
+    const [year, weekNum] = state.weekValue.split('-W');
+    const panelText = document.getElementById('panel-week-text');
+    if (panelText) panelText.textContent = `Week ${parseInt(weekNum)}, ${year}`;
 }
 
 export function enforceExpandedState() {

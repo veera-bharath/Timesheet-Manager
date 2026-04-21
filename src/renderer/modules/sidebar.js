@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { showToast } from './toast.js';
 import { escHtml } from './utils.js';
-import { renderStarredList } from './star.js';
+import { renderStarredList, markDayAllLogged } from './star.js';
 import { saveEntry, openEntryModal, readClipboardTicket } from './entry-modal.js';
 import { toggleDay, renderAll, openDayNotesModal } from './render.js';
 import { openStatsModal } from './stats.js';
@@ -9,7 +9,49 @@ import { changeWeekBy, setCurrentWeek } from './week.js';
 import { updateSummary } from './summary.js';
 import { openPreview, openDayQuickView, doPrint } from './report.js';
 import { openSettings, addChangelogEntry } from './settings.js';
+import { openWeekSwitcherModal } from './header.js';
 import { logError } from './error-log.js';
+
+/* ── SUMMARY PANEL COLLAPSE ─────────────────────────────── */
+export function initSummaryPanel() {
+    const mainRow = document.getElementById('main-row');
+    const btnCollapse = document.getElementById('btn-collapse-summary');
+    const btnExpand = document.getElementById('btn-expand-summary');
+    const STORAGE_KEY = 'summaryPanelCollapsed';
+
+    if (localStorage.getItem(STORAGE_KEY) === '1') {
+        mainRow.classList.add('summary-collapsed');
+    }
+
+    btnCollapse?.addEventListener('click', () => {
+        mainRow.classList.add('summary-collapsed');
+        localStorage.setItem(STORAGE_KEY, '1');
+    });
+
+    btnExpand?.addEventListener('click', () => {
+        mainRow.classList.remove('summary-collapsed');
+        localStorage.setItem(STORAGE_KEY, '0');
+    });
+
+    document.getElementById('btn-collapsed-preview')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openPreview();
+    });
+
+    document.getElementById('btn-collapsed-print')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        doPrint();
+    });
+
+    document.getElementById('btn-panel-week-switch')?.addEventListener('click', () => {
+        openWeekSwitcherModal();
+    });
+
+    document.getElementById('btn-collapsed-week-switch')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openWeekSwitcherModal();
+    });
+}
 
 /* ── SIDEBAR & ABOUT ────────────────────────────────────── */
 export function initSidebar() {
@@ -191,6 +233,20 @@ export function initKeyboard() {
 
         const modalOpen = document.querySelector('.modal.show');
 
+        if (e.ctrlKey && (e.key === 'n' || e.key === 'N')) {
+            e.preventDefault();
+            if (modalOpen) return;
+            const expandedIdx = state.days.findIndex(d => d.expanded);
+            if (expandedIdx !== -1) openEntryModal(expandedIdx, -1);
+            return;
+        }
+
+        if (e.ctrlKey && (e.key === 'g' || e.key === 'G')) {
+            e.preventDefault();
+            openWeekSwitcherModal();
+            return;
+        }
+
         if (modalOpen) {
             if (e.key === 'Enter' && modalOpen.id === 'entryModal') {
                 e.preventDefault();
@@ -226,10 +282,6 @@ export function initKeyboard() {
                 updateSummary();
                 break;
 
-            case 'n':
-            case 'N':
-                if (!e.altKey && expandedIdx !== -1) openEntryModal(expandedIdx, -1);
-                break;
 
             case 't':
             case 'T':
@@ -294,6 +346,14 @@ export function initKeyboard() {
                     if (result.typeId && typeEl) typeEl.value = result.typeId;
                 }, { once: true });
             });
+        }
+
+        if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
+            e.preventDefault();
+            if (modalOpen) return;
+            const expandedIdx = state.days.findIndex(d => d.expanded);
+            if (expandedIdx === -1) return;
+            markDayAllLogged(expandedIdx);
         }
     });
 }

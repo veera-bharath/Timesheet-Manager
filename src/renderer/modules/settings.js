@@ -285,6 +285,12 @@ export function updateSheetDetailsDisplay() {
 
     if (titleEl)  titleEl.textContent  = state.reportTitle  || '—';
     if (nameEl)   nameEl.textContent   = state.employeeName || '—';
+
+    const headerEmp = document.getElementById('header-emp-name');
+    const headerChip = document.getElementById('header-user-chip');
+    if (headerEmp) headerEmp.textContent = state.employeeName || '';
+    if (headerChip) headerChip.style.display = state.employeeName ? '' : 'none';
+
     if (targetEl) {
         const hh = Math.floor(state.dailyTargetMins / 60);
         const mm = state.dailyTargetMins % 60;
