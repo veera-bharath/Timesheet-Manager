@@ -206,10 +206,10 @@ async function callGemini(settings, prompt, context) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
 }
 
-async function dispatchAI(prompt, context) {
+async function dispatchAI(prompt, context, settingsOverride) {
   try {
     const saved    = store.get(AI_SETTINGS_KEY) || {};
-    const settings = { ...DEFAULT_AI_SETTINGS, ...saved };
+    const settings = settingsOverride ?? { ...DEFAULT_AI_SETTINGS, ...saved };
     if (!settings.enabled) return null;
 
     if (settings.provider === 'local') return await callOllama(settings, prompt, context);
@@ -559,6 +559,25 @@ ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(text));
 
 // ── IPC: AI ──────────────────────────────────────────────
 ipcMain.handle('ai:ask', async (_, prompt, context) => dispatchAI(prompt, context));
+
+ipcMain.handle('ai:ask-with-model', async (_, prompt, context, preferredModel) => {
+  const saved    = store.get(AI_SETTINGS_KEY) || {};
+  const settings = { ...DEFAULT_AI_SETTINGS, ...saved };
+  if (!settings.enabled) return null;
+
+  // Only attempt preferred model on local (Ollama) provider
+  if (preferredModel && settings.provider === 'local') {
+    try {
+      const tagsData = await httpRequest(settings.ollamaUrl + '/api/tags', { method: 'GET' }, null);
+      const available = (tagsData?.models || []).map(m => m.name);
+      if (available.includes(preferredModel)) {
+        return dispatchAI(prompt, context, { ...settings, ollamaModel: preferredModel });
+      }
+    } catch (_) { /* preferred model unavailable — fall through to default */ }
+  }
+
+  return dispatchAI(prompt, context, settings);
+});
 
 ipcMain.handle('ai:get-settings', () => {
   const saved    = store.get(AI_SETTINGS_KEY) || {};

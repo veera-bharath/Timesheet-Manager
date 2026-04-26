@@ -316,10 +316,11 @@
                 <label class="form-check-label" for="modal-logged" style="font-size:0.82rem;color:var(--text-secondary);cursor:pointer"><i class="bi bi-journal-check me-1"></i>Already logged to timesheet</label>
               </div>
             </div>
-            <div id="modal-ticket-wrap" class="col-12 col-lg-5">
+            <div id="modal-ticket-wrap" class="col-12 col-lg-5" style="position:relative">
               <label class="form-label label-text">Ticket / Reference ID</label>
               <input type="text" id="modal-ticket" class="form-control dark-input"
-                placeholder="e.g. JIRA-123 or #123" />
+                placeholder="e.g. JIRA-123 or #123" autocomplete="off" />
+              <div id="ticket-suggestions" class="suggestion-dropdown"></div>
               <div class="form-text text-muted">Use # prefix for Service Desk tickets</div>
             </div>
             <div class="col-12 col-md-6 col-lg-4">
@@ -327,6 +328,7 @@
               <input type="text" id="modal-time" class="form-control dark-input"
                 placeholder="e.g. 2:30, 90m, 1.5h" autocomplete="off" />
               <div class="invalid-feedback" id="modal-time-error"></div>
+              <div id="time-hint" class="time-hint-text"></div>
             </div>
             <div class="col-12 col-md-6 col-lg-3">
               <label class="form-label label-text">Type</label>
@@ -336,6 +338,13 @@
               <label class="form-label label-text">Description</label>
               <textarea id="modal-desc" class="form-control dark-input" rows="3"
                 placeholder="Brief description of work done..."></textarea>
+              <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                <div id="desc-suggestions" class="desc-suggestions" style="flex:1"></div>
+                <button type="button" id="btn-improve-desc" class="btn btn-outline-light btn-sm flex-shrink-0"
+                  style="display:none;font-size:0.78rem">
+                  <i class="bi bi-stars me-1"></i>Improve
+                </button>
+              </div>
             </div>
           </div>
         </div>

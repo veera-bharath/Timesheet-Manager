@@ -38,6 +38,15 @@ export async function ask(prompt, context) {
     }
 }
 
+export async function askWithModel(prompt, context, model) {
+    if (!isEnabled()) return null;
+    try {
+        return await window.ai.askWithModel(prompt, context ?? null, model || null);
+    } catch (e) {
+        return null;
+    }
+}
+
 export async function getMemory() {
     try {
         return await window.ai.getMemory();
