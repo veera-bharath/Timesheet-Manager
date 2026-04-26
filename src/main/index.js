@@ -1,6 +1,8 @@
 const { app, BrowserWindow, Menu, shell, ipcMain, screen, Tray, nativeImage, Notification, dialog, clipboard } = require('electron');
 const path = require('path');
 const fs   = require('fs');
+const http  = require('http');
+const https = require('https');
 const Store = require('electron-store');
 const { autoUpdater } = require('electron-updater');
 
@@ -9,6 +11,27 @@ const WINDOW_BOUNDS_KEY   = 'windowBounds';
 const LS_KEY              = 'timesheetState_v1';
 const NOTIFICATION_KEY    = 'notificationSettings';
 const BACKUP_SETTINGS_KEY = 'backupSettings';
+const AI_SETTINGS_KEY     = 'aiSettings';
+const AI_MEMORY_KEY       = 'aiMemory';
+
+const DEFAULT_AI_SETTINGS = {
+  enabled:       false,
+  provider:      'local',
+  ollamaUrl:     'http://localhost:11434',
+  ollamaModel:   'llama3',
+  cloudProvider: 'claude',
+  claudeApiKey:  '',
+  openaiApiKey:  '',
+  geminiApiKey:  '',
+  features: {
+    suggestions:      true,
+    chat:             true,
+    anomalyDetection: true,
+    weeklySummary:    true,
+    recurringAdvisor: true,
+    reportEnhancement: true,
+  },
+};
 
 // ── BACKUP HELPERS ───────────────────────────────────────
 function getDefaultBackupFolder() {
@@ -94,6 +117,103 @@ function checkAutoBackup() {
     pruneOldBackups();
   } catch (e) {
     console.warn('[backup] Auto-backup failed:', e.message);
+  }
+}
+
+// ── AI HELPERS ───────────────────────────────────────────
+function httpRequest(url, options, body) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib    = parsed.protocol === 'https:' ? https : http;
+    const req    = lib.request(url, options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error('AI response parse error')); }
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function callOllama(settings, prompt, context) {
+  const url  = (settings.ollamaUrl || 'http://localhost:11434') + '/api/generate';
+  const body = JSON.stringify({
+    model:  settings.ollamaModel || 'llama3',
+    prompt: context ? `${context}\n\n${prompt}` : prompt,
+    stream: false,
+  });
+  const data = await httpRequest(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+  }, body);
+  return data.response || null;
+}
+
+async function callClaude(settings, prompt, context) {
+  const body = JSON.stringify({
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    messages:   [{ role: 'user', content: context ? `${context}\n\n${prompt}` : prompt }],
+  });
+  const data = await httpRequest('https://api.anthropic.com/v1/messages', {
+    method:  'POST',
+    headers: {
+      'Content-Type':      'application/json',
+      'Content-Length':    Buffer.byteLength(body),
+      'x-api-key':         settings.claudeApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+  }, body);
+  return data.content?.[0]?.text || null;
+}
+
+async function callOpenAI(settings, prompt, context) {
+  const body = JSON.stringify({
+    model:    'gpt-4o-mini',
+    messages: [{ role: 'user', content: context ? `${context}\n\n${prompt}` : prompt }],
+  });
+  const data = await httpRequest('https://api.openai.com/v1/chat/completions', {
+    method:  'POST',
+    headers: {
+      'Content-Type':   'application/json',
+      'Content-Length': Buffer.byteLength(body),
+      'Authorization':  `Bearer ${settings.openaiApiKey}`,
+    },
+  }, body);
+  return data.choices?.[0]?.message?.content || null;
+}
+
+async function callGemini(settings, prompt, context) {
+  const url  = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${settings.geminiApiKey}`;
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: context ? `${context}\n\n${prompt}` : prompt }] }],
+  });
+  const data = await httpRequest(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+  }, body);
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+async function dispatchAI(prompt, context) {
+  try {
+    const saved    = store.get(AI_SETTINGS_KEY) || {};
+    const settings = { ...DEFAULT_AI_SETTINGS, ...saved };
+    if (!settings.enabled) return null;
+
+    if (settings.provider === 'local') return await callOllama(settings, prompt, context);
+    const cloud = settings.cloudProvider || 'claude';
+    if (cloud === 'claude')  return await callClaude(settings, prompt, context);
+    if (cloud === 'openai')  return await callOpenAI(settings, prompt, context);
+    if (cloud === 'gemini')  return await callGemini(settings, prompt, context);
+    return null;
+  } catch (e) {
+    console.warn('[ai] dispatch error:', e.message);
+    return null;
   }
 }
 
@@ -429,6 +549,38 @@ function parseTxtReport(text) {
 // ── IPC: clipboard ───────────────────────────────────────
 ipcMain.handle('clipboard:read',  () => clipboard.readText());
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(text));
+
+// ── IPC: AI ──────────────────────────────────────────────
+ipcMain.handle('ai:ask', async (_, prompt, context) => dispatchAI(prompt, context));
+
+ipcMain.handle('ai:get-settings', () => {
+  const saved    = store.get(AI_SETTINGS_KEY) || {};
+  const merged   = { ...DEFAULT_AI_SETTINGS, ...saved };
+  // Deep-merge features sub-object
+  merged.features = { ...DEFAULT_AI_SETTINGS.features, ...(saved.features || {}) };
+  // Strip API keys — never send to renderer
+  return { ...merged, claudeApiKey: '', openaiApiKey: '', geminiApiKey: '' };
+});
+
+ipcMain.handle('ai:set-settings', (_, patch) => {
+  const cur = store.get(AI_SETTINGS_KEY) || {};
+  const next = { ...DEFAULT_AI_SETTINGS, ...cur, ...patch };
+  // Deep-merge features
+  if (patch.features) next.features = { ...DEFAULT_AI_SETTINGS.features, ...(cur.features || {}), ...patch.features };
+  // Only update key fields when patch provides a non-empty value
+  if (!patch.claudeApiKey)  next.claudeApiKey  = cur.claudeApiKey  || '';
+  if (!patch.openaiApiKey)  next.openaiApiKey  = cur.openaiApiKey  || '';
+  if (!patch.geminiApiKey)  next.geminiApiKey  = cur.geminiApiKey  || '';
+  store.set(AI_SETTINGS_KEY, next);
+});
+
+ipcMain.handle('ai:get-memory',    ()         => store.get(AI_MEMORY_KEY) || []);
+ipcMain.handle('ai:update-memory', (_, entry) => {
+  const mem = store.get(AI_MEMORY_KEY) || [];
+  mem.push(entry);
+  store.set(AI_MEMORY_KEY, mem);
+});
+ipcMain.handle('ai:clear-memory',  ()         => store.delete(AI_MEMORY_KEY));
 
 // ── IPC: app control ─────────────────────────────────────
 ipcMain.handle('app-quit', () => { isQuitting = true; app.quit(); });
