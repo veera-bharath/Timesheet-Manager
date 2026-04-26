@@ -288,6 +288,19 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          <div id="modal-nl-bar" class="mb-3" style="display:none">
+            <label class="form-label label-text" style="font-size:0.82rem">
+              <i class="bi bi-stars me-1"></i>Natural language
+            </label>
+            <div class="d-flex gap-2">
+              <input type="text" id="modal-nl-input" class="form-control dark-input"
+                placeholder="e.g. 2h on TM-99 code review…" autocomplete="off" />
+              <button type="button" class="btn btn-outline-light btn-sm flex-shrink-0" id="btn-nl-parse"
+                style="white-space:nowrap">
+                <i class="bi bi-magic me-1"></i>Parse
+              </button>
+            </div>
+          </div>
           <input type="hidden" id="modal-day-index" />
           <input type="hidden" id="modal-entry-index" />
           <input type="hidden" id="modal-group-id" />
