@@ -28,6 +28,15 @@ contextBridge.exposeInMainWorld('backup', {
     chooseFolder: () => ipcRenderer.invoke('backup:choose-folder'),
 });
 
+contextBridge.exposeInMainWorld('ai', {
+    ask:          (prompt, context) => ipcRenderer.invoke('ai:ask', prompt, context),
+    getSettings:  ()               => ipcRenderer.invoke('ai:get-settings'),
+    setSettings:  (patch)          => ipcRenderer.invoke('ai:set-settings', patch),
+    getMemory:    ()               => ipcRenderer.invoke('ai:get-memory'),
+    updateMemory: (entry)          => ipcRenderer.invoke('ai:update-memory', entry),
+    clearMemory:  ()               => ipcRenderer.invoke('ai:clear-memory'),
+});
+
 contextBridge.exposeInMainWorld('updater', {
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),
