@@ -87,3 +87,31 @@
   font-weight: 500;
   padding: 1px 6px;
 }
+
+/* ── Smart suggestions ── */
+.suggestion-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 1060;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; max-height: 180px; overflow-y: auto; display: none;
+  margin-top: 2px;
+}
+.suggestion-dropdown.open { display: block; }
+.suggestion-item {
+  padding: 7px 12px; cursor: pointer; font-size: 0.83rem;
+  color: var(--text-primary);
+}
+.suggestion-item:hover, .suggestion-item.active { background: var(--bg-card-hover); }
+
+.desc-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.suggestion-chip {
+  display: inline-flex; align-items: center; padding: 3px 10px;
+  border-radius: 20px; font-size: 0.78rem; background: var(--bg-input);
+  border: 1px solid var(--border); color: var(--text-secondary);
+  cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap;
+}
+.suggestion-chip:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+.time-hint-text {
+  font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px; display: none;
+}
+.time-hint-text.show { display: block; }

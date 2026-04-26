@@ -8,7 +8,7 @@ import { parseTimeInput, fmtTimeInput, timeInputError } from './utils.js';
 import { rerenderDayCard, renderAll } from './render.js';
 import { updateNoTicketBanner } from './no-ticket-reminder.js';
 import { updateUnderloggedBanner } from './underlogged-reminder.js';
-import { isFeatureEnabled, ask } from './ai.js';
+import { isFeatureEnabled, ask, askWithModel, getProvider } from './ai.js';
 
 let entryModal;
 export let lastDeleted = null;
@@ -151,6 +151,171 @@ function applyParsedEntry(parsed) {
     updateEntryDayTotal();
 }
 
+/* ── SMART SUGGESTIONS ──────────────────────────────────── */
+
+let _history = {};   // rebuilt each time the modal opens
+
+function buildEntryHistory() {
+    const byTicket = {};
+    for (const day of Object.values(state.allDaysByDate || {})) {
+        for (const entry of (day.entries || [])) {
+            const t = (entry.ticket || '').trim().toUpperCase();
+            if (!t) continue;
+            if (!byTicket[t]) byTicket[t] = { count: 0, lastDate: '', descs: {}, totalMins: 0, timeSamples: 0 };
+            const r = byTicket[t];
+            r.count++;
+            if ((day.date || '') > r.lastDate) r.lastDate = day.date || '';
+            const d = (entry.desc || '').trim();
+            if (d) {
+                r.descs[d] = (r.descs[d] || 0) + 1;
+                const mins = (parseInt(entry.hh) || 0) * 60 + (parseInt(entry.mm) || 0);
+                if (mins > 0) { r.totalMins += mins; r.timeSamples++; }
+            }
+        }
+    }
+    return byTicket;
+}
+
+function refreshDescSuggestions(ticket) {
+    const container = document.getElementById('desc-suggestions');
+    container.innerHTML = '';
+    const rec = _history[(ticket || '').toUpperCase()];
+    if (!rec) return;
+    const top3 = Object.entries(rec.descs)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([d]) => d);
+    for (const d of top3) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'suggestion-chip';
+        chip.textContent = d;
+        chip.addEventListener('click', () => {
+            document.getElementById('modal-desc').value = d;
+            container.innerHTML = '';
+        });
+        container.appendChild(chip);
+    }
+}
+
+function refreshTimeHint(ticket) {
+    const hint = document.getElementById('time-hint');
+    const rec = _history[(ticket || '').toUpperCase()];
+    if (rec && rec.timeSamples >= 1) {
+        const avgMins = Math.round(rec.totalMins / rec.timeSamples);
+        const hh = Math.floor(avgMins / 60);
+        const mm = avgMins % 60;
+        hint.textContent = `avg ${fmtTimeInput(hh, mm)} for this ticket`;
+        hint.classList.add('show');
+    } else {
+        hint.classList.remove('show');
+    }
+}
+
+function stripAiPreamble(text) {
+    // Remove common local-model preamble lines ("Sure, here is...", "Here is...", etc.)
+    const lines = text.trim().split('\n');
+    const preambleRe = /^(sure[,.]|here is|here's|certainly|of course|below is|the improved|improved version)/i;
+    const cleaned = lines.filter(l => !preambleRe.test(l.trim()) && l.trim() !== '');
+    return cleaned.join(' ').trim();
+}
+
+function initTicketAutocomplete() {
+    const input = document.getElementById('modal-ticket');
+    const dropdown = document.getElementById('ticket-suggestions');
+    let debounceTimer = null;
+    let activeIdx = -1;
+
+    function getItems() { return dropdown.querySelectorAll('.suggestion-item'); }
+
+    function setActive(idx) {
+        const items = getItems();
+        items.forEach((el, i) => el.classList.toggle('active', i === idx));
+        activeIdx = idx;
+    }
+
+    function closeDropdown() {
+        dropdown.classList.remove('open');
+        dropdown.innerHTML = '';
+        activeIdx = -1;
+    }
+
+    function acceptItem(value) {
+        input.value = value;
+        closeDropdown();
+        refreshDescSuggestions(value);
+        refreshTimeHint(value);
+    }
+
+    function renderDropdown(query) {
+        const q = query.toUpperCase();
+        if (!q) { closeDropdown(); return; }
+
+        const today = new Date().toISOString().slice(0, 10);
+        const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+        const matches = Object.entries(_history)
+            .filter(([t]) => t.startsWith(q))
+            .map(([t, r]) => {
+                const recency = r.lastDate >= today.slice(0, 7) ? 2 : r.lastDate >= oneMonthAgo ? 1 : 0;
+                return { ticket: t, score: r.count + recency * 5 };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 8);
+
+        if (!matches.length) { closeDropdown(); return; }
+
+        dropdown.innerHTML = '';
+        for (const { ticket } of matches) {
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            item.textContent = ticket;
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();   // prevent input blur before click fires
+                acceptItem(ticket);
+            });
+            dropdown.appendChild(item);
+        }
+        dropdown.classList.add('open');
+        activeIdx = -1;
+    }
+
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => renderDropdown(input.value.trim()), 300);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        const items = getItems();
+        if (!dropdown.classList.contains('open')) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActive(Math.min(activeIdx + 1, items.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActive(Math.max(activeIdx - 1, 0));
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            if (activeIdx >= 0 && items[activeIdx]) {
+                e.preventDefault();
+                acceptItem(items[activeIdx].textContent);
+            } else {
+                closeDropdown();
+            }
+        } else if (e.key === 'Escape') {
+            closeDropdown();
+        }
+    });
+
+    input.addEventListener('blur', () => {
+        // Small delay so mousedown on a suggestion item fires first
+        setTimeout(() => {
+            closeDropdown();
+            refreshDescSuggestions(input.value.trim());
+            refreshTimeHint(input.value.trim());
+        }, 150);
+    });
+}
+
 export function initEntryModal() {
     entryModal = new bootstrap.Modal(document.getElementById('entryModal'));
 
@@ -185,6 +350,44 @@ export function initEntryModal() {
 
     nlBtn.addEventListener('click', runNlParse);
     nlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runNlParse(); } });
+
+    // Description improve button
+    const descEl = document.getElementById('modal-desc');
+    const improveBtn = document.getElementById('btn-improve-desc');
+
+    function updateImproveBtnVisibility() {
+        improveBtn.style.display =
+            isFeatureEnabled('suggestions') && descEl.value.trim() ? '' : 'none';
+    }
+
+    descEl.addEventListener('input', updateImproveBtnVisibility);
+
+    improveBtn.addEventListener('click', async () => {
+        const current = descEl.value.trim();
+        if (!current) return;
+        const icon = improveBtn.querySelector('i');
+        improveBtn.disabled = true;
+        icon.className = 'bi bi-hourglass-split me-1';
+
+        const improvePrompt =
+            `Improve the grammar and wording of this timesheet description. ` +
+            `Rules: keep ALL activities mentioned, keep all names exactly as written, do not add or remove any work items, do not summarise. ` +
+            `Output the improved text ONLY — no introduction, no explanation, no "Here is", no quotes.\n\n` +
+            `Input: ${current}\nOutput:`;
+
+        // Local provider: prefer qwen2.5:0.5b (small, fast); falls back to configured model if unavailable.
+        // Cloud provider: use the configured cloud provider directly.
+        const raw = getProvider() === 'local'
+            ? await askWithModel(improvePrompt, null, 'qwen2.5:0.5b')
+            : await ask(improvePrompt, null);
+
+        const improved = raw ? stripAiPreamble(raw) : null;
+        if (improved) descEl.value = improved;
+        icon.className = 'bi bi-stars me-1';
+        improveBtn.disabled = false;
+    });
+
+    initTicketAutocomplete();
 }
 
 /* ── CLIPBOARD TICKET DETECTION ─────────────────────────── */
@@ -219,8 +422,20 @@ export function openEntryModal(dayIdx, entryIdx) {
     document.getElementById('modal-entry-index').value = entryIdx;
 
     const nlBar = document.getElementById('modal-nl-bar');
-    nlBar.style.display = isFeatureEnabled('suggestions') ? '' : 'none';
+    const suggestionsOn = isFeatureEnabled('suggestions');
+    nlBar.style.display = suggestionsOn ? '' : 'none';
     document.getElementById('modal-nl-input').value = '';
+
+    // Rebuild history and reset suggestion UIs on each open
+    if (suggestionsOn) {
+        _history = buildEntryHistory();
+    } else {
+        _history = {};
+    }
+    document.getElementById('ticket-suggestions').innerHTML = '';
+    document.getElementById('desc-suggestions').innerHTML = '';
+    document.getElementById('time-hint').classList.remove('show');
+    document.getElementById('btn-improve-desc').style.display = 'none';
 
     const deleteBtn = document.getElementById('btn-delete-entry');
     const copyToBtn = document.getElementById('btn-copy-to-entry');
