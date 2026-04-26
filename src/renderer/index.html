@@ -47,6 +47,9 @@
             <i class="bi bi-bell"></i>
             <span class="notif-badge" id="notif-badge" style="display:none">0</span>
           </button>
+          <button class="btn btn-outline-light btn-sm px-2" id="btn-ai-chat" title="AI Assistant (Ctrl+Shift+A)" style="display:none">
+            <i class="bi bi-stars fs-5"></i>
+          </button>
           <button class="btn btn-outline-light btn-sm px-2" id="btn-menu-toggle" type="button" data-bs-toggle="offcanvas"
             data-bs-target="#appSidebar" aria-controls="appSidebar" title="Menu">
             <i class="bi bi-list fs-5"></i>
@@ -1040,6 +1043,52 @@
     <div class="notif-empty" id="notif-empty">
       <i class="bi bi-bell-slash"></i>
       <span>No notifications</span>
+    </div>
+  </div>
+
+  <!-- AI CHAT PANEL -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="aiChatPanel" aria-labelledby="aiChatPanelLabel">
+    <div class="offcanvas-header">
+      <div class="chat-header-left">
+        <div class="chat-header-icon"><i class="bi bi-stars"></i></div>
+        <div>
+          <div class="chat-header-title" id="aiChatPanelLabel">AI Assistant <span class="chat-experimental-badge">Experimental</span></div>
+          <div class="chat-header-subtitle">Ask about your timesheet</div>
+        </div>
+      </div>
+      <div class="chat-header-actions">
+        <button type="button" class="btn-chat-action" id="btn-chat-clear" title="Clear conversation">
+          <i class="bi bi-trash3"></i>
+        </button>
+        <button type="button" class="btn-chat-action close-btn" data-bs-dismiss="offcanvas" aria-label="Close" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="offcanvas-body" style="position:relative">
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-empty-hint" id="chat-empty-hint">
+        <div class="chat-empty-icon"><i class="bi bi-chat-square-dots"></i></div>
+        <h6>Ask me anything</h6>
+        <p>I have access to your full log history.<br>Try one of these:</p>
+        <ul class="hint-examples">
+          <li>How much am I missing this week?</li>
+          <li>What did I work on last Monday?</li>
+          <li>Which ticket took the most time in April?</li>
+          <li>Add 2h on TM-123 for code review</li>
+        </ul>
+      </div>
+      <div class="chat-input-row">
+        <div class="chat-input-wrap">
+          <textarea id="chat-input" class="chat-input" rows="1"
+            placeholder="Ask about your timesheet…"></textarea>
+          <button class="chat-send-btn" id="btn-chat-send" title="Send (Enter)">
+            <i class="bi bi-arrow-up"></i>
+          </button>
+        </div>
+        <div class="chat-input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+        <div class="chat-disclaimer">AI can make mistakes. Results may vary depending on the model and response delay.</div>
+      </div>
     </div>
   </div>
 

@@ -909,13 +909,16 @@ async function renderAIProvider(el) {
                         <label class="label-text" for="ai-api-key">API Key</label>
                         <div class="d-flex align-items-center gap-2" style="max-width:400px">
                             <input type="password" id="ai-api-key" class="form-control dark-input"
-                                placeholder="Leave blank to keep current key" />
+                                placeholder="Enter API key" />
                             <button type="button" class="btn btn-sm btn-outline-light flex-shrink-0" id="btn-ai-key-toggle"
                                 title="Show / hide key" style="width:38px">
                                 <i class="bi bi-eye" id="ai-key-eye"></i>
                             </button>
                         </div>
-                        <p class="form-text mt-1" style="color:var(--text-secondary)">Stored securely in the main process. Never visible after saving.</p>
+                        <p class="form-text mt-1" id="ai-key-hint" style="color:var(--text-secondary)">Stored securely in the main process. Never visible after saving.</p>
+                        <p class="form-text mt-1" id="ai-key-saved-indicator" style="color:var(--success);display:none">
+                            <i class="bi bi-check-circle-fill me-1"></i>Key saved — leave blank to keep current key, or enter a new one to replace it.
+                        </p>
                     </div>
                     <div class="settings-form-group" id="ai-gemini-model-group" style="${s.cloudProvider === 'gemini' ? '' : 'display:none'}">
                         <label class="label-text" for="ai-gemini-model">Gemini Model</label>
@@ -961,6 +964,14 @@ async function renderAIProvider(el) {
     const keyInput        = el.querySelector('#ai-api-key');
     const keyEye          = el.querySelector('#ai-key-eye');
 
+    const hasKeyMap = { claude: s.hasClaudeKey, openai: s.hasOpenAIKey, gemini: s.hasGeminiKey };
+    const updateKeyIndicator = (cp) => {
+        const saved = hasKeyMap[cp];
+        el.querySelector('#ai-key-saved-indicator').style.display = saved ? '' : 'none';
+        el.querySelector('#ai-key-hint').style.display            = saved ? 'none' : '';
+    };
+    updateKeyIndicator(s.cloudProvider || 'claude');
+
     const markDirtyAI = () => markDirty('ai-provider');
 
     providerSelect.addEventListener('change', async () => {
@@ -983,8 +994,11 @@ async function renderAIProvider(el) {
     el.querySelector('#ai-ollama-model').addEventListener('change', markDirtyAI);
     el.querySelector('#ai-gemini-model').addEventListener('change', markDirtyAI);
     el.querySelector('#ai-cloud-provider').addEventListener('change', () => {
-        const isGemini = el.querySelector('#ai-cloud-provider').value === 'gemini';
-        el.querySelector('#ai-gemini-model-group').style.display = isGemini ? '' : 'none';
+        const cp = el.querySelector('#ai-cloud-provider').value;
+        el.querySelector('#ai-gemini-model-group').style.display = cp === 'gemini' ? '' : 'none';
+        // Clear key input and update saved indicator for the newly selected provider
+        keyInput.value = '';
+        updateKeyIndicator(cp);
         markDirtyAI();
     });
 
@@ -1093,6 +1107,12 @@ async function renderAIProvider(el) {
         }
         await window.ai.setSettings(patch);
         await refreshSettings();
+        // Update hasKeyMap so the indicator reflects the newly saved key
+        if (patch.claudeApiKey) hasKeyMap.claude = true;
+        if (patch.openaiApiKey) hasKeyMap.openai = true;
+        if (patch.geminiApiKey) hasKeyMap.gemini = true;
+        keyInput.value = '';
+        updateKeyIndicator(patch.cloudProvider);
         clearDirty();
         showToast('AI provider settings saved.', 'success');
     });
