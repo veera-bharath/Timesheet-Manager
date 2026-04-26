@@ -8,9 +8,148 @@ import { parseTimeInput, fmtTimeInput, timeInputError } from './utils.js';
 import { rerenderDayCard, renderAll } from './render.js';
 import { updateNoTicketBanner } from './no-ticket-reminder.js';
 import { updateUnderloggedBanner } from './underlogged-reminder.js';
+import { isFeatureEnabled, ask } from './ai.js';
 
 let entryModal;
 export let lastDeleted = null;
+
+/* ── NATURAL LANGUAGE PARSING ───────────────────────────── */
+
+function tryRegexParse(text) {
+    let remaining = text.trim();
+    let hh = 0, mm = 0, timeMatched = false;
+
+    // 2h30m / 2 h 30 m / 1.5h / 2h
+    const mH = /(\d+(?:\.\d+)?)\s*h(?:\s*(\d+)\s*m)?/i.exec(remaining);
+    if (mH) {
+        const hrs = parseFloat(mH[1]);
+        hh = Math.floor(hrs);
+        mm = Math.round((hrs % 1) * 60) + (mH[2] ? parseInt(mH[2]) : 0);
+        remaining = remaining.replace(mH[0], ' ');
+        timeMatched = true;
+    }
+
+    if (!timeMatched) {
+        // 30m / 90min
+        const mM = /(\d+)\s*m(?:in)?\b/i.exec(remaining);
+        if (mM) {
+            const totalMins = parseInt(mM[1]);
+            hh = Math.floor(totalMins / 60);
+            mm = totalMins % 60;
+            remaining = remaining.replace(mM[0], ' ');
+            timeMatched = true;
+        }
+    }
+
+    if (!timeMatched) {
+        // 2:30 clock format
+        const mC = /(\d+):(\d{2})\b/.exec(remaining);
+        if (mC) {
+            hh = parseInt(mC[1]);
+            mm = parseInt(mC[2]);
+            remaining = remaining.replace(mC[0], ' ');
+            timeMatched = true;
+        }
+    }
+
+    if (!timeMatched) return null;
+
+    // Normalise mm overflow (e.g. 1.5h30m → mm=60 → hh+1)
+    hh += Math.floor(mm / 60);
+    mm = mm % 60;
+
+    // Extract ticket
+    let ticket = '';
+    const mT = /\b([A-Z][A-Z0-9]+-\d+|#\d+)\b/.exec(remaining);
+    if (mT) {
+        ticket = mT[1];
+        remaining = remaining.replace(mT[0], ' ');
+    }
+
+    // Clean up filler words and excess whitespace
+    const desc = remaining.replace(/\bon\b|\bfor\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+
+    return { ticket, hh, mm, desc };
+}
+
+async function parseNaturalEntry(text) {
+    if (!text.trim()) return null;
+
+    const regex = tryRegexParse(text);
+    if (regex && (regex.hh > 0 || regex.mm > 0)) return regex;
+
+    // AI fallback — structured prompt tuned for local models (Ollama/llama3)
+    const escaped = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const prompt = `TASK: Parse a timesheet entry into JSON.
+Output ONLY raw JSON. No explanation, no markdown, no code fences.
+JSON format: {"ticket":"","hh":0,"mm":0,"desc":""}
+
+FIELD RULES:
+- ticket: ticket ID like TM-123, JIRA-45, ABC-7, or #99. Empty string if none.
+- hh: whole hours as integer.
+- mm: remaining minutes as integer, 0-59.
+- desc: ONLY the activity or work done. Strip ALL time expressions (durations, hours, minutes, "about X hours", "for X hours", "X min", etc.) and the ticket ID. desc must never contain a number referring to time.
+
+TIME PHRASE REFERENCE:
+"15 minutes" or "quarter hour" → hh:0, mm:15
+"half an hour" or "30 minutes" → hh:0, mm:30
+"an hour" or "one hour"       → hh:1, mm:0
+"an hour and a half"          → hh:1, mm:30
+"two hours" or "couple hours" → hh:2, mm:0
+"few hours" or "a few hours"  → hh:3, mm:0
+"the morning" or "half a day" → hh:4, mm:0
+
+EXAMPLES:
+Entry: "meet with client for about 2 hours (ABC-10)"
+JSON: {"ticket":"ABC-10","hh":2,"mm":0,"desc":"meet with client"}
+
+Entry: "spent half an hour reviewing PR for #45"
+JSON: {"ticket":"#45","hh":0,"mm":30,"desc":"reviewing PR"}
+
+Entry: "quick standup 15 minutes"
+JSON: {"ticket":"","hh":0,"mm":15,"desc":"standup"}
+
+Entry: "morning session on XY-88 fixing auth bug"
+JSON: {"ticket":"XY-88","hh":4,"mm":0,"desc":"fixing auth bug"}
+
+NOW PARSE ONLY THIS ENTRY (ignore the examples above):
+Entry: "${escaped}"
+JSON:`;
+
+    try {
+        const raw = await ask(prompt, null);
+        if (!raw) return null;
+        const match = /\{[\s\S]*?\}/.exec(raw);
+        if (!match) return null;
+        const parsed = JSON.parse(match[0]);
+        if (typeof parsed.hh !== 'number' || typeof parsed.mm !== 'number') return null;
+        parsed.hh = Math.max(0, Math.floor(parsed.hh));
+        parsed.mm = Math.max(0, Math.min(59, Math.floor(parsed.mm)));
+        return parsed;
+    } catch (_) {
+        return null;
+    }
+}
+
+function applyParsedEntry(parsed) {
+    if (!parsed) return;
+
+    if (parsed.ticket) {
+        document.getElementById('modal-no-ticket').checked = false;
+        document.getElementById('modal-ticket-wrap').style.display = '';
+        document.getElementById('modal-ticket').value = parsed.ticket;
+    }
+    if (parsed.hh > 0 || parsed.mm > 0) {
+        const timeEl = document.getElementById('modal-time');
+        timeEl.value = fmtTimeInput(parsed.hh, parsed.mm);
+        timeEl.classList.remove('is-invalid');
+        document.getElementById('modal-time-error').textContent = '';
+    }
+    if (parsed.desc) {
+        document.getElementById('modal-desc').value = parsed.desc;
+    }
+    updateEntryDayTotal();
+}
 
 export function initEntryModal() {
     entryModal = new bootstrap.Modal(document.getElementById('entryModal'));
@@ -27,6 +166,25 @@ export function initEntryModal() {
         document.getElementById('modal-time-error').textContent = err || '';
         updateEntryDayTotal();
     });
+
+    // Natural language parse button
+    const nlBtn = document.getElementById('btn-nl-parse');
+    const nlInput = document.getElementById('modal-nl-input');
+
+    async function runNlParse() {
+        const text = nlInput.value.trim();
+        if (!text) return;
+        const icon = nlBtn.querySelector('i');
+        nlBtn.disabled = true;
+        icon.className = 'bi bi-hourglass-split me-1';
+        const parsed = await parseNaturalEntry(text);
+        applyParsedEntry(parsed);
+        icon.className = 'bi bi-magic me-1';
+        nlBtn.disabled = false;
+    }
+
+    nlBtn.addEventListener('click', runNlParse);
+    nlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runNlParse(); } });
 }
 
 /* ── CLIPBOARD TICKET DETECTION ─────────────────────────── */
@@ -59,6 +217,10 @@ export async function readClipboardTicket() {
 export function openEntryModal(dayIdx, entryIdx) {
     document.getElementById('modal-day-index').value = dayIdx;
     document.getElementById('modal-entry-index').value = entryIdx;
+
+    const nlBar = document.getElementById('modal-nl-bar');
+    nlBar.style.display = isFeatureEnabled('suggestions') ? '' : 'none';
+    document.getElementById('modal-nl-input').value = '';
 
     const deleteBtn = document.getElementById('btn-delete-entry');
     const copyToBtn = document.getElementById('btn-copy-to-entry');
