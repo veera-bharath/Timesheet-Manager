@@ -584,8 +584,16 @@ ipcMain.handle('ai:get-settings', () => {
   const merged   = { ...DEFAULT_AI_SETTINGS, ...saved };
   // Deep-merge features sub-object
   merged.features = { ...DEFAULT_AI_SETTINGS.features, ...(saved.features || {}) };
-  // Strip API keys — never send to renderer
-  return { ...merged, claudeApiKey: '', openaiApiKey: '', geminiApiKey: '' };
+  // Strip API keys — never send to renderer; include presence flags instead
+  return {
+    ...merged,
+    claudeApiKey:  '',
+    openaiApiKey:  '',
+    geminiApiKey:  '',
+    hasClaudeKey:  !!(merged.claudeApiKey),
+    hasOpenAIKey:  !!(merged.openaiApiKey),
+    hasGeminiKey:  !!(merged.geminiApiKey),
+  };
 });
 
 ipcMain.handle('ai:set-settings', (_, patch) => {
