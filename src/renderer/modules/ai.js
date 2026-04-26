@@ -51,7 +51,7 @@ export async function updateMemory(entry) {
         const trimmed = String(entry).slice(0, MAX_ENTRY_CHARS);
         const current = await window.ai.getMemory();
 
-        // Trim oldest entries to stay within cap before pushing the new one
+        // Trim oldest entries to stay within rolling cap
         while (current.length >= MAX_MEMORY_ENTRIES) current.shift();
 
         // Also enforce approximate token cap (chars / 4 ≈ tokens)
@@ -60,7 +60,8 @@ export async function updateMemory(entry) {
             totalChars -= String(current.shift()).length;
         }
 
-        await window.ai.updateMemory(trimmed);
+        current.push(trimmed);
+        await window.ai.setMemory(current);
     } catch (e) { /* silent */ }
 }
 
@@ -68,4 +69,12 @@ export async function clearMemory() {
     try {
         await window.ai.clearMemory();
     } catch (e) { /* silent */ }
+}
+
+export async function testConnection(overrides) {
+    try {
+        return await window.ai.testConnection(overrides || {});
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
 }

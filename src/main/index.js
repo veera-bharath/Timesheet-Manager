@@ -23,6 +23,7 @@ const DEFAULT_AI_SETTINGS = {
   claudeApiKey:  '',
   openaiApiKey:  '',
   geminiApiKey:  '',
+  geminiModel:   'gemini-2.5-flash-lite',
   features: {
     suggestions:      true,
     chat:             true,
@@ -168,6 +169,7 @@ async function callClaude(settings, prompt, context) {
       'anthropic-version': '2023-06-01',
     },
   }, body);
+  if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error.message || 'Claude API error'));
   return data.content?.[0]?.text || null;
 }
 
@@ -184,11 +186,15 @@ async function callOpenAI(settings, prompt, context) {
       'Authorization':  `Bearer ${settings.openaiApiKey}`,
     },
   }, body);
+  if (data?.error) throw new Error(data.error.message || 'OpenAI API error');
   return data.choices?.[0]?.message?.content || null;
 }
 
 async function callGemini(settings, prompt, context) {
-  const url  = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${settings.geminiApiKey}`;
+  const model  = settings.geminiModel || 'gemini-2.5-flash-lite';
+  // gemini-1.x is on the stable /v1/ endpoint; gemini-2.x+ is on /v1beta/
+  const apiVer = model.startsWith('gemini-1.') ? 'v1' : 'v1beta';
+  const url    = `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${settings.geminiApiKey}`;
   const body = JSON.stringify({
     contents: [{ parts: [{ text: context ? `${context}\n\n${prompt}` : prompt }] }],
   });
@@ -196,6 +202,7 @@ async function callGemini(settings, prompt, context) {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
   }, body);
+  if (data?.error) throw new Error(data.error.message || 'Gemini API error');
   return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
 }
 
@@ -574,13 +581,74 @@ ipcMain.handle('ai:set-settings', (_, patch) => {
   store.set(AI_SETTINGS_KEY, next);
 });
 
-ipcMain.handle('ai:get-memory',    ()         => store.get(AI_MEMORY_KEY) || []);
-ipcMain.handle('ai:update-memory', (_, entry) => {
+ipcMain.handle('ai:get-memory',    ()            => store.get(AI_MEMORY_KEY) || []);
+ipcMain.handle('ai:set-memory',    (_, entries)  => store.set(AI_MEMORY_KEY, entries));
+ipcMain.handle('ai:update-memory', (_, entry)    => {
   const mem = store.get(AI_MEMORY_KEY) || [];
   mem.push(entry);
   store.set(AI_MEMORY_KEY, mem);
 });
-ipcMain.handle('ai:clear-memory',  ()         => store.delete(AI_MEMORY_KEY));
+ipcMain.handle('ai:clear-memory',  ()            => store.delete(AI_MEMORY_KEY));
+
+ipcMain.handle('ai:get-gemini-models', async (_, apiKey) => {
+  try {
+    if (!apiKey) return [];
+    const data = await httpRequest(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { method: 'GET' }, null
+    );
+    if (data?.error) return [];
+    return (data?.models || [])
+      .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+      .map(m => m.name.replace('models/', ''));
+  } catch (e) {
+    return [];
+  }
+});
+
+ipcMain.handle('ai:get-ollama-models', async (_, ollamaUrl) => {
+  try {
+    const url  = (ollamaUrl || 'http://localhost:11434') + '/api/tags';
+    const data = await httpRequest(url, { method: 'GET' }, null);
+    return (data?.models || []).map(m => m.name).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+});
+
+ipcMain.handle('ai:test-connection', async (_, overrides) => {
+  try {
+    const saved = store.get(AI_SETTINGS_KEY) || {};
+    // Start from stored settings, then apply form overrides
+    const settings = { ...DEFAULT_AI_SETTINGS, ...saved, enabled: true, ...(overrides || {}) };
+    // Restore stored API keys if overrides didn't supply new ones
+    if (!overrides?.claudeApiKey) settings.claudeApiKey = saved.claudeApiKey || '';
+    if (!overrides?.openaiApiKey) settings.openaiApiKey = saved.openaiApiKey || '';
+    if (!overrides?.geminiApiKey) settings.geminiApiKey = saved.geminiApiKey || '';
+
+    if (settings.provider === 'local') {
+      const ollamaBase = settings.ollamaUrl || 'http://localhost:11434';
+      const data = await httpRequest(ollamaBase + '/api/tags', { method: 'GET' }, null);
+      return data ? { ok: true } : { ok: false, error: 'Could not reach Ollama.' };
+    }
+
+    const cloud = settings.cloudProvider || 'claude';
+    const keyMap = { claude: 'claudeApiKey', openai: 'openaiApiKey', gemini: 'geminiApiKey' };
+    if (!settings[keyMap[cloud]]) {
+      return { ok: false, error: 'No API key configured for this provider.' };
+    }
+
+    const result = await (async () => {
+      if (cloud === 'claude')  return callClaude(settings, 'Reply with the single word: OK', null);
+      if (cloud === 'openai')  return callOpenAI(settings, 'Reply with the single word: OK', null);
+      if (cloud === 'gemini')  return callGemini(settings, 'Reply with the single word: OK', null);
+      return null;
+    })();
+    return result !== null ? { ok: true } : { ok: false, error: 'No response from provider.' };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
 
 // ── IPC: app control ─────────────────────────────────────
 ipcMain.handle('app-quit', () => { isQuitting = true; app.quit(); });
