@@ -4,7 +4,7 @@
 
 import { state, APP_VERSION, MAX_TARGET_MINS } from './state.js';
 import { saveState } from './store.js';
-import { showToast } from './toast.js';
+import { showToast, showConfirm } from './toast.js';
 import { updateSummary } from './summary.js';
 import { renderDays } from './render.js';
 import { escHtml } from './utils.js';
@@ -14,6 +14,7 @@ import { renderLeaveTypesSection } from './leave-types.js';
 import { renderErrorLogSection } from './error-log.js';
 import { openRestoreFromJson, openRestoreFromTxt } from './restore.js';
 import { parseTimeInput, fmtTimeInput, timeInputError } from './utils.js';
+import { refreshSettings, testConnection } from './ai.js';
 
 /* ── SECTION METADATA ───────────────────────────────────── */
 const SECTION_META = {
@@ -28,6 +29,9 @@ const SECTION_META = {
     'backup-restore': { parent: null,             label: 'Backup & Restore',  isParent: true  },
     'backup':         { parent: 'backup-restore', label: 'Backup',            isParent: false },
     'restore':        { parent: 'backup-restore', label: 'Restore',           isParent: false },
+    'ai':             { parent: null,  label: 'AI',       isParent: true  },
+    'ai-provider':    { parent: 'ai', label: 'Provider', isParent: false },
+    'ai-features':    { parent: 'ai', label: 'Features', isParent: false },
     'about':          { parent: null,             label: 'About',             isParent: false },
 };
 
@@ -194,6 +198,9 @@ function renderSection(section) {
         case 'backup-restore': return renderBackupRestore(el);
         case 'backup':         return renderBackup(el);
         case 'restore':        return renderRestore(el);
+        case 'ai':             return renderAI(el);
+        case 'ai-provider':    return renderAIProvider(el);
+        case 'ai-features':    return renderAIFeatures(el);
         case 'about':          return renderAbout(el);
     }
 }
@@ -779,6 +786,407 @@ function renderAbout(el) {
             if (state.changelog.length > 0) renderAbout(el);
         }).catch(() => {});
     }
+}
+
+/* ── AI ─────────────────────────────────────────────────── */
+
+function renderAI(el) {
+    el.innerHTML = `
+        <div class="settings-section-header">
+            <h2 class="settings-section-title">AI</h2>
+            <p class="settings-section-desc">Configure AI providers and manage intelligent features across the app.</p>
+        </div>
+        <div class="settings-section-body">
+            <div class="settings-mgmt-cards">
+                <div class="settings-mgmt-card" data-nav="ai-provider">
+                    <div class="settings-mgmt-card-icon">
+                        <i class="bi bi-cpu"></i>
+                    </div>
+                    <div class="settings-mgmt-card-body">
+                        <div class="settings-mgmt-card-title">Provider</div>
+                        <div class="settings-mgmt-card-desc">Configure AI provider, API keys, and memory</div>
+                    </div>
+                    <i class="bi bi-chevron-right settings-mgmt-card-arrow"></i>
+                </div>
+                <div class="settings-mgmt-card" data-nav="ai-features">
+                    <div class="settings-mgmt-card-icon">
+                        <i class="bi bi-toggles"></i>
+                    </div>
+                    <div class="settings-mgmt-card-body">
+                        <div class="settings-mgmt-card-title">Features</div>
+                        <div class="settings-mgmt-card-desc">Enable or disable individual AI capabilities</div>
+                    </div>
+                    <i class="bi bi-chevron-right settings-mgmt-card-arrow"></i>
+                </div>
+            </div>
+        </div>`;
+    el.querySelectorAll('.settings-mgmt-card[data-nav]').forEach(card => {
+        card.addEventListener('click', () => navigateTo(card.dataset.nav));
+    });
+}
+
+async function renderAIProvider(el) {
+    const s = await window.ai.getSettings();
+    const isLocal = s.provider !== 'cloud';
+    const ollamaUrl = s.ollamaUrl || 'http://localhost:11434';
+    const savedModel = s.ollamaModel || 'llama3';
+
+    // Fetch available models up-front so the select is populated on first render
+    let ollamaModels = [];
+    if (isLocal) {
+        try { ollamaModels = await window.ai.getOllamaModels(ollamaUrl); } catch (e) { /* offline */ }
+    }
+
+    const buildModelOptions = (models, current) => {
+        if (!models.length) return `<option value="${escHtml(current)}">${escHtml(current)}</option>`;
+        const has = models.includes(current);
+        return (has ? '' : `<option value="${escHtml(current)}">${escHtml(current)}</option>`) +
+            models.map(m => `<option value="${escHtml(m)}" ${m === current ? 'selected' : ''}>${escHtml(m)}</option>`).join('');
+    };
+
+    el.innerHTML = `
+        <div class="settings-section-header">
+            <h2 class="settings-section-title">AI Provider</h2>
+            <p class="settings-section-desc">Select your AI provider and configure connection details.</p>
+        </div>
+        <div class="settings-section-body">
+            <div class="settings-form">
+                <div class="settings-form-group">
+                    <label class="label-text">Enable AI Features</label>
+                    <div class="form-check form-switch mt-1">
+                        <input class="form-check-input" type="checkbox" id="ai-enabled" ${s.enabled ? 'checked' : ''} />
+                        <label class="form-check-label label-text" for="ai-enabled">
+                            Enable AI features globally
+                        </label>
+                    </div>
+                </div>
+                <div class="settings-form-group">
+                    <label class="label-text">Provider</label>
+                    <select id="ai-provider-select" class="form-control dark-input" style="max-width:220px">
+                        <option value="local"  ${isLocal   ? 'selected' : ''}>Local (Ollama)</option>
+                        <option value="cloud"  ${!isLocal  ? 'selected' : ''}>Cloud</option>
+                    </select>
+                </div>
+
+                <div id="ai-ollama-block" style="${isLocal ? '' : 'display:none'}">
+                    <div class="settings-form-group">
+                        <label class="label-text" for="ai-ollama-url">Ollama URL</label>
+                        <input type="text" id="ai-ollama-url" class="form-control dark-input"
+                            style="max-width:300px"
+                            value="${escHtml(ollamaUrl)}" />
+                    </div>
+                    <div class="settings-form-group">
+                        <label class="label-text" for="ai-ollama-model">Model</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <select id="ai-ollama-model" class="form-control dark-input" style="max-width:260px">
+                                ${buildModelOptions(ollamaModels, savedModel)}
+                            </select>
+                            <button class="btn btn-sm btn-outline-light flex-shrink-0" id="btn-refresh-models" title="Refresh model list">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                        ${ollamaModels.length === 0
+                            ? `<p class="form-text mt-1" style="color:var(--text-secondary)">Could not load models — make sure Ollama is running.</p>`
+                            : `<p class="form-text mt-1" style="color:var(--text-secondary)">${ollamaModels.length} model${ollamaModels.length > 1 ? 's' : ''} available.</p>`}
+                    </div>
+                    <div class="settings-form-group">
+                        <button class="btn btn-outline-light btn-sm" id="btn-ai-test-local" style="align-self:flex-start">
+                            <i class="bi bi-plug me-1"></i> Test Connection
+                        </button>
+                    </div>
+                </div>
+
+                <div id="ai-cloud-block" style="${!isLocal ? '' : 'display:none'}">
+                    <div class="settings-form-group">
+                        <label class="label-text" for="ai-cloud-provider">Cloud Provider</label>
+                        <select id="ai-cloud-provider" class="form-control dark-input" style="max-width:220px">
+                            <option value="claude" ${s.cloudProvider === 'claude'  ? 'selected' : ''}>Claude (Anthropic)</option>
+                            <option value="openai" ${s.cloudProvider === 'openai'  ? 'selected' : ''}>OpenAI (GPT)</option>
+                            <option value="gemini" ${s.cloudProvider === 'gemini'  ? 'selected' : ''}>Google Gemini</option>
+                        </select>
+                    </div>
+                    <div class="settings-form-group">
+                        <label class="label-text" for="ai-api-key">API Key</label>
+                        <div class="d-flex align-items-center gap-2" style="max-width:400px">
+                            <input type="password" id="ai-api-key" class="form-control dark-input"
+                                placeholder="Enter API key" />
+                            <button type="button" class="btn btn-sm btn-outline-light flex-shrink-0" id="btn-ai-key-toggle"
+                                title="Show / hide key" style="width:38px">
+                                <i class="bi bi-eye" id="ai-key-eye"></i>
+                            </button>
+                        </div>
+                        <p class="form-text mt-1" id="ai-key-hint" style="color:var(--text-secondary)">Stored securely in the main process. Never visible after saving.</p>
+                        <p class="form-text mt-1" id="ai-key-saved-indicator" style="color:var(--success);display:none">
+                            <i class="bi bi-check-circle-fill me-1"></i>Key saved — leave blank to keep current key, or enter a new one to replace it.
+                        </p>
+                    </div>
+                    <div class="settings-form-group" id="ai-gemini-model-group" style="${s.cloudProvider === 'gemini' ? '' : 'display:none'}">
+                        <label class="label-text" for="ai-gemini-model">Gemini Model</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <select id="ai-gemini-model" class="form-control dark-input" style="max-width:260px">
+                                <option value="${escHtml(s.geminiModel || 'gemini-2.5-flash-lite')}">${escHtml(s.geminiModel || 'gemini-2.5-flash-lite')}</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline-light flex-shrink-0" id="btn-fetch-gemini-models" title="Fetch available models">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                        <p class="form-text mt-1" style="color:var(--text-secondary)">Enter your API key and click ↺ to load available models.</p>
+                    </div>
+                    <div class="settings-form-group">
+                        <button class="btn btn-outline-light btn-sm" id="btn-ai-test-cloud" style="align-self:flex-start">
+                            <i class="bi bi-plug me-1"></i> Test Connection
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="settings-divider">
+
+                <div class="settings-form-group">
+                    <label class="label-text">AI Memory</label>
+                    <p class="form-text" style="color:var(--text-secondary)">Shared rolling context used across all providers. Cleared entries cannot be recovered.</p>
+                    <button class="btn btn-sm mt-1" id="btn-ai-clear-memory"
+                        style="border:1px solid var(--danger);color:var(--danger);background:transparent;align-self:flex-start">
+                        <i class="bi bi-trash me-1"></i> Clear Memory
+                    </button>
+                </div>
+
+                <div class="settings-form-actions">
+                    <button class="btn btn-gradient px-4" id="btn-save-ai-provider">
+                        <i class="bi bi-check-lg me-1"></i> Save
+                    </button>
+                </div>
+            </div>
+        </div>`;
+
+    const providerSelect  = el.querySelector('#ai-provider-select');
+    const ollamaBlock     = el.querySelector('#ai-ollama-block');
+    const cloudBlock      = el.querySelector('#ai-cloud-block');
+    const keyInput        = el.querySelector('#ai-api-key');
+    const keyEye          = el.querySelector('#ai-key-eye');
+
+    const hasKeyMap = { claude: s.hasClaudeKey, openai: s.hasOpenAIKey, gemini: s.hasGeminiKey };
+    const updateKeyIndicator = (cp) => {
+        const saved = hasKeyMap[cp];
+        el.querySelector('#ai-key-saved-indicator').style.display = saved ? '' : 'none';
+        el.querySelector('#ai-key-hint').style.display            = saved ? 'none' : '';
+    };
+    updateKeyIndicator(s.cloudProvider || 'claude');
+
+    const markDirtyAI = () => markDirty('ai-provider');
+
+    providerSelect.addEventListener('change', async () => {
+        const local = providerSelect.value === 'local';
+        ollamaBlock.style.display = local ? '' : 'none';
+        cloudBlock.style.display  = local ? 'none' : '';
+        markDirtyAI();
+        // Auto-load models when switching to local
+        if (local) {
+            const url = el.querySelector('#ai-ollama-url').value.trim() || 'http://localhost:11434';
+            const currentModel = el.querySelector('#ai-ollama-model').value;
+            let models = [];
+            try { models = await window.ai.getOllamaModels(url); } catch (e) { /* offline */ }
+            el.querySelector('#ai-ollama-model').innerHTML = buildModelOptions(models, currentModel);
+        }
+    });
+
+    el.querySelector('#ai-enabled').addEventListener('change', markDirtyAI);
+    el.querySelector('#ai-ollama-url').addEventListener('input', markDirtyAI);
+    el.querySelector('#ai-ollama-model').addEventListener('change', markDirtyAI);
+    el.querySelector('#ai-gemini-model').addEventListener('change', markDirtyAI);
+    el.querySelector('#ai-cloud-provider').addEventListener('change', () => {
+        const cp = el.querySelector('#ai-cloud-provider').value;
+        el.querySelector('#ai-gemini-model-group').style.display = cp === 'gemini' ? '' : 'none';
+        // Clear key input and update saved indicator for the newly selected provider
+        keyInput.value = '';
+        updateKeyIndicator(cp);
+        markDirtyAI();
+    });
+
+    el.querySelector('#btn-fetch-gemini-models').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.querySelector('i').className = 'bi bi-hourglass-split';
+        const apiKey = keyInput.value;
+        const currentModel = el.querySelector('#ai-gemini-model').value;
+        const models = apiKey ? await window.ai.getGeminiModels(apiKey).catch(() => []) : [];
+        const select = el.querySelector('#ai-gemini-model');
+        if (models.length) {
+            const has = models.includes(currentModel);
+            select.innerHTML = (has ? '' : `<option value="${escHtml(currentModel)}">${escHtml(currentModel)}</option>`) +
+                models.map(m => `<option value="${escHtml(m)}" ${m === currentModel ? 'selected' : ''}>${escHtml(m)}</option>`).join('');
+            el.querySelector('#ai-gemini-model-group .form-text').textContent = `${models.length} model${models.length > 1 ? 's' : ''} available.`;
+        } else {
+            el.querySelector('#ai-gemini-model-group .form-text').textContent = 'Could not load models. Enter your API key first.';
+        }
+        btn.disabled = false;
+        btn.querySelector('i').className = 'bi bi-arrow-clockwise';
+    });
+
+    // Refresh model list from Ollama using the current URL input value
+    el.querySelector('#btn-refresh-models').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.querySelector('i').className = 'bi bi-hourglass-split';
+        const url = el.querySelector('#ai-ollama-url').value.trim() || 'http://localhost:11434';
+        const currentModel = el.querySelector('#ai-ollama-model').value;
+        let models = [];
+        try { models = await window.ai.getOllamaModels(url); } catch (e) { /* offline */ }
+        const select = el.querySelector('#ai-ollama-model');
+        select.innerHTML = buildModelOptions(models, currentModel);
+        const hint = select.closest('.settings-form-group').querySelector('.form-text');
+        if (hint) hint.textContent = models.length
+            ? `${models.length} model${models.length > 1 ? 's' : ''} available.`
+            : 'Could not load models — make sure Ollama is running.';
+        btn.disabled = false;
+        btn.querySelector('i').className = 'bi bi-arrow-clockwise';
+    });
+    keyInput.addEventListener('input', markDirtyAI);
+
+    el.querySelector('#btn-ai-key-toggle').addEventListener('click', () => {
+        const isPassword = keyInput.type === 'password';
+        keyInput.type = isPassword ? 'text' : 'password';
+        keyEye.className = isPassword ? 'bi bi-eye-slash' : 'bi bi-eye';
+    });
+
+    const runTest = async (btn) => {
+        btn.disabled = true;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        // Pass current form values so the test reflects what's in the UI, not stale stored settings
+        const overrides = {
+            provider:      providerSelect.value,
+            ollamaUrl:     el.querySelector('#ai-ollama-url').value.trim(),
+            ollamaModel:   el.querySelector('#ai-ollama-model').value,
+            cloudProvider: el.querySelector('#ai-cloud-provider').value,
+            geminiModel:   el.querySelector('#ai-gemini-model').value,
+        };
+        const apiKeyVal = keyInput.value;
+        if (apiKeyVal) {
+            const cp = overrides.cloudProvider;
+            if (cp === 'claude')  overrides.claudeApiKey  = apiKeyVal;
+            if (cp === 'openai')  overrides.openaiApiKey  = apiKeyVal;
+            if (cp === 'gemini')  overrides.geminiApiKey  = apiKeyVal;
+        }
+
+        const result = await testConnection(overrides);
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        if (result?.ok) {
+            showToast('Connection successful.', 'success');
+        } else {
+            showToast(result?.error || 'Connection failed. Check your settings.', 'danger');
+        }
+    };
+
+    el.querySelector('#btn-ai-test-local').addEventListener('click', (e) => runTest(e.currentTarget));
+    el.querySelector('#btn-ai-test-cloud').addEventListener('click', (e) => runTest(e.currentTarget));
+
+    el.querySelector('#btn-ai-clear-memory').addEventListener('click', () => {
+        showConfirm('Clear all AI memory? This cannot be undone.', async () => {
+            await window.ai.clearMemory();
+            showToast('AI memory cleared.', 'success');
+        });
+    });
+
+    el.querySelector('#btn-save-ai-provider').addEventListener('click', async () => {
+        const patch = {
+            enabled:       el.querySelector('#ai-enabled').checked,
+            provider:      providerSelect.value,
+            ollamaUrl:     el.querySelector('#ai-ollama-url').value.trim(),
+            ollamaModel:   el.querySelector('#ai-ollama-model').value.trim(),
+            cloudProvider: el.querySelector('#ai-cloud-provider').value,
+            geminiModel:   el.querySelector('#ai-gemini-model').value,
+        };
+        const apiKeyVal = keyInput.value;
+        if (apiKeyVal) {
+            const cloudProv = patch.cloudProvider;
+            if (cloudProv === 'claude')  patch.claudeApiKey  = apiKeyVal;
+            if (cloudProv === 'openai')  patch.openaiApiKey  = apiKeyVal;
+            if (cloudProv === 'gemini')  patch.geminiApiKey  = apiKeyVal;
+        }
+        await window.ai.setSettings(patch);
+        await refreshSettings();
+        // Update hasKeyMap so the indicator reflects the newly saved key
+        if (patch.claudeApiKey) hasKeyMap.claude = true;
+        if (patch.openaiApiKey) hasKeyMap.openai = true;
+        if (patch.geminiApiKey) hasKeyMap.gemini = true;
+        keyInput.value = '';
+        updateKeyIndicator(patch.cloudProvider);
+        clearDirty();
+        showToast('AI provider settings saved.', 'success');
+    });
+}
+
+async function renderAIFeatures(el) {
+    const s = await window.ai.getSettings();
+    const f = s.features || {};
+    const masterOff = !s.enabled;
+
+    const features = [
+        { id: 'ai-feat-suggestions', key: 'suggestions',       label: 'Smart suggestions in entry modal',  desc: 'Autocomplete ticket, description, and time estimate as you type.' },
+        { id: 'ai-feat-chat',        key: 'chat',              label: 'AI chat sidebar',                   desc: 'Ask questions about your log history in plain English.' },
+        { id: 'ai-feat-anomaly',     key: 'anomalyDetection',  label: 'Anomaly & gap detection',           desc: 'Flag unlogged days, unusual hours, and duplicate-looking entries.' },
+        { id: 'ai-feat-summary',     key: 'weeklySummary',     label: 'Week summary generator',            desc: 'One-click AI narrative of weekly activity for standups.' },
+        { id: 'ai-feat-recurring',   key: 'recurringAdvisor',  label: 'Recurring task advisor',            desc: 'Detect logging patterns and suggest converting them to recurring tasks.' },
+        { id: 'ai-feat-report',      key: 'reportEnhancement', label: 'Report enhancement',                desc: 'Optional AI rewrite of entry descriptions in exported reports.' },
+    ];
+
+    const togglesHtml = features.map(ft => `
+        <div class="settings-form-group">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="${ft.id}"
+                    ${f[ft.key] !== false ? 'checked' : ''} />
+                <label class="form-check-label label-text" for="${ft.id}">${escHtml(ft.label)}</label>
+            </div>
+            <p class="form-text ms-4 ps-1" style="color:var(--text-secondary)">${escHtml(ft.desc)}</p>
+        </div>`).join('');
+
+    el.innerHTML = `
+        <div class="settings-section-header">
+            <h2 class="settings-section-title">AI Features</h2>
+            <p class="settings-section-desc">Enable or disable individual AI capabilities.</p>
+        </div>
+        <div class="settings-section-body">
+            ${masterOff ? `
+            <div class="d-flex align-items-center gap-2 mb-4 p-3"
+                style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:var(--radius-sm)">
+                <i class="bi bi-exclamation-triangle" style="color:var(--warning);flex-shrink:0"></i>
+                <span style="font-size:0.85rem;color:var(--text-secondary)">
+                    AI features are currently disabled. Enable AI in
+                    <button class="btn btn-link p-0 align-baseline" id="btn-goto-provider"
+                        style="font-size:0.85rem;color:var(--accent-light);text-decoration:none">Provider settings</button>
+                    first.
+                </span>
+            </div>` : ''}
+            <div class="settings-form">
+                ${togglesHtml}
+                <div class="settings-form-actions">
+                    <button class="btn btn-gradient px-4" id="btn-save-ai-features">
+                        <i class="bi bi-check-lg me-1"></i> Save
+                    </button>
+                </div>
+            </div>
+        </div>`;
+
+    if (masterOff) {
+        el.querySelector('#btn-goto-provider')?.addEventListener('click', () => navigateTo('ai-provider'));
+    }
+
+    features.forEach(ft => {
+        el.querySelector(`#${ft.id}`).addEventListener('change', () => markDirty('ai-features'));
+    });
+
+    el.querySelector('#btn-save-ai-features').addEventListener('click', async () => {
+        const featPatch = {};
+        features.forEach(ft => {
+            featPatch[ft.key] = el.querySelector(`#${ft.id}`).checked;
+        });
+        await window.ai.setSettings({ features: featPatch });
+        await refreshSettings();
+        clearDirty();
+        showToast('AI feature settings saved.', 'success');
+    });
 }
 
 /* ── CLOSE / UNSAVED OVERLAY ────────────────────────────── */

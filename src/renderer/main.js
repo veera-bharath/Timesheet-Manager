@@ -27,6 +27,9 @@ import { initUnderloggedBanner, updateUnderloggedBanner } from './modules/underl
 import { initNotifications } from './modules/notifications.js';
 import { initStats } from './modules/stats.js';
 import { setCurrentWeek } from './modules/week.js';
+import { refreshSettings } from './modules/ai.js';
+import { initAiChat } from './modules/ai-chat.js';
+import { initWeekSummary } from './modules/week-summary.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
@@ -40,6 +43,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSidebar();
     initSummaryPanel();
     initStats();
+    initAiChat();
+    initWeekSummary();
     initUpdater();
     initContextMenu();
     initSearch();
@@ -51,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindHeaderEvents();
 
     const restored = await loadState();
+    refreshSettings();   // cache AI feature flags; fire-and-forget
     await loadErrorLog();
     await loadChangelog();
 

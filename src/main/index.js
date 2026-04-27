@@ -1,6 +1,8 @@
 const { app, BrowserWindow, Menu, shell, ipcMain, screen, Tray, nativeImage, Notification, dialog, clipboard } = require('electron');
 const path = require('path');
 const fs   = require('fs');
+const http  = require('http');
+const https = require('https');
 const Store = require('electron-store');
 const { autoUpdater } = require('electron-updater');
 
@@ -9,6 +11,28 @@ const WINDOW_BOUNDS_KEY   = 'windowBounds';
 const LS_KEY              = 'timesheetState_v1';
 const NOTIFICATION_KEY    = 'notificationSettings';
 const BACKUP_SETTINGS_KEY = 'backupSettings';
+const AI_SETTINGS_KEY     = 'aiSettings';
+const AI_MEMORY_KEY       = 'aiMemory';
+
+const DEFAULT_AI_SETTINGS = {
+  enabled:       false,
+  provider:      'local',
+  ollamaUrl:     'http://localhost:11434',
+  ollamaModel:   'llama3',
+  cloudProvider: 'claude',
+  claudeApiKey:  '',
+  openaiApiKey:  '',
+  geminiApiKey:  '',
+  geminiModel:   'gemini-2.5-flash-lite',
+  features: {
+    suggestions:      true,
+    chat:             true,
+    anomalyDetection: true,
+    weeklySummary:    true,
+    recurringAdvisor: true,
+    reportEnhancement: true,
+  },
+};
 
 // ── BACKUP HELPERS ───────────────────────────────────────
 function getDefaultBackupFolder() {
@@ -94,6 +118,109 @@ function checkAutoBackup() {
     pruneOldBackups();
   } catch (e) {
     console.warn('[backup] Auto-backup failed:', e.message);
+  }
+}
+
+// ── AI HELPERS ───────────────────────────────────────────
+function httpRequest(url, options, body) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib    = parsed.protocol === 'https:' ? https : http;
+    const req    = lib.request(url, options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error('AI response parse error')); }
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function callOllama(settings, prompt, context) {
+  const url  = (settings.ollamaUrl || 'http://localhost:11434') + '/api/generate';
+  const body = JSON.stringify({
+    model:  settings.ollamaModel || 'llama3',
+    prompt: context ? `${context}\n\n${prompt}` : prompt,
+    stream: false,
+  });
+  const data = await httpRequest(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+  }, body);
+  return data.response || null;
+}
+
+async function callClaude(settings, prompt, context) {
+  const body = JSON.stringify({
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    messages:   [{ role: 'user', content: context ? `${context}\n\n${prompt}` : prompt }],
+  });
+  const data = await httpRequest('https://api.anthropic.com/v1/messages', {
+    method:  'POST',
+    headers: {
+      'Content-Type':      'application/json',
+      'Content-Length':    Buffer.byteLength(body),
+      'x-api-key':         settings.claudeApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+  }, body);
+  if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error.message || 'Claude API error'));
+  return data.content?.[0]?.text || null;
+}
+
+async function callOpenAI(settings, prompt, context) {
+  const body = JSON.stringify({
+    model:    'gpt-4o-mini',
+    messages: [{ role: 'user', content: context ? `${context}\n\n${prompt}` : prompt }],
+  });
+  const data = await httpRequest('https://api.openai.com/v1/chat/completions', {
+    method:  'POST',
+    headers: {
+      'Content-Type':   'application/json',
+      'Content-Length': Buffer.byteLength(body),
+      'Authorization':  `Bearer ${settings.openaiApiKey}`,
+    },
+  }, body);
+  if (data?.error) throw new Error(data.error.message || 'OpenAI API error');
+  return data.choices?.[0]?.message?.content || null;
+}
+
+async function callGemini(settings, prompt, context) {
+  const model  = settings.geminiModel || 'gemini-2.5-flash-lite';
+  // gemini-1.x is on the stable /v1/ endpoint; gemini-2.x+ is on /v1beta/
+  const apiVer = model.startsWith('gemini-1.') ? 'v1' : 'v1beta';
+  const url    = `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${settings.geminiApiKey}`;
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: context ? `${context}\n\n${prompt}` : prompt }] }],
+  });
+  const data = await httpRequest(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+  }, body);
+  if (data?.error) throw new Error(data.error.message || 'Gemini API error');
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+async function dispatchAI(prompt, context, settingsOverride) {
+  try {
+    const saved    = store.get(AI_SETTINGS_KEY) || {};
+    const settings = settingsOverride ?? { ...DEFAULT_AI_SETTINGS, ...saved };
+    if (!settings.enabled) return null;
+
+    if (settings.provider === 'local') return await callOllama(settings, prompt, context);
+    const cloud = settings.cloudProvider || 'claude';
+    if (cloud === 'claude')  return await callClaude(settings, prompt, context);
+    if (cloud === 'openai')  return await callOpenAI(settings, prompt, context);
+    if (cloud === 'gemini')  return await callGemini(settings, prompt, context);
+    return null;
+  } catch (e) {
+    console.warn('[ai] dispatch error:', e.message);
+    return null;
   }
 }
 
@@ -429,6 +556,126 @@ function parseTxtReport(text) {
 // ── IPC: clipboard ───────────────────────────────────────
 ipcMain.handle('clipboard:read',  () => clipboard.readText());
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(text));
+
+// ── IPC: AI ──────────────────────────────────────────────
+ipcMain.handle('ai:ask', async (_, prompt, context) => dispatchAI(prompt, context));
+
+ipcMain.handle('ai:ask-with-model', async (_, prompt, context, preferredModel) => {
+  const saved    = store.get(AI_SETTINGS_KEY) || {};
+  const settings = { ...DEFAULT_AI_SETTINGS, ...saved };
+  if (!settings.enabled) return null;
+
+  // Only attempt preferred model on local (Ollama) provider
+  if (preferredModel && settings.provider === 'local') {
+    try {
+      const tagsData = await httpRequest(settings.ollamaUrl + '/api/tags', { method: 'GET' }, null);
+      const available = (tagsData?.models || []).map(m => m.name);
+      if (available.includes(preferredModel)) {
+        return dispatchAI(prompt, context, { ...settings, ollamaModel: preferredModel });
+      }
+    } catch (_) { /* preferred model unavailable — fall through to default */ }
+  }
+
+  return dispatchAI(prompt, context, settings);
+});
+
+ipcMain.handle('ai:get-settings', () => {
+  const saved    = store.get(AI_SETTINGS_KEY) || {};
+  const merged   = { ...DEFAULT_AI_SETTINGS, ...saved };
+  // Deep-merge features sub-object
+  merged.features = { ...DEFAULT_AI_SETTINGS.features, ...(saved.features || {}) };
+  // Strip API keys — never send to renderer; include presence flags instead
+  return {
+    ...merged,
+    claudeApiKey:  '',
+    openaiApiKey:  '',
+    geminiApiKey:  '',
+    hasClaudeKey:  !!(merged.claudeApiKey),
+    hasOpenAIKey:  !!(merged.openaiApiKey),
+    hasGeminiKey:  !!(merged.geminiApiKey),
+  };
+});
+
+ipcMain.handle('ai:set-settings', (_, patch) => {
+  const cur = store.get(AI_SETTINGS_KEY) || {};
+  const next = { ...DEFAULT_AI_SETTINGS, ...cur, ...patch };
+  // Deep-merge features
+  if (patch.features) next.features = { ...DEFAULT_AI_SETTINGS.features, ...(cur.features || {}), ...patch.features };
+  // Only update key fields when patch provides a non-empty value
+  if (!patch.claudeApiKey)  next.claudeApiKey  = cur.claudeApiKey  || '';
+  if (!patch.openaiApiKey)  next.openaiApiKey  = cur.openaiApiKey  || '';
+  if (!patch.geminiApiKey)  next.geminiApiKey  = cur.geminiApiKey  || '';
+  store.set(AI_SETTINGS_KEY, next);
+});
+
+ipcMain.handle('ai:get-memory',    ()            => store.get(AI_MEMORY_KEY) || []);
+ipcMain.handle('ai:set-memory',    (_, entries)  => store.set(AI_MEMORY_KEY, entries));
+ipcMain.handle('ai:update-memory', (_, entry)    => {
+  const mem = store.get(AI_MEMORY_KEY) || [];
+  mem.push(entry);
+  store.set(AI_MEMORY_KEY, mem);
+});
+ipcMain.handle('ai:clear-memory',  ()            => store.delete(AI_MEMORY_KEY));
+
+ipcMain.handle('ai:get-gemini-models', async (_, apiKey) => {
+  try {
+    if (!apiKey) return [];
+    const data = await httpRequest(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { method: 'GET' }, null
+    );
+    if (data?.error) return [];
+    return (data?.models || [])
+      .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+      .map(m => m.name.replace('models/', ''));
+  } catch (e) {
+    return [];
+  }
+});
+
+ipcMain.handle('ai:get-ollama-models', async (_, ollamaUrl) => {
+  try {
+    const url  = (ollamaUrl || 'http://localhost:11434') + '/api/tags';
+    const data = await httpRequest(url, { method: 'GET' }, null);
+    return (data?.models || []).map(m => m.name).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+});
+
+ipcMain.handle('ai:test-connection', async (_, overrides) => {
+  try {
+    const saved = store.get(AI_SETTINGS_KEY) || {};
+    // Start from stored settings, then apply form overrides
+    const settings = { ...DEFAULT_AI_SETTINGS, ...saved, enabled: true, ...(overrides || {}) };
+    // Restore stored API keys if overrides didn't supply new ones
+    if (!overrides?.claudeApiKey) settings.claudeApiKey = saved.claudeApiKey || '';
+    if (!overrides?.openaiApiKey) settings.openaiApiKey = saved.openaiApiKey || '';
+    if (!overrides?.geminiApiKey) settings.geminiApiKey = saved.geminiApiKey || '';
+
+    if (settings.provider === 'local') {
+      const ollamaBase = settings.ollamaUrl || 'http://localhost:11434';
+      const data = await httpRequest(ollamaBase + '/api/tags', { method: 'GET' }, null);
+      return data ? { ok: true } : { ok: false, error: 'Could not reach Ollama.' };
+    }
+
+    const cloud = settings.cloudProvider || 'claude';
+    const keyMap = { claude: 'claudeApiKey', openai: 'openaiApiKey', gemini: 'geminiApiKey' };
+    if (!settings[keyMap[cloud]]) {
+      return { ok: false, error: 'No API key configured for this provider.' };
+    }
+
+    const result = await (async () => {
+      if (cloud === 'claude')  return callClaude(settings, 'Reply with the single word: OK', null);
+      if (cloud === 'openai')  return callOpenAI(settings, 'Reply with the single word: OK', null);
+      if (cloud === 'gemini')  return callGemini(settings, 'Reply with the single word: OK', null);
+      return null;
+    })();
+    return result !== null ? { ok: true } : { ok: false, error: 'No response from provider.' };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
 
 // ── IPC: app control ─────────────────────────────────────
 ipcMain.handle('app-quit', () => { isQuitting = true; app.quit(); });

@@ -28,6 +28,20 @@ contextBridge.exposeInMainWorld('backup', {
     chooseFolder: () => ipcRenderer.invoke('backup:choose-folder'),
 });
 
+contextBridge.exposeInMainWorld('ai', {
+    ask:            (prompt, context)        => ipcRenderer.invoke('ai:ask', prompt, context),
+    askWithModel:   (prompt, context, model) => ipcRenderer.invoke('ai:ask-with-model', prompt, context, model),
+    getSettings:    ()               => ipcRenderer.invoke('ai:get-settings'),
+    setSettings:    (patch)          => ipcRenderer.invoke('ai:set-settings', patch),
+    getMemory:      ()               => ipcRenderer.invoke('ai:get-memory'),
+    setMemory:      (entries)        => ipcRenderer.invoke('ai:set-memory', entries),
+    updateMemory:   (entry)          => ipcRenderer.invoke('ai:update-memory', entry),
+    clearMemory:    ()               => ipcRenderer.invoke('ai:clear-memory'),
+    testConnection:    (overrides) => ipcRenderer.invoke('ai:test-connection', overrides),
+    getOllamaModels:   (url)      => ipcRenderer.invoke('ai:get-ollama-models', url),
+    getGeminiModels:   (apiKey)  => ipcRenderer.invoke('ai:get-gemini-models', apiKey),
+});
+
 contextBridge.exposeInMainWorld('updater', {
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),

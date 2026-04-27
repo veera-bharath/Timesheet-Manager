@@ -2,6 +2,27 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Knowledge Graph (RAG)
+
+A pre-built knowledge graph of this codebase lives in `D:\Projects\Timesheet Management\graphify-out\`:
+
+- `graph.json` — full node/edge graph (655 nodes, 1365 edges, 26 communities). Use this for structural queries: which modules call what, what god nodes exist, community membership.
+- `GRAPH_REPORT.md` — human-readable audit: god nodes, surprising connections, community cohesion scores, knowledge gaps.
+- `graph.html` — interactive visual, open in any browser.
+
+**When to consult the graph before answering:**
+- "Which modules touch X?" → BFS from X in `graph.json`
+- "What calls `saveState()`?" → check edges on node `store_savestate`
+- "What changed in milestone 2.x.x?" → community "UI Features & Backlog" or WorkArea plan nodes
+- Any question about cross-module dependencies, data flow, or architecture
+
+**Key facts already extracted:**
+- `saveState()` (25 edges) is the single persistence gate — every state mutation must call it
+- `updateSummary()`, `showToast()`, `fmtDate()` are the real application god nodes
+- `theme.js`, `ripple.js`, `state.js` intentionally do not call `saveState()`
+- The undo snapshot pattern is used in both `entry-modal.js` (delete undo) and `star.js` (bulk-log undo) — latent abstraction
+- Run `/graphify --update` after adding new files to keep the graph current
+
 ## Commands
 
 ```bash
