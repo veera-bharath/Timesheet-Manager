@@ -1,0 +1,100 @@
+/* ── WEEK SUMMARY GENERATOR ── */
+
+/* ── Format picker chips ── */
+.summary-format-row {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.summary-format-chip {
+  flex: 1;
+  padding: 5px 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s, border-color 0.13s;
+  user-select: none;
+}
+
+.summary-format-chip:hover {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+.summary-format-chip.active {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+/* ── Generate button ── */
+#btn-generate-summary {
+  margin-top: 8px;
+}
+
+/* ── Modal output area ── */
+#weekSummaryModal .modal-body {
+  padding: 16px 18px;
+}
+
+.summary-output-wrap {
+  position: relative;
+  min-height: 80px;
+}
+
+#week-summary-output {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  min-height: 120px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.summary-generating {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 24px 0 8px;
+}
+
+.summary-generating-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  animation: sum-pulse 1.4s ease-in-out infinite;
+}
+
+.summary-generating-dot:nth-child(2) { animation-delay: 0.2s; }
+.summary-generating-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes sum-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.3; transform: scale(0.7); }
+}
+
+.summary-disclaimer {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  text-align: center;
+  margin-top: 8px;
+}
