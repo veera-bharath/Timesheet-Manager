@@ -29,6 +29,7 @@ import { initStats } from './modules/stats.js';
 import { setCurrentWeek } from './modules/week.js';
 import { refreshSettings } from './modules/ai.js';
 import { initAiChat } from './modules/ai-chat.js';
+import { initWeekSummary } from './modules/week-summary.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSummaryPanel();
     initStats();
     initAiChat();
+    initWeekSummary();
     initUpdater();
     initContextMenu();
     initSearch();

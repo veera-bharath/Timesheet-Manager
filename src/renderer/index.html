@@ -156,6 +156,17 @@
               <i class="bi bi-calendar-week me-1"></i> Change Week
             </button>
 
+            <!-- AI Week Summary -->
+            <div id="week-summary-section" style="display:none">
+              <div class="summary-format-row mt-3">
+                <div class="summary-format-chip active" data-format="bullet">Bullet</div>
+                <div class="summary-format-chip" data-format="paragraph">Paragraph</div>
+                <div class="summary-format-chip" data-format="standup">Standup</div>
+              </div>
+              <button class="btn btn-outline-accent btn-sm w-100" id="btn-generate-summary">
+                <i class="bi bi-stars me-1"></i> Generate Summary
+              </button>
+            </div>
 
           </div>
         </div>
@@ -1043,6 +1054,35 @@
     <div class="notif-empty" id="notif-empty">
       <i class="bi bi-bell-slash"></i>
       <span>No notifications</span>
+    </div>
+  </div>
+
+  <!-- WEEK SUMMARY MODAL -->
+  <div class="modal fade" id="weekSummaryModal" tabindex="-1" aria-labelledby="weekSummaryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content modal-dark">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title" id="weekSummaryModalLabel">
+            <i class="bi bi-stars me-2 text-accent"></i>Week Summary
+            <span class="chat-experimental-badge ms-1">Experimental</span>
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="summary-output-wrap">
+            <pre id="week-summary-output"></pre>
+          </div>
+          <div class="summary-disclaimer">AI can make mistakes. Results may vary depending on the model used.</div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25 gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-regenerate-summary">
+            <i class="bi bi-arrow-clockwise me-1"></i> Regenerate
+          </button>
+          <button type="button" class="btn btn-gradient btn-sm" id="btn-copy-summary">
+            <i class="bi bi-clipboard me-1"></i> Copy
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
