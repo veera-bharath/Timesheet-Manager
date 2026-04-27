@@ -741,7 +741,7 @@ function renderAbout(el) {
     el.innerHTML = `
         <div class="settings-section-header">
             <h2 class="settings-section-title">About</h2>
-            <p class="settings-section-desc">App information and release history.</p>
+            <p class="settings-section-desc">Track weekly billable hours across Jira and Service Desk tickets — with AI-powered logging, querying, and week summaries.</p>
         </div>
         <div class="settings-section-body">
             <div class="about-app-card">
