@@ -8,6 +8,7 @@ import { parseTimeInput, fmtTimeInput, timeInputError } from './utils.js';
 import { rerenderDayCard, renderAll } from './render.js';
 import { updateNoTicketBanner } from './no-ticket-reminder.js';
 import { updateUnderloggedBanner } from './underlogged-reminder.js';
+import { runAnomalyDetection } from './anomaly-detection.js';
 import { isFeatureEnabled, ask, askWithModel, getProvider } from './ai.js';
 
 let entryModal;
@@ -652,6 +653,7 @@ export function commitEntry(dayIdx, entryIdx) {
     saveState();
     updateNoTicketBanner();
     updateUnderloggedBanner();
+    runAnomalyDetection();
     entryModal.hide();
 }
 
@@ -700,6 +702,7 @@ export function finishDeleteEntry(dayIdx, entryIdx, deletedEntry) {
     updateSummary();
     updateNoTicketBanner();
     updateUnderloggedBanner();
+    runAnomalyDetection();
 
     const timerId = setTimeout(() => {
         lastDeleted = null;
