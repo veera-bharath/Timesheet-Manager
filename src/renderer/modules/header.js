@@ -6,6 +6,7 @@ import { renderAll, renderDays, setWeekTransitionDir } from './render.js';
 import { openPreview, doPrint, copyTxt, downloadTxt } from './report.js';
 import { saveEntry, deleteEntry, makeRegularEntry, updateEntryDayTotal } from './entry-modal.js';
 import { openSettings } from './settings.js';
+import { runAnomalyDetection } from './anomaly-detection.js';
 
 export function bindHeaderEvents() {
     const weekPicker = document.getElementById('week-picker');
@@ -48,6 +49,7 @@ export function bindHeaderEvents() {
         setWeekTransitionDir(prevWeek ? (safeVal > prevWeek ? 'left' : 'right') : null);
         renderAll();
         setWeekTransitionDir(null);
+        runAnomalyDetection();
     });
 
     document.getElementById('btn-autofill-week').addEventListener('click', () => {
@@ -58,6 +60,7 @@ export function bindHeaderEvents() {
         setWeekTransitionDir(prevWeek ? (state.weekValue > prevWeek ? 'left' : state.weekValue < prevWeek ? 'right' : null) : null);
         renderAll();
         setWeekTransitionDir(null);
+        runAnomalyDetection();
     });
 
     document.getElementById('btn-preview').addEventListener('click', openPreview);

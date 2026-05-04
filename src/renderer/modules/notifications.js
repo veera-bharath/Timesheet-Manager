@@ -8,8 +8,13 @@ let notifications = [];
 let dropdownOpen = false;
 
 const TYPE_META = {
-    'no-ticket':   { icon: 'bi-exclamation-triangle-fill', color: 'var(--danger)' },
-    'underlogged': { icon: 'bi-clock-history',             color: 'var(--warning)' },
+    'no-ticket':        { icon: 'bi-exclamation-triangle-fill', color: 'var(--danger)'  },
+    'underlogged':      { icon: 'bi-clock-history',             color: 'var(--warning)' },
+    'unlogged-day':     { icon: 'bi-calendar-x',                color: 'var(--danger)'  },
+    'high-hours':       { icon: 'bi-graph-up-arrow',            color: 'var(--warning)' },
+    'underlogged-week': { icon: 'bi-hourglass-split',           color: 'var(--warning)' },
+    'ticket-gap':       { icon: 'bi-ticket-perforated',         color: 'var(--text-secondary)' },
+    'duplicate-entries':{ icon: 'bi-files',                     color: 'var(--text-secondary)' },
 };
 
 /* ── persistence ── */
@@ -29,8 +34,11 @@ function save() {
 
 export function pushNotification(type, message) {
     load();
-    const existing = notifications.find(n => n.type === type && !n.dismissed);
+    const now = Date.now();
+    const existing = notifications.find(n => n.type === type);
     if (existing) {
+        if (existing.dismissedUntil && now < existing.dismissedUntil) return;
+        existing.dismissedUntil = null;
         if (existing.message !== message) {
             existing.message = message;
             existing.timestamp = new Date().toISOString();
@@ -46,7 +54,7 @@ export function pushNotification(type, message) {
         message,
         timestamp: new Date().toISOString(),
         read: false,
-        dismissed: false,
+        dismissedUntil: null,
     });
     save();
     renderBadge();
@@ -80,8 +88,12 @@ export function initNotifications() {
 
 /* ── badge ── */
 
+function isDismissed(n) {
+    return n.dismissedUntil && Date.now() < n.dismissedUntil;
+}
+
 function renderBadge() {
-    const unread = notifications.filter(n => !n.read && !n.dismissed).length;
+    const unread = notifications.filter(n => !n.read && !isDismissed(n)).length;
     const badge = document.getElementById('notif-badge');
     const btn   = document.getElementById('btn-notifications');
     if (badge) {
@@ -128,12 +140,13 @@ function renderList() {
     const empty = document.getElementById('notif-empty');
     if (!list) return;
 
-    const active = notifications.filter(n => !n.dismissed);
+    const active = notifications.filter(n => !isDismissed(n));
     empty.style.display = active.length === 0 ? '' : 'none';
     list.innerHTML = '';
 
     active.forEach(n => {
-        const meta = TYPE_META[n.type] || { icon: 'bi-bell', color: 'var(--text-muted)' };
+        const typeKey = Object.keys(TYPE_META).find(k => n.type === k || n.type.startsWith(k + '-'));
+        const meta = TYPE_META[typeKey] || { icon: 'bi-bell', color: 'var(--text-secondary)' };
         const time = formatTime(n.timestamp);
         const item = document.createElement('div');
         item.className = 'notif-item';
@@ -156,7 +169,12 @@ function renderList() {
 
 function dismissOne(id) {
     const n = notifications.find(n => n.id === id);
-    if (n) { n.dismissed = true; save(); renderBadge(); renderList(); }
+    if (!n) return;
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    n.dismissedUntil = Date.now() + SEVEN_DAYS;
+    save();
+    renderBadge();
+    renderList();
 }
 
 /* ── helpers ── */
