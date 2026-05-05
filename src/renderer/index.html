@@ -232,6 +232,18 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          <div id="report-ai-bar" class="report-ai-bar" style="display:none">
+            <div class="d-flex align-items-center gap-2">
+              <input class="form-check-input mt-0" type="checkbox" id="toggle-enhance-ai" role="switch">
+              <label class="form-check-label" for="toggle-enhance-ai">
+                <i class="bi bi-stars me-1"></i>Enhance with AI
+              </label>
+            </div>
+            <div id="report-ai-loading" class="report-ai-loading d-none">
+              <div class="spinner-border spinner-border-sm" role="status" style="color:var(--accent)"></div>
+              <span>Rewriting descriptions…</span>
+            </div>
+          </div>
           <pre id="txt-preview" class="txt-output"></pre>
         </div>
         <div class="modal-footer">
@@ -239,6 +251,9 @@
             <i class="bi bi-pencil me-1"></i> Edit Sheet Details
           </button>
           <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-sm btn-outline-success" id="btn-apply-enhanced" style="display:none">
+            <i class="bi bi-check2-circle me-1"></i> Apply to Entries
+          </button>
           <button type="button" class="btn btn-gradient" id="btn-copy-txt">
             <i class="bi bi-clipboard me-1"></i> Copy to Clipboard
           </button>
