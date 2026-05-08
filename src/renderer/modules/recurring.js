@@ -183,7 +183,7 @@ function renderRecurringList() {
     });
 }
 
-function openRecurringForm(rule) {
+export function openRecurringForm(rule) {
     document.getElementById('recurring-form-id').value = rule ? rule.id : '';
     document.getElementById('recurring-ticket').value = rule ? rule.ticket : '';
     const timeEl = document.getElementById('recurring-time');
@@ -192,7 +192,7 @@ function openRecurringForm(rule) {
     populateTypeSelect(document.getElementById('recurring-type'), rule ? rule.type : (state.ticketTypes[0]?.id || 'jira'));
     document.getElementById('recurring-desc').value = rule ? rule.desc : '';
     document.getElementById('recurringFormTitle').innerHTML =
-        `<i class="bi bi-arrow-repeat me-2"></i>${rule ? 'Edit' : 'Add'} Recurring Task`;
+        `<i class="bi bi-arrow-repeat me-2"></i>${rule?.id ? 'Edit' : 'Add'} Recurring Task`;
 
     document.querySelectorAll('.recurring-day-btn').forEach(btn => {
         btn.classList.toggle('selected', rule ? rule.days.includes(btn.dataset.day) : false);
