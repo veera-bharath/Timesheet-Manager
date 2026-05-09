@@ -1,7 +1,8 @@
 import { state, WEEK_DAYS, ROMAN } from './state.js';
 import { saveState } from './store.js';
-import { escHtml, fmtDisplayDate, minsToHHMM } from './utils.js';
+import { escHtml, fmtDate, fmtDisplayDate, minsToHHMM } from './utils.js';
 import { calcDayTotalMins, updateSummary } from './summary.js';
+import { showToast } from './toast.js';
 // Circular imports — resolved at call time (runtime only, not load time)
 import { openEntryModal } from './entry-modal.js';
 import { showEntryContextMenu } from './context-menu.js';
@@ -10,6 +11,7 @@ import { openDayQuickView } from './report.js';
 import { showEntryQuickView } from './context-menu.js';
 import { getTypeById } from './ticket-types.js';
 import { getLeaveLabel, resolveLeaveTypeId, populateLeaveSelect } from './leave-types.js';
+import { isFeatureEnabled, ask, askWithModel, getProvider } from './ai.js';
 
 let weekTransitionDir = null;
 
@@ -297,6 +299,125 @@ export function buildDayCard(day, dayIdx) {
 let _dayNotesModal = null;
 let _dayNotesIdx = -1;
 
+function stripAiPreamble(text) {
+    const lines = text.trim().split('\n');
+    const preambleRe = /^(sure[,.]|here is|here's|certainly|of course|below is|the improved|improved version)/i;
+    // Only drop leading preamble lines; preserve blank lines that separate sections
+    let start = 0;
+    while (start < lines.length && preambleRe.test(lines[start].trim())) start++;
+    return lines.slice(start).join('\n').trim();
+}
+
+function cleanMarkdown(text) {
+    return text
+        .replace(/^#+\s*/gm, '')
+        .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+        .replace(/\*([^*\n]+)\*/g, '$1')
+        .replace(/`([^`\n]+)`/g, '$1');
+}
+
+async function fixGrammarLines(text, pastTense) {
+    const trimmed = text.trim();
+    if (!trimmed) return '';
+    const prompt = pastTense
+        ? `Fix grammar and change verbs to simple past tense in these standup lines.\n` +
+          `Rules:\n` +
+          `- Each line starts with "- TICKET-ID description". Keep "- TICKET-ID" exactly, only fix the description part.\n` +
+          `- Ticket IDs (e.g. JIRA-227, TM-99) are reference codes, NOT places or people.\n` +
+          `- Use simple past tense: "Meet" → "Met", "Work on" → "Worked on". Do NOT write "In the past..." or add any extra words.\n` +
+          `- Keep descriptions short and concise — same length as input.\n` +
+          `- No markdown. Return only the corrected lines.\n\n${trimmed}`
+        : `Fix grammar only. Keep all ticket IDs and names exactly as written. ` +
+          `Keep descriptions concise. No markdown. Return only the corrected lines.\n\n${trimmed}`;
+    const raw = getProvider() === 'local'
+        ? await askWithModel(prompt, null, 'qwen2.5:0.5b')
+        : await ask(prompt, null);
+    return raw ? cleanMarkdown(stripAiPreamble(raw)) : trimmed;
+}
+
+async function enhanceStandupNotes(text) {
+    const HEADERS = ['Yesterday:', 'Today:', 'Questions/Comments:'];
+    const order = [];
+    const sections = {};
+    let cur = null;
+
+    for (const line of text.split('\n')) {
+        if (HEADERS.includes(line.trim())) {
+            cur = line.trim();
+            order.push(cur);
+            sections[cur] = [];
+        } else if (cur) {
+            sections[cur].push(line);
+        }
+    }
+
+    // No standard headers — fix grammar on the whole text as-is
+    if (order.length === 0) return fixGrammarLines(text, false);
+
+    const out = [];
+    for (const header of order) {
+        out.push(header);
+        const enhanced = await fixGrammarLines(sections[header].join('\n'), header === 'Yesterday:');
+        if (enhanced) out.push(enhanced);
+        out.push('');
+    }
+    return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+}
+
+function getPreviousWorkday(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    for (let i = 0; i < 14; i++) {
+        d.setDate(d.getDate() - 1);
+        const dow = d.getDay();
+        if (dow === 0 || dow === 6) continue; // skip weekend
+        const dStr = fmtDate(d);
+        if (state.allDaysByDate[dStr]?.isHoliday) continue; // skip holiday
+        return dStr;
+    }
+    return null;
+}
+
+function formatEntriesForStandup(entries) {
+    if (!entries || entries.length === 0) return '';
+    return entries.map(e => {
+        const ticket = e.ticket?.trim();
+        const desc = e.desc?.trim();
+        return '- ' + [ticket, desc].filter(Boolean).join(' ');
+    }).join('\n');
+}
+
+// Returns the text content of the Yesterday section, or '' if absent/empty.
+function extractYesterdayContent(text) {
+    const m = text.match(/Yesterday:\n([\s\S]*?)(?=\n(?:Today:|Questions\/Comments:)|$)/);
+    return m ? m[1].trim() : '';
+}
+
+function filterStandupEntries(entries) {
+    if (!entries) return [];
+    return entries.filter(e => {
+        if (!e.recurringId) return true;
+        const rule = state.recurringTasks?.find(r => r.id === e.recurringId);
+        return !rule?.skipInNotes;
+    });
+}
+
+function buildStandupTemplate(currentDay) {
+    const prevDayStr = getPreviousWorkday(currentDay.date);
+
+    let out = 'Yesterday:\n';
+    if (prevDayStr) {
+        const prevText = formatEntriesForStandup(filterStandupEntries(state.allDaysByDate[prevDayStr]?.entries));
+        if (prevText) out += prevText + '\n';
+    }
+    out += '\n';
+
+    const todayText = formatEntriesForStandup(filterStandupEntries(currentDay.entries));
+    out += 'Today:\n' + (todayText ? todayText + '\n' : '') + '\n';
+
+    out += 'Questions/Comments:\n';
+    return out;
+}
+
 export function openDayNotesModal(dayIdx) {
     if (!_dayNotesModal) {
         _dayNotesModal = new bootstrap.Modal(document.getElementById('dayNotesModal'));
@@ -311,21 +432,33 @@ export function openDayNotesModal(dayIdx) {
     const dirty = document.getElementById('day-notes-dirty');
     const hint = document.getElementById('day-notes-hint');
     const saveBtn = document.getElementById('btn-save-day-notes');
+    const enhanceBtn = document.getElementById('btn-enhance-notes');
+    const undoEnhanceBtn = document.getElementById('btn-undo-enhance-notes');
 
     const originalNotes = day.notes || '';
-    textarea.value = originalNotes;
+    textarea.value = originalNotes || buildStandupTemplate(day);
 
     const hasExisting = !!originalNotes;
     textarea.readOnly = hasExisting;
     hint.style.display = hasExisting ? 'block' : 'none';
     dirty.style.display = 'none';
     saveBtn.disabled = true;
+    undoEnhanceBtn.style.display = 'none';
+    let preEnhanceSnapshot = null;
 
     const markDirty = () => {
         const isDirty = textarea.value !== originalNotes;
         dirty.style.display = isDirty ? 'inline' : 'none';
         saveBtn.disabled = !isDirty;
     };
+
+    const updateEnhanceBtn = () => {
+        enhanceBtn.style.display =
+            isFeatureEnabled('suggestions') && textarea.value.trim() ? '' : 'none';
+    };
+
+    markDirty();
+    updateEnhanceBtn();
 
     textarea.ondblclick = () => {
         if (textarea.readOnly) {
@@ -337,7 +470,39 @@ export function openDayNotesModal(dayIdx) {
         }
     };
 
-    textarea.oninput = markDirty;
+    textarea.oninput = () => { markDirty(); updateEnhanceBtn(); };
+
+    enhanceBtn.onclick = async () => {
+        const current = textarea.value.trim();
+        if (!current) return;
+
+        textarea.readOnly = false;
+        hint.style.display = 'none';
+
+        const icon = enhanceBtn.querySelector('i');
+        enhanceBtn.disabled = true;
+        icon.className = 'bi bi-hourglass-split me-1';
+
+        preEnhanceSnapshot = textarea.value;
+        const improved = await enhanceStandupNotes(current);
+        if (improved) {
+            textarea.value = improved;
+            markDirty();
+            undoEnhanceBtn.style.display = '';
+        }
+
+        icon.className = 'bi bi-stars me-1';
+        enhanceBtn.disabled = false;
+    };
+
+    undoEnhanceBtn.onclick = () => {
+        if (preEnhanceSnapshot === null) return;
+        textarea.value = preEnhanceSnapshot;
+        preEnhanceSnapshot = null;
+        undoEnhanceBtn.style.display = 'none';
+        markDirty();
+        updateEnhanceBtn();
+    };
 
     saveBtn.onclick = () => {
         state.days[_dayNotesIdx].notes = textarea.value;
@@ -365,7 +530,38 @@ export function openDayNotesModal(dayIdx) {
                 existingIndicator.remove();
             }
         }
+        undoEnhanceBtn.style.display = 'none';
+        preEnhanceSnapshot = null;
         _dayNotesModal.hide();
+    };
+
+    document.getElementById('btn-fetch-prev-notes').onclick = () => {
+        const currentDay = state.days[_dayNotesIdx];
+        const currentVal = textarea.value;
+
+        if (extractYesterdayContent(currentVal)) {
+            showToast('Yesterday already filled — not overriding', 'info');
+            return;
+        }
+
+        // Template not present at all → insert full template
+        if (!currentVal.includes('Yesterday:')) {
+            const existing = currentVal.trimEnd();
+            textarea.value = existing ? existing + '\n\n' + buildStandupTemplate(currentDay) : buildStandupTemplate(currentDay);
+        } else {
+            // Template present but Yesterday is empty → inject entries after "Yesterday:\n"
+            const prevDayStr = getPreviousWorkday(currentDay.date);
+            const prevText = prevDayStr ? formatEntriesForStandup(filterStandupEntries(state.allDaysByDate[prevDayStr]?.entries)) : '';
+            if (prevText) {
+                textarea.value = currentVal.replace(/Yesterday:\n/, 'Yesterday:\n' + prevText + '\n');
+            }
+        }
+
+        textarea.readOnly = false;
+        hint.style.display = 'none';
+        markDirty();
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     };
 
     _dayNotesModal.show();
