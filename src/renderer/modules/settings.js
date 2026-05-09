@@ -43,6 +43,8 @@ let currentSection = 'general';
 let dirtySection   = null;
 let _pendingTarget = null;   // section key or '__close__'
 let settingsModalInst = null;
+let _settingsInited   = false;
+let _changelogLoaded  = false;
 
 /* ── CHANGELOG ──────────────────────────────────────────── */
 const CHANGELOG_KEY = 'changelog_v1';
@@ -124,12 +126,12 @@ export function initSettings() {
                 doNavigate(target);
             }
         });
-
-    doNavigate('general');
 }
 
 /* ── PUBLIC API ─────────────────────────────────────────── */
 export function openSettings(section = 'general') {
+    if (!_settingsInited) { initSettings(); _settingsInited = true; }
+    if (!_changelogLoaded) { loadChangelog(); _changelogLoaded = true; }
     doNavigate(section);
     settingsModalInst.show();
 }
