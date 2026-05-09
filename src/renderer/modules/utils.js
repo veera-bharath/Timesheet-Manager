@@ -139,6 +139,19 @@ export function padTicket(ticket) {
     return ticket;
 }
 
+export function debounce(fn, delay) {
+    let timer;
+    function debounced(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    }
+    debounced.flush = function (...args) {
+        clearTimeout(timer);
+        fn.apply(this, args);
+    };
+    return debounced;
+}
+
 export function animateCountUp(el, targetVal, isTimeFormat = false) {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         el.textContent = isTimeFormat ? minsToHHMM(targetVal) : targetVal;
