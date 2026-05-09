@@ -274,11 +274,24 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <textarea id="day-notes-textarea" class="day-notes-textarea dark-input" placeholder="Add standup notes, blockers, meeting outcomes…" rows="10"></textarea>
-          <p id="day-notes-hint" class="day-notes-hint">Double-click to edit</p>
+          <textarea id="day-notes-textarea" class="day-notes-textarea dark-input" rows="10"></textarea>
+          <div class="d-flex align-items-center justify-content-between mt-1">
+            <p id="day-notes-hint" class="day-notes-hint mb-0">Double-click to edit</p>
+            <div class="d-flex gap-2">
+              <button type="button" id="btn-undo-enhance-notes" class="btn btn-outline-secondary btn-sm" style="display:none;font-size:0.78rem">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Undo
+              </button>
+              <button type="button" id="btn-enhance-notes" class="btn btn-outline-light btn-sm" style="display:none;font-size:0.78rem">
+                <i class="bi bi-stars me-1"></i>Enhance
+              </button>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-outline-secondary me-auto" id="btn-fetch-prev-notes">
+            <i class="bi bi-clock-history me-1"></i> Fetch Previous
+          </button>
           <button type="button" class="btn btn-gradient" id="btn-save-day-notes" disabled>
             <i class="bi bi-check-lg me-1"></i> Save
           </button>
@@ -477,6 +490,14 @@
             <div class="col-12">
               <label class="form-label label-text">Description</label>
               <textarea id="recurring-desc" class="form-control dark-input" rows="2" placeholder="Brief description of work done..."></textarea>
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="recurring-skip-notes" />
+                <label class="form-check-label label-text" for="recurring-skip-notes">
+                  Skip in standup notes
+                </label>
+              </div>
             </div>
             <div class="col-12">
               <label class="form-label label-text d-block mb-2">Repeat on</label>
