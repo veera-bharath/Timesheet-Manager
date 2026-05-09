@@ -2,7 +2,8 @@ import { state } from './state.js';
 import { escHtml, minsToHHMM } from './utils.js';
 import { getWeekStrFromDate, getDateFromWeek } from './week.js';
 
-let _statsModal = null;
+let _statsModal  = null;
+let _statsInited = false;
 let _currentRange = 4;
 let _currentTab = 'weekly';
 
@@ -31,6 +32,7 @@ export function initStats() {
 }
 
 export function openStatsModal() {
+    if (!_statsInited) { initStats(); _statsInited = true; }
     _currentRange = 4;
     _currentTab = 'weekly';
     document.querySelectorAll('.stats-filter-btn').forEach(b => b.classList.remove('active'));
