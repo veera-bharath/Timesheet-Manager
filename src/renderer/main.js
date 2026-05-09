@@ -15,9 +15,9 @@ import { initEntryModal } from './modules/entry-modal.js';
 import { initCopyTo } from './modules/copy-to.js';
 import { initReport } from './modules/report.js';
 import { bindHeaderEvents, openWeekSwitcherModal } from './modules/header.js';
-import { initSettings, updateSheetDetailsDisplay, loadChangelog } from './modules/settings.js';
+import { updateSheetDetailsDisplay } from './modules/settings.js';
 import { loadErrorLog } from './modules/error-log.js';
-import { renderAll } from './modules/render.js';
+import { renderAll, initDaysContainer } from './modules/render.js';
 import { state } from './modules/state.js';
 import { getWeekStrFromDate, getDateFromWeek, buildWeekDays, enforceExpandedState, updateWeekDisplay } from './modules/week.js';
 import { updateSummary } from './modules/summary.js';
@@ -25,24 +25,23 @@ import { initOnboarding, needsOnboarding, showOnboarding } from './modules/onboa
 import { initNoTicketBanner, updateNoTicketBanner } from './modules/no-ticket-reminder.js';
 import { initUnderloggedBanner, updateUnderloggedBanner } from './modules/underlogged-reminder.js';
 import { initNotifications } from './modules/notifications.js';
-import { initStats } from './modules/stats.js';
 import { setCurrentWeek } from './modules/week.js';
 import { refreshSettings } from './modules/ai.js';
 import { initAiChat } from './modules/ai-chat.js';
 import { initWeekSummary } from './modules/week-summary.js';
+import { runAnomalyDetection } from './modules/anomaly-detection.js';
+import { runRecurringAdvisor } from './modules/recurring-advisor.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
     initTheme();
     initRipple();
-    initSettings();
     initOnboarding();
     initNotifications();
     initNoTicketBanner();
     initUnderloggedBanner();
     initSidebar();
     initSummaryPanel();
-    initStats();
     initAiChat();
     initWeekSummary();
     initUpdater();
@@ -54,11 +53,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     initCopyTo();
     initReport();
     bindHeaderEvents();
+    initDaysContainer();
 
     const restored = await loadState();
     refreshSettings();   // cache AI feature flags; fire-and-forget
     await loadErrorLog();
-    await loadChangelog();
 
     if (needsOnboarding()) await showOnboarding();
 
@@ -91,6 +90,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     initKeyboard();
     updateNoTicketBanner();
     updateUnderloggedBanner();
+    runAnomalyDetection();
+    if (new Date().getDay() === 1) runRecurringAdvisor();
 
     // Navigate to today when triggered from tray or notification click
     if (window.tray) {

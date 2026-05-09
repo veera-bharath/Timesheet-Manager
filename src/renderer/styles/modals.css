@@ -115,3 +115,35 @@
   font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px; display: none;
 }
 .time-hint-text.show { display: block; }
+
+/* ── Report AI Enhancement Bar ── */
+.report-ai-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.report-ai-bar .form-check-label {
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.83rem;
+  user-select: none;
+}
+
+.report-ai-bar .form-check-input:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.report-ai-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}

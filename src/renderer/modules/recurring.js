@@ -154,6 +154,7 @@ function renderRecurringList() {
             <span class="entry-ticket" style="color:${rColor}">${escHtml(rule.ticket || '—')}</span>
             <span class="entry-hours">${String(rule.hh || 0).padStart(2,'0')}:${String(rule.mm || 0).padStart(2,'0')}</span>
             ${rBadge}
+            ${rule.skipInNotes ? '<span class="badge bg-secondary" title="Excluded from standup notes"><i class="bi bi-journal-x me-1"></i>Skip Notes</span>' : ''}
           </div>
           <div class="text-muted" style="font-size:0.85rem">${escHtml(rule.desc || '')}</div>
           <div class="d-flex gap-1 mt-2">
@@ -183,7 +184,7 @@ function renderRecurringList() {
     });
 }
 
-function openRecurringForm(rule) {
+export function openRecurringForm(rule) {
     document.getElementById('recurring-form-id').value = rule ? rule.id : '';
     document.getElementById('recurring-ticket').value = rule ? rule.ticket : '';
     const timeEl = document.getElementById('recurring-time');
@@ -192,11 +193,12 @@ function openRecurringForm(rule) {
     populateTypeSelect(document.getElementById('recurring-type'), rule ? rule.type : (state.ticketTypes[0]?.id || 'jira'));
     document.getElementById('recurring-desc').value = rule ? rule.desc : '';
     document.getElementById('recurringFormTitle').innerHTML =
-        `<i class="bi bi-arrow-repeat me-2"></i>${rule ? 'Edit' : 'Add'} Recurring Task`;
+        `<i class="bi bi-arrow-repeat me-2"></i>${rule?.id ? 'Edit' : 'Add'} Recurring Task`;
 
     document.querySelectorAll('.recurring-day-btn').forEach(btn => {
         btn.classList.toggle('selected', rule ? rule.days.includes(btn.dataset.day) : false);
     });
+    document.getElementById('recurring-skip-notes').checked = !!(rule?.skipInNotes);
     syncAllDaysCheckbox();
 
     [document.getElementById('recurring-ticket'), document.getElementById('recurring-desc'),
@@ -215,6 +217,7 @@ function saveRecurringRule() {
     const type = document.getElementById('recurring-type').value;
     const desc = document.getElementById('recurring-desc').value.trim();
     const selectedDays = [...document.querySelectorAll('.recurring-day-btn.selected')].map(b => b.dataset.day);
+    const skipInNotes = document.getElementById('recurring-skip-notes').checked;
 
     let hasError = false;
     [document.getElementById('recurring-ticket'), document.getElementById('recurring-desc'),
@@ -234,11 +237,11 @@ function saveRecurringRule() {
     if (existingId) {
         const rule = state.recurringTasks.find(r => r.id === existingId);
         if (rule) {
-            Object.assign(rule, { ticket, hh, mm, timeRaw, type, desc, days: selectedDays });
+            Object.assign(rule, { ticket, hh, mm, timeRaw, type, desc, days: selectedDays, skipInNotes });
             updateRecurringEntriesFromToday(rule);
         }
     } else {
-        const rule = { id: 'rec_' + Date.now(), ticket, hh, mm, timeRaw, type, desc, days: selectedDays };
+        const rule = { id: 'rec_' + Date.now(), ticket, hh, mm, timeRaw, type, desc, days: selectedDays, skipInNotes };
         state.recurringTasks.push(rule);
         populateRecurringForWeek(getDateFromWeek(state.weekValue || getWeekStrFromDate(new Date())));
     }

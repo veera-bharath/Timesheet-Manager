@@ -43,6 +43,8 @@ let currentSection = 'general';
 let dirtySection   = null;
 let _pendingTarget = null;   // section key or '__close__'
 let settingsModalInst = null;
+let _settingsInited   = false;
+let _changelogLoaded  = false;
 
 /* ── CHANGELOG ──────────────────────────────────────────── */
 const CHANGELOG_KEY = 'changelog_v1';
@@ -124,12 +126,12 @@ export function initSettings() {
                 doNavigate(target);
             }
         });
-
-    doNavigate('general');
 }
 
 /* ── PUBLIC API ─────────────────────────────────────────── */
 export function openSettings(section = 'general') {
+    if (!_settingsInited) { initSettings(); _settingsInited = true; }
+    if (!_changelogLoaded) { loadChangelog(); _changelogLoaded = true; }
     doNavigate(section);
     settingsModalInst.show();
 }
@@ -741,7 +743,7 @@ function renderAbout(el) {
     el.innerHTML = `
         <div class="settings-section-header">
             <h2 class="settings-section-title">About</h2>
-            <p class="settings-section-desc">App information and release history.</p>
+            <p class="settings-section-desc">Track weekly billable hours across Jira and Service Desk tickets — with AI-powered logging, querying, and week summaries.</p>
         </div>
         <div class="settings-section-body">
             <div class="about-app-card">

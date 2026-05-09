@@ -1,12 +1,15 @@
 import { state, LS_KEY, DEFAULT_TICKET_TYPES, DEFAULT_LEAVE_TYPES } from './state.js';
 import { logError } from './error-log.js';
+import { debounce } from './utils.js';
 
-export async function saveState() {
+function _syncDays() {
+    state.days.forEach(d => {
+        if (d && d.date) state.allDaysByDate[d.date] = d;
+    });
+}
+
+async function _writeState() {
     try {
-        state.days.forEach(d => {
-            if (d && d.date) state.allDaysByDate[d.date] = d;
-        });
-
         const toSave = {
             reportTitle: state.reportTitle,
             employeeName: state.employeeName,
@@ -20,6 +23,19 @@ export async function saveState() {
         };
         await window.electronStore.set(LS_KEY, toSave);
     } catch (e) { console.warn('Could not save state', e); logError('store/save', e); }
+}
+
+const _debouncedWrite = debounce(_writeState, 300);
+
+export function saveState() {
+    _syncDays();
+    _debouncedWrite();
+}
+
+// Call before app quits to flush any pending debounced write.
+export async function flushSave() {
+    _debouncedWrite.flush();
+    await _writeState();
 }
 
 export async function loadState() {

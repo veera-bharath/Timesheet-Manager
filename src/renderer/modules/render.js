@@ -1,7 +1,8 @@
 import { state, WEEK_DAYS, ROMAN } from './state.js';
 import { saveState } from './store.js';
-import { escHtml, fmtDisplayDate, minsToHHMM } from './utils.js';
+import { escHtml, fmtDate, fmtDisplayDate, minsToHHMM } from './utils.js';
 import { calcDayTotalMins, updateSummary } from './summary.js';
+import { showToast } from './toast.js';
 // Circular imports — resolved at call time (runtime only, not load time)
 import { openEntryModal } from './entry-modal.js';
 import { showEntryContextMenu } from './context-menu.js';
@@ -10,6 +11,7 @@ import { openDayQuickView } from './report.js';
 import { showEntryQuickView } from './context-menu.js';
 import { getTypeById } from './ticket-types.js';
 import { getLeaveLabel, resolveLeaveTypeId, populateLeaveSelect } from './leave-types.js';
+import { isFeatureEnabled, ask, askWithModel, getProvider } from './ai.js';
 
 let weekTransitionDir = null;
 
@@ -270,9 +272,9 @@ export function buildDayCard(day, dayIdx) {
     </div>
     <div class="day-card-body ${day.expanded ? '' : 'collapsed'}" id="day-body-${dayIdx}">
       <div class="holiday-check-wrap">
-        <input type="checkbox" id="holiday-${dayIdx}" ${day.isHoliday ? 'checked' : ''} />
+        <input type="checkbox" id="holiday-${dayIdx}" data-day="${dayIdx}" ${day.isHoliday ? 'checked' : ''} />
         <label for="holiday-${dayIdx}">Mark as Holiday / Leave</label>
-        <select id="holiday-label-${dayIdx}" class="form-select dark-input ms-2"
+        <select id="holiday-label-${dayIdx}" data-day="${dayIdx}" data-role="holiday-label" class="form-select dark-input ms-2"
           style="max-width:200px;display:${day.isHoliday ? 'block' : 'none'}">
         </select>
       </div>
@@ -280,7 +282,7 @@ export function buildDayCard(day, dayIdx) {
         <button class="add-entry-btn" data-day="${dayIdx}">
           <i class="bi bi-plus-circle"></i> Add Entry
         </button>
-        <button class="day-notes-open-btn${day.notes ? ' has-notes' : ''}" title="${day.notes ? 'View/Edit Notes' : 'Add Notes'}">
+        <button class="day-notes-open-btn${day.notes ? ' has-notes' : ''}" data-day="${dayIdx}" title="${day.notes ? 'View/Edit Notes' : 'Add Notes'}">
           Notes
         </button>
       </div>`}
@@ -289,77 +291,132 @@ export function buildDayCard(day, dayIdx) {
     </div>
   `;
 
-    wrap.querySelector('.day-card-header').addEventListener('click', (e) => {
-        if (e.target.closest('.day-quick-view-btn')) {
-            e.stopPropagation();
-            openDayQuickView(dayIdx);
-        } else {
-            toggleDay(dayIdx);
-        }
-    });
-
-    wrap.querySelector('.day-notes-open-btn')?.addEventListener('click', () => openDayNotesModal(dayIdx));
-
-    const cb = wrap.querySelector(`#holiday-${dayIdx}`);
-    const lbl = wrap.querySelector(`#holiday-label-${dayIdx}`);
-
-    // Populate leave type select dynamically
-    populateLeaveSelect(lbl, resolveLeaveTypeId(day));
-
-    cb.addEventListener('change', () => {
-        state.days[dayIdx].isHoliday = cb.checked;
-        lbl.style.display = cb.checked ? 'block' : 'none';
-        if (!cb.checked) {
-            state.days[dayIdx].leaveTypeId = '';
-        } else {
-            state.days[dayIdx].leaveTypeId = resolveLeaveTypeId(state.days[dayIdx]);
-        }
-        rerenderDayCard(dayIdx);
-        updateSummary();
-        saveState();
-    });
-    lbl.addEventListener('change', () => {
-        state.days[dayIdx].leaveTypeId = lbl.value;
-        // Keep holidayLabel in sync for backward compat fallback
-        const leaveType = state.leaveTypes?.find(t => t.id === lbl.value);
-        if (leaveType) state.days[dayIdx].holidayLabel = leaveType.label;
-        rerenderDayCard(dayIdx);
-        updateSummary();
-        saveState();
-    });
-
-    const addBtn = wrap.querySelector('.add-entry-btn');
-    if (addBtn) addBtn.addEventListener('click', () => openEntryModal(dayIdx, -1));
-
-    wrap.querySelectorAll('.entry-row').forEach(row => {
-        row.addEventListener('dblclick', e => {
-            if (e.target.closest('.drag-handle') || e.target.closest('.entry-btn-eye') || e.target.closest('.entry-btn-star') || e.target.closest('.entry-btn-logged')) return;
-            openEntryModal(parseInt(row.dataset.day), parseInt(row.dataset.entry));
-        });
-
-        row.addEventListener('contextmenu', e => {
-            e.preventDefault();
-            showEntryContextMenu(row, e.clientX, e.clientY);
-        });
-
-        row.querySelector('.entry-btn-star').addEventListener('click', e => {
-            e.stopPropagation();
-            toggleEntryStarred(parseInt(row.dataset.day), parseInt(row.dataset.entry), e.currentTarget);
-        });
-
-        row.querySelector('.entry-btn-logged').addEventListener('click', e => {
-            e.stopPropagation();
-            toggleEntryLogged(parseInt(row.dataset.day), parseInt(row.dataset.entry), e.currentTarget);
-        });
-    });
-
-    attachDragListeners(dayIdx, wrap);
+    populateLeaveSelect(wrap.querySelector(`#holiday-label-${dayIdx}`), resolveLeaveTypeId(day));
 
     return wrap;
 }
 
 let _dayNotesModal = null;
 let _dayNotesIdx = -1;
+
+function stripAiPreamble(text) {
+    const lines = text.trim().split('\n');
+    const preambleRe = /^(sure[,.]|here is|here's|certainly|of course|below is|the improved|improved version)/i;
+    // Only drop leading preamble lines; preserve blank lines that separate sections
+    let start = 0;
+    while (start < lines.length && preambleRe.test(lines[start].trim())) start++;
+    return lines.slice(start).join('\n').trim();
+}
+
+function cleanMarkdown(text) {
+    return text
+        .replace(/^#+\s*/gm, '')
+        .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+        .replace(/\*([^*\n]+)\*/g, '$1')
+        .replace(/`([^`\n]+)`/g, '$1');
+}
+
+async function fixGrammarLines(text, pastTense) {
+    const trimmed = text.trim();
+    if (!trimmed) return '';
+    const prompt = pastTense
+        ? `Fix grammar and change verbs to simple past tense in these standup lines.\n` +
+          `Rules:\n` +
+          `- Each line starts with "- TICKET-ID description". Keep "- TICKET-ID" exactly, only fix the description part.\n` +
+          `- Ticket IDs (e.g. JIRA-227, TM-99) are reference codes, NOT places or people.\n` +
+          `- Use simple past tense: "Meet" → "Met", "Work on" → "Worked on". Do NOT write "In the past..." or add any extra words.\n` +
+          `- Keep descriptions short and concise — same length as input.\n` +
+          `- No markdown. Return only the corrected lines.\n\n${trimmed}`
+        : `Fix grammar only. Keep all ticket IDs and names exactly as written. ` +
+          `Keep descriptions concise. No markdown. Return only the corrected lines.\n\n${trimmed}`;
+    const raw = getProvider() === 'local'
+        ? await askWithModel(prompt, null, 'qwen2.5:0.5b')
+        : await ask(prompt, null);
+    return raw ? cleanMarkdown(stripAiPreamble(raw)) : trimmed;
+}
+
+async function enhanceStandupNotes(text) {
+    const HEADERS = ['Yesterday:', 'Today:', 'Questions/Comments:'];
+    const order = [];
+    const sections = {};
+    let cur = null;
+
+    for (const line of text.split('\n')) {
+        if (HEADERS.includes(line.trim())) {
+            cur = line.trim();
+            order.push(cur);
+            sections[cur] = [];
+        } else if (cur) {
+            sections[cur].push(line);
+        }
+    }
+
+    // No standard headers — fix grammar on the whole text as-is
+    if (order.length === 0) return fixGrammarLines(text, false);
+
+    const out = [];
+    for (const header of order) {
+        out.push(header);
+        const enhanced = await fixGrammarLines(sections[header].join('\n'), header === 'Yesterday:');
+        if (enhanced) out.push(enhanced);
+        out.push('');
+    }
+    return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+}
+
+function getPreviousWorkday(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    for (let i = 0; i < 14; i++) {
+        d.setDate(d.getDate() - 1);
+        const dow = d.getDay();
+        if (dow === 0 || dow === 6) continue; // skip weekend
+        const dStr = fmtDate(d);
+        if (state.allDaysByDate[dStr]?.isHoliday) continue; // skip holiday
+        return dStr;
+    }
+    return null;
+}
+
+function formatEntriesForStandup(entries) {
+    if (!entries || entries.length === 0) return '';
+    return entries.map(e => {
+        const ticket = e.ticket?.trim();
+        const desc = e.desc?.trim();
+        return '- ' + [ticket, desc].filter(Boolean).join(' ');
+    }).join('\n');
+}
+
+// Returns the text content of the Yesterday section, or '' if absent/empty.
+function extractYesterdayContent(text) {
+    const m = text.match(/Yesterday:\n([\s\S]*?)(?=\n(?:Today:|Questions\/Comments:)|$)/);
+    return m ? m[1].trim() : '';
+}
+
+function filterStandupEntries(entries) {
+    if (!entries) return [];
+    return entries.filter(e => {
+        if (!e.recurringId) return true;
+        const rule = state.recurringTasks?.find(r => r.id === e.recurringId);
+        return !rule?.skipInNotes;
+    });
+}
+
+function buildStandupTemplate(currentDay) {
+    const prevDayStr = getPreviousWorkday(currentDay.date);
+
+    let out = 'Yesterday:\n';
+    if (prevDayStr) {
+        const prevText = formatEntriesForStandup(filterStandupEntries(state.allDaysByDate[prevDayStr]?.entries));
+        if (prevText) out += prevText + '\n';
+    }
+    out += '\n';
+
+    const todayText = formatEntriesForStandup(filterStandupEntries(currentDay.entries));
+    out += 'Today:\n' + (todayText ? todayText + '\n' : '') + '\n';
+
+    out += 'Questions/Comments:\n';
+    return out;
+}
 
 export function openDayNotesModal(dayIdx) {
     if (!_dayNotesModal) {
@@ -375,21 +432,33 @@ export function openDayNotesModal(dayIdx) {
     const dirty = document.getElementById('day-notes-dirty');
     const hint = document.getElementById('day-notes-hint');
     const saveBtn = document.getElementById('btn-save-day-notes');
+    const enhanceBtn = document.getElementById('btn-enhance-notes');
+    const undoEnhanceBtn = document.getElementById('btn-undo-enhance-notes');
 
     const originalNotes = day.notes || '';
-    textarea.value = originalNotes;
+    textarea.value = originalNotes || buildStandupTemplate(day);
 
     const hasExisting = !!originalNotes;
     textarea.readOnly = hasExisting;
     hint.style.display = hasExisting ? 'block' : 'none';
     dirty.style.display = 'none';
     saveBtn.disabled = true;
+    undoEnhanceBtn.style.display = 'none';
+    let preEnhanceSnapshot = null;
 
     const markDirty = () => {
         const isDirty = textarea.value !== originalNotes;
         dirty.style.display = isDirty ? 'inline' : 'none';
         saveBtn.disabled = !isDirty;
     };
+
+    const updateEnhanceBtn = () => {
+        enhanceBtn.style.display =
+            isFeatureEnabled('suggestions') && textarea.value.trim() ? '' : 'none';
+    };
+
+    markDirty();
+    updateEnhanceBtn();
 
     textarea.ondblclick = () => {
         if (textarea.readOnly) {
@@ -401,7 +470,39 @@ export function openDayNotesModal(dayIdx) {
         }
     };
 
-    textarea.oninput = markDirty;
+    textarea.oninput = () => { markDirty(); updateEnhanceBtn(); };
+
+    enhanceBtn.onclick = async () => {
+        const current = textarea.value.trim();
+        if (!current) return;
+
+        textarea.readOnly = false;
+        hint.style.display = 'none';
+
+        const icon = enhanceBtn.querySelector('i');
+        enhanceBtn.disabled = true;
+        icon.className = 'bi bi-hourglass-split me-1';
+
+        preEnhanceSnapshot = textarea.value;
+        const improved = await enhanceStandupNotes(current);
+        if (improved) {
+            textarea.value = improved;
+            markDirty();
+            undoEnhanceBtn.style.display = '';
+        }
+
+        icon.className = 'bi bi-stars me-1';
+        enhanceBtn.disabled = false;
+    };
+
+    undoEnhanceBtn.onclick = () => {
+        if (preEnhanceSnapshot === null) return;
+        textarea.value = preEnhanceSnapshot;
+        preEnhanceSnapshot = null;
+        undoEnhanceBtn.style.display = 'none';
+        markDirty();
+        updateEnhanceBtn();
+    };
 
     saveBtn.onclick = () => {
         state.days[_dayNotesIdx].notes = textarea.value;
@@ -429,7 +530,38 @@ export function openDayNotesModal(dayIdx) {
                 existingIndicator.remove();
             }
         }
+        undoEnhanceBtn.style.display = 'none';
+        preEnhanceSnapshot = null;
         _dayNotesModal.hide();
+    };
+
+    document.getElementById('btn-fetch-prev-notes').onclick = () => {
+        const currentDay = state.days[_dayNotesIdx];
+        const currentVal = textarea.value;
+
+        if (extractYesterdayContent(currentVal)) {
+            showToast('Yesterday already filled — not overriding', 'info');
+            return;
+        }
+
+        // Template not present at all → insert full template
+        if (!currentVal.includes('Yesterday:')) {
+            const existing = currentVal.trimEnd();
+            textarea.value = existing ? existing + '\n\n' + buildStandupTemplate(currentDay) : buildStandupTemplate(currentDay);
+        } else {
+            // Template present but Yesterday is empty → inject entries after "Yesterday:\n"
+            const prevDayStr = getPreviousWorkday(currentDay.date);
+            const prevText = prevDayStr ? formatEntriesForStandup(filterStandupEntries(state.allDaysByDate[prevDayStr]?.entries)) : '';
+            if (prevText) {
+                textarea.value = currentVal.replace(/Yesterday:\n/, 'Yesterday:\n' + prevText + '\n');
+            }
+        }
+
+        textarea.readOnly = false;
+        hint.style.display = 'none';
+        markDirty();
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     };
 
     _dayNotesModal.show();
@@ -480,42 +612,60 @@ export function toggleDay(dayIdx) {
     }
 }
 
-export function attachDragListeners(dayIdx, container) {
-    const entriesList = (container || document).querySelector(`#entries-${dayIdx}`);
+function startDrag(e, row, dayIdx) {
+    const entriesList = document.getElementById(`entries-${dayIdx}`);
     if (!entriesList) return;
 
-    const rows = entriesList.querySelectorAll('.entry-row');
-
-    let draggingRow     = null;
+    let draggingRow     = row;
     let ghost           = null;
-    let dragSrcGroupIdx = null;
-    let dragSrcItemIdx  = null;
+    let dragSrcGroupIdx = parseInt(row.dataset.groupIdx);
+    let dragSrcItemIdx  = parseInt(row.dataset.itemIdx);
     let offsetX = 0, offsetY = 0;
+    let rafId = null;
+    let lastMouseX = e.clientX, lastMouseY = e.clientY;
 
-    rows.forEach(r => r.removeAttribute('draggable'));
+    const rect = row.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+
+    ghost = row.cloneNode(true);
+    ghost.classList.remove('dragging');
+    ghost.style.cssText = [
+        'position:fixed',
+        'pointer-events:none',
+        'z-index:99999',
+        'width:' + rect.width + 'px',
+        'left:' + (e.clientX - offsetX) + 'px',
+        'top:' + (e.clientY - offsetY) + 'px',
+        'opacity:0.92',
+        'background:var(--bg-card)',
+        'border:1.5px solid var(--border-accent)',
+        'border-radius:8px',
+        'box-shadow:0 16px 40px rgba(0,0,0,0.7)',
+        'transition:none',
+        'cursor:grabbing',
+        'transform:rotate(3deg) scale(1.03)'
+    ].join(';');
+    document.body.appendChild(ghost);
+    row.classList.add('dragging');
 
     function getRowAt(clientX, clientY) {
         let found = null;
         let minDist = Infinity;
         entriesList.querySelectorAll('.entry-row').forEach(r => {
             if (r === draggingRow) return;
-            const rect = r.getBoundingClientRect();
-            if (clientY >= rect.top && clientY <= rect.bottom) {
-                found = r;
-                return;
-            }
-            const dist = Math.min(Math.abs(clientY - rect.top), Math.abs(clientY - rect.bottom));
-            if (dist < 20 && dist < minDist) {
-                minDist = dist;
-                found = r;
-            }
+            const rRect = r.getBoundingClientRect();
+            if (clientY >= rRect.top && clientY <= rRect.bottom) { found = r; return; }
+            const dist = Math.min(Math.abs(clientY - rRect.top), Math.abs(clientY - rRect.bottom));
+            if (dist < 20 && dist < minDist) { minDist = dist; found = r; }
         });
         return found;
     }
 
     function cleanup() {
+        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
         if (ghost) { ghost.remove(); ghost = null; }
-        if (draggingRow) { draggingRow.classList.remove('dragging'); }
+        if (draggingRow) draggingRow.classList.remove('dragging');
         entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over', 'drag-over-invalid'));
         draggingRow = null;
         dragSrcGroupIdx = null;
@@ -524,56 +674,50 @@ export function attachDragListeners(dayIdx, container) {
         document.removeEventListener('mouseup',   onMouseUp);
     }
 
-    function onMouseMove(e) {
-        if (!ghost) return;
-        ghost.style.left = (e.clientX - offsetX) + 'px';
-        ghost.style.top  = (e.clientY - offsetY) + 'px';
+    function onMouseMove(ev) {
+        lastMouseX = ev.clientX;
+        lastMouseY = ev.clientY;
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(() => {
+            rafId = null;
+            if (!ghost) return;
+            ghost.style.left = (lastMouseX - offsetX) + 'px';
+            ghost.style.top  = (lastMouseY - offsetY) + 'px';
 
-        entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over', 'drag-over-invalid'));
+            entriesList.querySelectorAll('.entry-row').forEach(r => r.classList.remove('drag-over', 'drag-over-invalid'));
+            const target = getRowAt(lastMouseX, lastMouseY);
+            if (!target) return;
 
-        const target = getRowAt(e.clientX, e.clientY);
-        if (!target) return;
-
-        const toGroupIdx = parseInt(target.dataset.groupIdx);
-        const toItemIdx  = parseInt(target.dataset.itemIdx);
-
-        let isValid = true;
-        if (dragSrcItemIdx > 0 && toGroupIdx !== dragSrcGroupIdx) isValid = false;
-
-        if (isValid) {
-            if (dragSrcItemIdx === 0) {
-                entriesList.querySelectorAll(`.entry-row[data-group-idx="${toGroupIdx}"]`).forEach(r => r.classList.add('drag-over'));
+            const toGroupIdx = parseInt(target.dataset.groupIdx);
+            const isValid = !(dragSrcItemIdx > 0 && toGroupIdx !== dragSrcGroupIdx);
+            if (isValid) {
+                if (dragSrcItemIdx === 0) {
+                    entriesList.querySelectorAll(`.entry-row[data-group-idx="${toGroupIdx}"]`).forEach(r => r.classList.add('drag-over'));
+                } else {
+                    target.classList.add('drag-over');
+                }
             } else {
-                target.classList.add('drag-over');
+                target.classList.add('drag-over-invalid');
             }
-        } else {
-            target.classList.add('drag-over-invalid');
-        }
+        });
     }
 
-    function onMouseUp(e) {
+    function onMouseUp(ev) {
         if (!draggingRow) { cleanup(); return; }
-
-        const target = getRowAt(e.clientX, e.clientY);
+        const target = getRowAt(ev.clientX, ev.clientY);
         const srcGrpIdx = dragSrcGroupIdx;
         const srcItmIdx = dragSrcItemIdx;
-
-        let toGrpIdx = null;
-        let toItmIdx = null;
+        let toGrpIdx = null, toItmIdx = null;
         if (target) {
             toGrpIdx = parseInt(target.getAttribute('data-group-idx'));
             toItmIdx = parseInt(target.getAttribute('data-item-idx'));
         }
-
         cleanup();
-
-        if (target === null || srcGrpIdx === null) return;
+        if (!target || srcGrpIdx === null) return;
         if (srcGrpIdx === toGrpIdx && srcItmIdx === toItmIdx) return;
-
         if (srcItmIdx > 0 && toGrpIdx !== srcGrpIdx) return;
 
         const groups = buildGroups(state.days[dayIdx].entries);
-
         if (srcGrpIdx === toGrpIdx) {
             const grp = groups[srcGrpIdx];
             const [movedItem] = grp.items.splice(srcItmIdx, 1);
@@ -585,52 +729,105 @@ export function attachDragListeners(dayIdx, container) {
             const [movedGroup] = groups.splice(srcGrpIdx, 1);
             groups.splice(toGrpIdx, 0, movedGroup);
         }
-
         const newEntries = [];
         groups.forEach(grp => grp.items.forEach(item => newEntries.push(item)));
         state.days[dayIdx].entries = newEntries;
-
         saveState();
         rerenderDayCard(dayIdx);
     }
 
-    rows.forEach(row => {
-        const handle = row.querySelector('.drag-handle');
-        handle.addEventListener('mousedown', e => {
-            if (e.button !== 0) return;
-            e.preventDefault();
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup',   onMouseUp);
+}
 
-            draggingRow     = row;
-            dragSrcGroupIdx = parseInt(row.dataset.groupIdx);
-            dragSrcItemIdx  = parseInt(row.dataset.itemIdx);
+export function initDaysContainer() {
+    const container = document.getElementById('days-container');
 
-            const rect = row.getBoundingClientRect();
-            offsetX = e.clientX - rect.left;
-            offsetY = e.clientY - rect.top;
+    container.addEventListener('click', e => {
+        const quickViewBtn = e.target.closest('.day-quick-view-btn');
+        if (quickViewBtn) {
+            openDayQuickView(parseInt(quickViewBtn.closest('.day-card-header').dataset.day));
+            return;
+        }
+        const starBtn = e.target.closest('.entry-btn-star');
+        if (starBtn) {
+            const row = starBtn.closest('.entry-row');
+            toggleEntryStarred(parseInt(row.dataset.day), parseInt(row.dataset.entry), starBtn);
+            return;
+        }
+        const loggedBtn = e.target.closest('.entry-btn-logged');
+        if (loggedBtn) {
+            const row = loggedBtn.closest('.entry-row');
+            toggleEntryLogged(parseInt(row.dataset.day), parseInt(row.dataset.entry), loggedBtn);
+            return;
+        }
+        const notesBtn = e.target.closest('.day-notes-open-btn');
+        if (notesBtn) {
+            openDayNotesModal(parseInt(notesBtn.dataset.day));
+            return;
+        }
+        const addBtn = e.target.closest('.add-entry-btn');
+        if (addBtn) {
+            openEntryModal(parseInt(addBtn.dataset.day), -1);
+            return;
+        }
+        const header = e.target.closest('.day-card-header');
+        if (header) {
+            toggleDay(parseInt(header.dataset.day));
+        }
+    });
 
-            ghost = row.cloneNode(true);
-            ghost.classList.remove('dragging');
-            ghost.style.cssText = [
-                'position:fixed',
-                'pointer-events:none',
-                'z-index:99999',
-                'width:' + rect.width + 'px',
-                'left:' + (e.clientX - offsetX) + 'px',
-                'top:' + (e.clientY - offsetY) + 'px',
-                'opacity:0.92',
-                'background:var(--bg-card)',
-                'border:1.5px solid var(--border-accent)',
-                'border-radius:8px',
-                'box-shadow:0 16px 40px rgba(0,0,0,0.7)',
-                'transition:none',
-                'cursor:grabbing',
-                'transform:rotate(3deg) scale(1.03)'
-            ].join(';');
-            document.body.appendChild(ghost);
+    container.addEventListener('dblclick', e => {
+        const row = e.target.closest('.entry-row');
+        if (!row) return;
+        if (e.target.closest('.drag-handle') || e.target.closest('.entry-btn-eye') ||
+            e.target.closest('.entry-btn-star') || e.target.closest('.entry-btn-logged')) return;
+        openEntryModal(parseInt(row.dataset.day), parseInt(row.dataset.entry));
+    });
 
-            row.classList.add('dragging');
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup',   onMouseUp);
-        });
+    container.addEventListener('contextmenu', e => {
+        const row = e.target.closest('.entry-row');
+        if (!row) return;
+        e.preventDefault();
+        showEntryContextMenu(row, e.clientX, e.clientY);
+    });
+
+    container.addEventListener('change', e => {
+        const cb = e.target.closest('input[type="checkbox"][data-day]');
+        if (cb) {
+            const dayIdx = parseInt(cb.dataset.day);
+            const lbl = document.getElementById(`holiday-label-${dayIdx}`);
+            state.days[dayIdx].isHoliday = cb.checked;
+            lbl.style.display = cb.checked ? 'block' : 'none';
+            if (!cb.checked) {
+                state.days[dayIdx].leaveTypeId = '';
+            } else {
+                state.days[dayIdx].leaveTypeId = resolveLeaveTypeId(state.days[dayIdx]);
+            }
+            rerenderDayCard(dayIdx);
+            updateSummary();
+            saveState();
+            return;
+        }
+        const sel = e.target.closest('select[data-role="holiday-label"]');
+        if (sel) {
+            const dayIdx = parseInt(sel.dataset.day);
+            state.days[dayIdx].leaveTypeId = sel.value;
+            const leaveType = state.leaveTypes?.find(t => t.id === sel.value);
+            if (leaveType) state.days[dayIdx].holidayLabel = leaveType.label;
+            rerenderDayCard(dayIdx);
+            updateSummary();
+            saveState();
+        }
+    });
+
+    container.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        const handle = e.target.closest('.drag-handle');
+        if (!handle) return;
+        const row = handle.closest('.entry-row');
+        if (!row) return;
+        e.preventDefault();
+        startDrag(e, row, parseInt(row.dataset.day));
     });
 }
