@@ -11,6 +11,7 @@ import { openPreview, openDayQuickView, doPrint } from './report.js';
 import { openSettings, addChangelogEntry } from './settings.js';
 import { openWeekSwitcherModal } from './header.js';
 import { logError } from './error-log.js';
+import { flushSave } from './store.js';
 
 /* ── SUMMARY PANEL COLLAPSE ─────────────────────────────── */
 export function initSummaryPanel() {
@@ -102,8 +103,9 @@ export function initSidebar() {
 
     const exitBtn = document.getElementById('menu-exit');
     if (exitBtn) {
-        exitBtn.addEventListener('click', (e) => {
+        exitBtn.addEventListener('click', async (e) => {
             e.preventDefault();
+            await flushSave();
             window.app.quit();
         });
     }

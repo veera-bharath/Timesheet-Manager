@@ -1,6 +1,6 @@
 import { state, SEARCH_PAGE_SIZE } from './state.js';
 import { saveState } from './store.js';
-import { escHtml, fmtDate, fmtSearchDate, fmtHHMM } from './utils.js';
+import { escHtml, fmtDate, fmtSearchDate, fmtHHMM, debounce } from './utils.js';
 import { getTypeLabel } from './ticket-types.js';
 import { getWeekStrFromDate, getDateFromWeek, buildWeekDays, updateWeekDisplay, enforceExpandedState } from './week.js';
 // Circular — resolved at call time
@@ -102,13 +102,19 @@ export function initSearch() {
     let lastResults = [];
     let showingAll = false;
 
-    input.addEventListener('input', () => {
+    const _runSearch = debounce(() => {
         const q = input.value.trim();
-        activeIdx = -1;
-        showingAll = false;
         if (q.length < 3) { closeSearchDropdown(); return; }
         lastResults = searchCurrentWeek(q);
         renderSearchDropdown(lastResults, q, false);
+    }, 200);
+
+    input.addEventListener('input', () => {
+        activeIdx = -1;
+        showingAll = false;
+        const q = input.value.trim();
+        if (q.length < 3) { closeSearchDropdown(); return; }
+        _runSearch();
     });
 
     input.addEventListener('keydown', (e) => {
