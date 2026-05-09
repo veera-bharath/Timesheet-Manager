@@ -17,7 +17,7 @@ import { initReport } from './modules/report.js';
 import { bindHeaderEvents, openWeekSwitcherModal } from './modules/header.js';
 import { initSettings, updateSheetDetailsDisplay, loadChangelog } from './modules/settings.js';
 import { loadErrorLog } from './modules/error-log.js';
-import { renderAll } from './modules/render.js';
+import { renderAll, initDaysContainer } from './modules/render.js';
 import { state } from './modules/state.js';
 import { getWeekStrFromDate, getDateFromWeek, buildWeekDays, enforceExpandedState, updateWeekDisplay } from './modules/week.js';
 import { updateSummary } from './modules/summary.js';
@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initCopyTo();
     initReport();
     bindHeaderEvents();
+    initDaysContainer();
 
     const restored = await loadState();
     refreshSettings();   // cache AI feature flags; fire-and-forget
