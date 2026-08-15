@@ -37,4 +37,5 @@ export const state = {
     errorLog: [],
     errorLogRetentionDays: 30,
     changelog: [],
+    todoNotes: [],
 };

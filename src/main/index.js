@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, screen, Tray, nativeImage, Notification, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, screen, Tray, nativeImage, Notification, dialog, clipboard, globalShortcut } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 const http  = require('http');
@@ -680,6 +680,16 @@ ipcMain.handle('ai:test-connection', async (_, overrides) => {
 // ── IPC: app control ─────────────────────────────────────
 ipcMain.handle('app-quit', () => { isQuitting = true; app.quit(); });
 
+ipcMain.handle('app:notify', (e, title, body) => {
+  const notification = new Notification({
+    title,
+    body,
+    icon: iconPath(),
+  });
+  notification.on('click', () => showMainWindow());
+  notification.show();
+});
+
 // Forward updater events to renderer
 autoUpdater.on('update-available', (info) => {
   mainWindow.webContents.send('update-available', info);
@@ -717,6 +727,20 @@ app.whenReady().then(() => {
   createTray();
   scheduleNotifications();
 
+  globalShortcut.register('CommandOrControl+Shift+N', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.webContents.send('open-new-todo');
+    }
+  });
+
+  globalShortcut.register('CommandOrControl+Shift+T', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.webContents.send('focus-timer');
+    }
+  });
+
   // Check for updates and run auto-backup silently after window is ready
   mainWindow.webContents.once('did-finish-load', () => {
     autoUpdater.checkForUpdates();
@@ -730,4 +754,8 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });

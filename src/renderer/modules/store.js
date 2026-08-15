@@ -20,6 +20,7 @@ async function _writeState() {
             dailyTargetMins: state.dailyTargetMins,
             ticketTypes: state.ticketTypes,
             leaveTypes: state.leaveTypes,
+            todoNotes: state.todoNotes,
         };
         await window.electronStore.set(LS_KEY, toSave);
     } catch (e) { console.warn('Could not save state', e); logError('store/save', e); }
@@ -64,6 +65,7 @@ export async function loadState() {
         state.allDaysByDate = saved.allDaysByDate || {};
         state.lastOpenedDateByWeek = saved.lastOpenedDateByWeek || {};
         state.recurringTasks = saved.recurringTasks || [];
+        state.todoNotes = saved.todoNotes || [];
         state.dailyTargetMins = saved.dailyTargetMins || 480;
         state.ticketTypes = saved.ticketTypes && saved.ticketTypes.length > 0
             ? saved.ticketTypes
