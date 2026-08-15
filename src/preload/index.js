@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('tray', {
 
 contextBridge.exposeInMainWorld('app', {
     quit: () => ipcRenderer.invoke('app-quit'),
+    notify: (title, body) => ipcRenderer.invoke('app:notify', title, body),
+    onOpenNewTodo: (cb) => ipcRenderer.on('open-new-todo', () => cb()),
+    onFocusTimer:  (cb) => ipcRenderer.on('focus-timer', () => cb())
 });
 
 contextBridge.exposeInMainWorld('nativeClipboard', {

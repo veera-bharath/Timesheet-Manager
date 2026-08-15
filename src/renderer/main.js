@@ -31,6 +31,7 @@ import { initAiChat } from './modules/ai-chat.js';
 import { initWeekSummary } from './modules/week-summary.js';
 import { runAnomalyDetection } from './modules/anomaly-detection.js';
 import { runRecurringAdvisor } from './modules/recurring-advisor.js';
+import { initTodoNotes } from './modules/todo.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.app-version').forEach(el => el.textContent = APP_VERSION);
@@ -49,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSearch();
     initScheduledTasks();
     initRecurring();
+    initTodoNotes();
     initEntryModal();
     initCopyTo();
     initReport();
@@ -58,6 +60,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     const restored = await loadState();
     refreshSettings();   // cache AI feature flags; fire-and-forget
     await loadErrorLog();
+
+    if (window.tray) {
+        window.tray.onNavigateToToday(() => {
+            const today = new Date();
+            const weekVal = getWeekStrFromDate(today);
+            if (state.weekValue !== weekVal) {
+                state.weekValue = weekVal;
+                document.getElementById('week-picker').value = weekVal;
+                const maxWeek = getWeekStrFromDate(new Date());
+                document.getElementById('btn-next-week').disabled = (state.weekValue >= maxWeek);
+                setCurrentWeek(weekVal);
+                updateSummary();
+                runAnomalyDetection();
+            }
+        });
+    }
+
+    if (window.app?.onFocusTimer) {
+        window.app.onFocusTimer(() => {
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const dayIdx = state.days.findIndex(d => d.date === todayStr);
+            if (dayIdx !== -1) {
+                import('./modules/entry-modal.js').then(module => {
+                    module.openEntryModal(dayIdx, -1);
+                });
+            }
+        });
+    }
 
     if (needsOnboarding()) await showOnboarding();
 
@@ -93,12 +123,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     runAnomalyDetection();
     if (new Date().getDay() === 1) runRecurringAdvisor();
 
-    // Navigate to today when triggered from tray or notification click
-    if (window.tray) {
-        window.tray.onNavigateToToday(() => {
-            setCurrentWeek();
-            renderAll();
-            updateSummary();
-        });
-    }
 });
