@@ -90,7 +90,7 @@ function executeCopyTo() {
     const dayIdx = parseInt(document.getElementById('modal-day-index').value);
     const entryIdx = parseInt(document.getElementById('modal-entry-index').value);
     const src = state.days[dayIdx].entries[entryIdx];
-    const entryCopy = { ticket: src.ticket, hh: src.hh, mm: src.mm, type: src.type, desc: src.desc };
+    const entryCopy = { ticket: src.ticket, hh: src.hh, mm: src.mm, type: src.type, desc: src.desc, noTicket: src.noTicket };
 
     copyToSelectedDates.forEach(dateStr => {
         if (!state.allDaysByDate[dateStr]) {

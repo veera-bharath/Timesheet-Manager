@@ -529,7 +529,10 @@ export function openEntryModalPreFilled(dayIdx, fromEntryIdx, keepField) {
     document.getElementById('modal-group-type-ref').value = e.groupType;
 
     if (keepField === 'ticket') {
-        document.getElementById('modal-ticket').value = e.ticket || '';
+        const noTicketToggle = document.getElementById('modal-no-ticket');
+        noTicketToggle.checked = !!e.noTicket;
+        document.getElementById('modal-ticket-wrap').style.display = e.noTicket ? 'none' : '';
+        document.getElementById('modal-ticket').value = e.noTicket ? '' : (e.ticket || '');
         populateTypeSelect(document.getElementById('modal-type'), e.type || state.ticketTypes[0]?.id || 'jira');
     } else if (keepField === 'desc') {
         document.getElementById('modal-desc').value = e.desc || '';
