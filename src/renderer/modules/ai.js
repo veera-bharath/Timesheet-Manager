@@ -9,6 +9,7 @@ let _settings = null;  // cached after first refreshSettings() call
 export async function refreshSettings() {
     try {
         _settings = await window.ai.getSettings();
+        window.dispatchEvent(new CustomEvent('ai-settings-changed'));
     } catch (e) {
         _settings = null;
     }
