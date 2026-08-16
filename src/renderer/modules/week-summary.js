@@ -188,7 +188,11 @@ export function initWeekSummary() {
 
     // Show section only when feature is enabled
     refreshSettings().then(() => {
-        if (isFeatureEnabled('weeklySummary')) section.style.display = '';
+        section.style.display = isFeatureEnabled('weeklySummary') ? '' : 'none';
+    });
+    
+    window.addEventListener('ai-settings-changed', () => {
+        section.style.display = isFeatureEnabled('weeklySummary') ? '' : 'none';
     });
 
     // Format chip selection

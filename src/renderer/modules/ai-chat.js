@@ -502,7 +502,11 @@ export function initAiChat() {
     if (!btnOpen || !panel) return;
 
     refreshSettings().then(() => {
-        if (isFeatureEnabled('chat')) btnOpen.style.display = '';
+        btnOpen.style.display = isFeatureEnabled('chat') ? '' : 'none';
+    });
+    
+    window.addEventListener('ai-settings-changed', () => {
+        btnOpen.style.display = isFeatureEnabled('chat') ? '' : 'none';
     });
 
     btnOpen.addEventListener('click', () => new bootstrap.Offcanvas(panel).show());
